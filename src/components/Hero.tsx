@@ -34,6 +34,12 @@ export function Hero() {
       >
         brie
       </a>
+      <a
+        href="/app/sign-in"
+        className="absolute right-6 top-7 text-base/6 tracking-[-0.03em] text-ink md:right-10 md:top-8"
+      >
+        Sign in
+      </a>
 
       <h1 className="absolute inset-x-6 bottom-10 text-center text-[clamp(2rem,6vw,4rem)] leading-[1.06] tracking-[-0.045em] text-balance text-white md:inset-x-16 md:bottom-14">
         Run events your way.

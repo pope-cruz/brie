@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "./app/shadcn.css";
 
 @theme {
   --font-sans: "Helvetica Neue", "HelveticaNeue", system-ui, sans-serif;

@@ -1,0 +1,54 @@
+project_id = "brie"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[db]
+port = 54322
+major_version = 15
+
+[studio]
+enabled = true
+port = 54323
+
+[inbucket]
+enabled = true
+port = 54324
+smtp_port = 54325
+pop3_port = 54326
+
+[auth]
+enabled = true
+site_url = "http://127.0.0.1:5199/app"
+additional_redirect_urls = [
+  "http://127.0.0.1:5199",
+  "http://127.0.0.1:5199/app",
+  "http://127.0.0.1:5199/app/sign-in",
+  "http://127.0.0.1:5199/app/sign-in?**",
+  "http://localhost:5199",
+  "http://localhost:5199/app",
+  "http://localhost:5199/app/sign-in",
+  "http://localhost:5199/app/sign-in?**",
+]
+jwt_expiry = 3600
+enable_signup = true
+
+[auth.email]
+enable_signup = true
+double_confirm_changes = false
+enable_confirmations = false
+otp_length = 6
+otp_expiry = 3600
+max_frequency = "1m0s"
+
+[auth.email.template.magic_link]
+subject = "Your Brie sign-in code"
+content_path = "./supabase/templates/magic_link.html"
+
+[auth.email.template.confirmation]
+subject = "Your Brie sign-in code"
+content_path = "./supabase/templates/magic_link.html"

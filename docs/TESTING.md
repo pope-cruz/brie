@@ -46,7 +46,7 @@ Allow about 30–45 minutes. Use fictional accounts `owner@example.test`, `organ
 
 ## Next implementation priorities
 
-1. Expand real database tests to invitation mismatch/expiry/replay, member task-only permissions, removed memberships, attendance privacy, overlapping imports, stale previews, transaction rollback, and concurrent writes. Current workspace tests are not full MVP security coverage.
+1. Database permission tests now cover invitation mismatch/expiry/replay/revocation, member task-only permissions, removed memberships, cross-workspace IDs, attendance privacy, overlapping imports, stale and expired previews, and version conflicts (`supabase/tests/*.sql`, run in CI). Not covered: truly simultaneous sessions and a failure partway through a commit; pgTAP runs one session per test file, so version-conflict tests stand in for concurrent writes.
 2. Automate the multi-account browser demonstration above and complete all five design viewports, focus/dialog behavior, and landing baseline comparison.
 3. Before release, verify clean migration replay in a separate stack, backup restoration, 5,000-row import timing, production SMTP and redirect configuration. Complete the license decision. No deployment has been performed.
 

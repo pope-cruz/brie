@@ -48,6 +48,7 @@ function TasksView({
   const selectedId = params.get('task')
   const [panel, setPanel] = useState<'new' | TaskRecord | null>(selectedId === 'new' ? 'new' : null)
   const [toast, setToast] = useState<string | null>(null)
+  const [actionError, setActionError] = useState<string | null>(null)
   const manage = canManageEvents(workspace.role)
 
   const list = useQuery({
@@ -79,7 +80,9 @@ function TasksView({
   const statusMutation = useMutation({
     mutationFn: (input: { id: string; status: TaskStatus; version: number }) =>
       setTaskStatus(workspace.id, input.id, input.status, input.version),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['tasks'] }),
+    onMutate: () => setActionError(null),
+    onError: (error) => setActionError(toAppError(error).message),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ['tasks'] }),
   })
 
   return (
@@ -126,6 +129,11 @@ function TasksView({
           </label>
         ) : null}
       </div>
+      {actionError ? (
+        <p className="app-error-text" role="alert">
+          {actionError}
+        </p>
+      ) : null}
       {list.isLoading ? <SkeletonRows /> : null}
       {list.isError ? <ErrorRetry message={toAppError(list.error).message} onRetry={() => list.refetch()} /> : null}
       {list.data && list.data.rows.length === 0 ? (
@@ -193,9 +201,15 @@ function TasksView({
               <Button
                 variant="secondary"
                 onClick={async () => {
-                  await restoreTask(workspace.id, task.id, task.version)
-                  queryClient.invalidateQueries({ queryKey: ['tasks'] })
-                  queryClient.invalidateQueries({ queryKey: ['removed-tasks'] })
+                  setActionError(null)
+                  try {
+                    await restoreTask(workspace.id, task.id, task.version)
+                  } catch (caught) {
+                    setActionError(toAppError(caught).message)
+                  } finally {
+                    queryClient.invalidateQueries({ queryKey: ['tasks'] })
+                    queryClient.invalidateQueries({ queryKey: ['removed-tasks'] })
+                  }
                 }}
               >
                 Restore
@@ -327,8 +341,13 @@ function TaskPanel({
           <Button
             variant="quiet"
             onClick={async () => {
-              await removeTask(workspace.id, task.id, task.version)
-              onRemoved()
+              setError(null)
+              try {
+                await removeTask(workspace.id, task.id, task.version)
+                onRemoved()
+              } catch (caught) {
+                setError(toAppError(caught).message)
+              }
             }}
           >
             Remove

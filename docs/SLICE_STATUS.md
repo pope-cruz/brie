@@ -41,3 +41,12 @@ Full MVP release acceptance is still pending. The prior “Done” labels overst
 - "Ends on the same day" keeps the end date on the typed start date. Changing the start time moves the end time by the same duration, unless that would cross midnight; an end at or before the start suggests unchecking same day.
 - Fixed task lists failing once an event had tasks (`0014_task_list_records.sql`): sorting columns were passed into `task_to_json`. Covered by `supabase/tests/task_lists.sql`.
 - Verification: 52 unit/component tests and 22 database checks pass; build and lint pass with the existing warnings.
+
+## Permission tests and hardening
+
+- Added database tests: `invitations.sql`, `task_permissions.sql`, `membership_removal.sql`, `attendance.sql`, `function_privileges.sql`.
+- Fixed accepting an invitation as a new member, which always failed with "column reference display_name is ambiguous" (`0015_permission_hardening.sql`).
+- Revoked execute on internal security-definer helpers (`write_audit`, `event_attendance_count`, `*_to_json`, `require_*`, `remember_request`, and others) from `anon` and `authenticated`. Signed-out visitors could previously write audit entries for any workspace. `function_privileges.sql` fails if a new privileged function is callable without being added to the RPC allowlist. New migrations that add functions must revoke execute from `public, anon, authenticated` before granting it.
+- Phones: the event list now has Duplicate and Archive/Restore. Failed archive/restore, segment remove/restore, task restore/remove, and task status changes now show an error instead of failing silently.
+- CI (`.github/workflows/ci.yml`) runs lint, unit tests, build, and every migration plus database test on each pull request.
+- Verification: 52 unit/component tests and 110 database checks pass; build and lint pass with the existing warnings.

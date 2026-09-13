@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Button, EmptyState, ErrorRetry, Pagination, SkeletonRows, StatusBadge } from '../../components/ui'
 import { archiveEvent, listEvents, restoreEvent } from '../../data/api'
 import { toAppError } from '../../data/errors'
-import { canManageEvents, statusLabel } from '../../data/types'
+import { canManageEvents, statusLabel, type EventRecord } from '../../data/types'
 import { formatTimeRange } from '../../lib/timezone'
 import { useCurrentWorkspace } from '../workspaces/workspaceContext'
 import { SEARCH_DEBOUNCE_MS } from '../../lib/search'
@@ -24,12 +24,44 @@ export function EventListPage() {
     queryFn: () => listEvents(workspace.id, filter, debounced, page),
   })
   const archive = useMutation({
-    mutationFn: ({ id, version }: { id: string; version: number }) =>
-      filter === 'archived' ? restoreEvent(workspace.id, id, version) : archiveEvent(workspace.id, id, version),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['events', workspace.id] }),
+    mutationFn: ({ id, version, archived }: { id: string; version: number; archived: boolean }) =>
+      archived ? restoreEvent(workspace.id, id, version) : archiveEvent(workspace.id, id, version),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ['events', workspace.id] }),
   })
 
   const filters = useMemo(() => ['upcoming', 'past', 'all', 'archived'] as const, [])
+
+  function eventActions(event: EventRecord, variant: 'quiet' | 'secondary') {
+    const archived = Boolean(event.archivedAt)
+    return (
+      <div className="app-toolbar">
+        {!archived ? (
+          <>
+            <Link className={`app-btn app-btn-${variant}`} to={`/app/w/${workspace.id}/events/${event.id}/edit`}>
+              Edit event
+            </Link>
+            <Link className={`app-btn app-btn-${variant}`} to={`/app/w/${workspace.id}/events/${event.id}/duplicate`}>
+              Duplicate
+            </Link>
+          </>
+        ) : null}
+        <Button
+          variant={variant}
+          busy={archive.isPending && archive.variables?.id === event.id}
+          onClick={() => {
+            const confirmed = window.confirm(
+              archived
+                ? 'Restore this event so the team can edit it again?'
+                : 'Archive this event? It becomes read-only and stays in attendance history.',
+            )
+            if (confirmed) archive.mutate({ id: event.id, version: event.version, archived })
+          }}
+        >
+          {archived ? 'Restore' : 'Archive'}
+        </Button>
+      </div>
+    )
+  }
 
   function setFilter(next: string) {
     const nextParams = new URLSearchParams(params)
@@ -71,6 +103,11 @@ export function EventListPage() {
           }}
         />
       </div>
+      {archive.isError ? (
+        <p className="app-error-text" role="alert">
+          {toAppError(archive.error).message}
+        </p>
+      ) : null}
       {events.isLoading ? <SkeletonRows /> : null}
       {events.isError ? (
         <ErrorRetry message={toAppError(events.error).message} onRetry={() => events.refetch()} />
@@ -131,33 +168,7 @@ export function EventListPage() {
                       {event.taskDone}/{event.taskTotal}
                     </td>
                     <td>
-                      {canManageEvents(workspace.role) ? (
-                        <div className="app-toolbar">
-                          {filter !== 'archived' ? (
-                            <>
-                              <Link className="app-btn app-btn-quiet" to={`/app/w/${workspace.id}/events/${event.id}/edit`}>
-                                Edit event
-                              </Link>
-                              <Link className="app-btn app-btn-quiet" to={`/app/w/${workspace.id}/events/${event.id}/duplicate`}>
-                                Duplicate
-                              </Link>
-                            </>
-                          ) : null}
-                          <Button
-                            variant="quiet"
-                            onClick={() => {
-                              const confirmed = window.confirm(
-                                filter === 'archived'
-                                  ? 'Restore this event so the team can edit it again?'
-                                  : 'Archive this event? It becomes read-only and stays in attendance history.',
-                              )
-                              if (confirmed) archive.mutate({ id: event.id, version: event.version })
-                            }}
-                          >
-                            {filter === 'archived' ? 'Restore' : 'Archive'}
-                          </Button>
-                        </div>
-                      ) : null}
+                      {canManageEvents(workspace.role) ? eventActions(event, 'quiet') : null}
                     </td>
                   </tr>
                 ))}
@@ -172,9 +183,7 @@ export function EventListPage() {
                 <p className="app-meta">
                   {statusLabel(event.status)} · {event.taskDone}/{event.taskTotal} tasks
                 </p>
-                {canManageEvents(workspace.role) && !event.archivedAt ? (
-                  <Link className="app-btn app-btn-secondary" to={`/app/w/${workspace.id}/events/${event.id}/edit`}>Edit event</Link>
-                ) : null}
+                {canManageEvents(workspace.role) ? eventActions(event, 'secondary') : null}
               </div>
             ))}
           </div>

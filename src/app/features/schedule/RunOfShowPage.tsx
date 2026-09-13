@@ -18,6 +18,7 @@ export function RunOfShowPage() {
   const queryClient = useQueryClient()
   const [editing, setEditing] = useState<SegmentRecord | 'new' | null>(null)
   const [expanded, setExpanded] = useState<string | null>(null)
+  const [actionError, setActionError] = useState<string | null>(null)
   const manage = canManageEvents(workspace.role)
   const segments = useQuery({
     queryKey: ['segments', workspace.id, event.id],
@@ -30,6 +31,17 @@ export function RunOfShowPage() {
   })
   const visible = (segments.data ?? []).filter((segment) => !segment.removedAt)
   const removed = (segments.data ?? []).filter((segment) => segment.removedAt)
+
+  async function runSegmentAction(action: () => Promise<unknown>) {
+    setActionError(null)
+    try {
+      await action()
+    } catch (caught) {
+      setActionError(toAppError(caught).message)
+    } finally {
+      queryClient.invalidateQueries({ queryKey: ['segments'] })
+    }
+  }
 
   return (
     <div>
@@ -47,6 +59,11 @@ export function RunOfShowPage() {
           {manage ? <Button onClick={() => setEditing('new')}>Add segment</Button> : null}
         </div>
       </div>
+      {actionError ? (
+        <p className="app-error-text" role="alert">
+          {actionError}
+        </p>
+      ) : null}
       {visible.length === 0 ? (
         <EmptyState
           title={manage ? 'Build the schedule for event day' : 'The schedule hasn’t been added yet.'}
@@ -76,10 +93,7 @@ export function RunOfShowPage() {
                   </Button>
                   <Button
                     variant="quiet"
-                    onClick={async () => {
-                      await removeSegment(workspace.id, segment.id, segment.version)
-                      queryClient.invalidateQueries({ queryKey: ['segments'] })
-                    }}
+                    onClick={() => runSegmentAction(() => removeSegment(workspace.id, segment.id, segment.version))}
                   >
                     Remove
                   </Button>
@@ -97,10 +111,7 @@ export function RunOfShowPage() {
               <span>{segment.title}</span>
               <Button
                 variant="secondary"
-                onClick={async () => {
-                  await restoreSegment(workspace.id, segment.id, segment.version)
-                  queryClient.invalidateQueries({ queryKey: ['segments'] })
-                }}
+                onClick={() => runSegmentAction(() => restoreSegment(workspace.id, segment.id, segment.version))}
               >
                 Restore
               </Button>

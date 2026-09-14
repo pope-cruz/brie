@@ -21,11 +21,17 @@ These are operator responsibilities. Reversion and archive are not privacy erasu
 
 Back up PostgreSQL daily. Verify a restore into a separate instance using fictional seed data, not production attendees.
 
+For the automated database-level rehearsal, start the local database and run `npm run test:reliability`. It backs up fictional fixtures with `pg_dump`, restores into a second empty database, compares every application row and fictional Auth account, and checks owner/member RPC permissions. It cleans up both disposable databases. See [DATA_RELIABILITY.md](DATA_RELIABILITY.md) for scope, measurements and failure cleanup.
+
+That rehearsal uses existing cluster roles on the same server. A full recovery must also provision the destination's Supabase roles/services/configuration, restore the Auth data, and exercise actual email-code sign-in. It is not complete merely because database contents match.
+
 A restore check is complete when:
 
 - The restored database accepts the owner sign-in.
 - Event, task, schedule, and active attendance counts match the backup source.
 - A reverted import stays reverted.
+
+Local migration 0016 was preceded by a custom-format PostgreSQL backup at `/tmp/brie-before-0016-20260914.dump` inside `supabase_db_brie`. This contains local data and should remain private. It is a local pre-migration recovery copy, not an off-host or durable production backup; removing the container can remove it.
 
 ## Expired preview cleanup
 

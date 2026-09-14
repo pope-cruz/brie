@@ -42,4 +42,4 @@ Planning baseline: WCAG 2.2 AA, complete keyboard access, reduced motion, labele
 
 ## Planning status
 
-This document records the supplied product direction and the defaults chosen for the requested MVP plan. The application has not been implemented. Read [DESIGN.md](DESIGN.md), [architecture](docs/ARCHITECTURE.md), and [implementation slices](docs/IMPLEMENTATION.md) together.
+This document records the product direction and MVP scope. The core application is implemented; release acceptance is still in progress. See the [completion ledger](docs/SLICE_STATUS.md) for current verification evidence and remaining work. Read [DESIGN.md](DESIGN.md), [architecture](docs/ARCHITECTURE.md), and [implementation slices](docs/IMPLEMENTATION.md) together.

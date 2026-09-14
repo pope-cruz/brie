@@ -627,3 +627,51 @@
     transition: none !important;
   }
 }
+
+/* Team assignments remain readable beside a reachable status control. */
+.brie-app .app-task-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--app-border);
+}
+.brie-app .app-task-content { flex: 1; min-width: 0; }
+.brie-app .app-task-title {
+  display: block;
+  text-align: left;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+  padding: 4px 0;
+}
+.brie-app .app-task-title:hover { text-decoration: underline; }
+.brie-app .app-task-status { flex: 0 0 132px; width: 132px; }
+.brie-app .app-task-copy { white-space: pre-wrap; overflow-wrap: anywhere; margin-bottom: 16px; }
+.brie-app .app-task-sheet { width: min(440px, 100%); max-width: none; gap: 0; }
+.brie-app .app-task-sheet .app-panel-footer { flex-wrap: wrap; }
+@media (max-width: 767px) {
+  .brie-app .app-task-sheet { width: 100%; }
+  .brie-app .app-task-row { gap: 12px; }
+  .brie-app .app-task-title { min-height: 44px; }
+  .brie-app .app-task-content .app-meta { overflow-wrap: anywhere; }
+}
+.brie-app .app-team-row > div,
+.brie-app .app-team-row > span { min-width: 0; overflow-wrap: anywhere; }
+.brie-app .app-confirm-dialog {
+  position: fixed;
+  z-index: 50;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  max-height: calc(100dvh - 32px);
+  overflow: auto;
+}
+.brie-app .app-mobile-navigation {
+  width: min(280px, calc(100vw - 32px));
+  max-width: none;
+  padding: 12px;
+  gap: 8px;
+  background: var(--app-sidebar);
+  overflow: auto;
+}
+.brie-app .app-navigation-content { display: flex; flex-direction: column; flex: 1; min-height: 0; }

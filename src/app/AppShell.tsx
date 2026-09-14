@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { Sheet, SheetContent, SheetTitle } from './components/shadcn/sheet'
+import { useRef, useState } from 'react'
 import { Link, Navigate, NavLink, Outlet, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { getWorkspace, listMyWorkspaces } from './data/api'
@@ -24,6 +25,7 @@ export function AppShell() {
   }
   const queryClient = useQueryClient()
   const [menuOpen, setMenuOpen] = useState(false)
+  const menuTrigger = useRef<HTMLElement | null>(null)
   const workspace = useQuery({
     queryKey: ['workspace', workspaceId],
     queryFn: () => getWorkspace(workspaceId),
@@ -69,6 +71,9 @@ export function AppShell() {
   }
 
   const role = workspace.data.role
+  const workspaceOptions = (workspaces.data ?? []).some((item) => item.id === workspace.data.id)
+    ? workspaces.data!
+    : [...(workspaces.data ?? []), workspace.data]
   rememberWorkspace(workspace.data.id)
 
   function goToWorkspace(id: string) {
@@ -93,13 +98,14 @@ export function AppShell() {
           value={workspace.data.id}
           onChange={(event) => {
             if (event.target.value === '__create') {
+              setMenuOpen(false)
               navigate('/app/new-workspace')
               return
             }
             goToWorkspace(event.target.value)
           }}
         >
-          {(workspaces.data ?? [workspace.data]).map((item) => (
+          {workspaceOptions.map((item) => (
             <option key={item.id} value={item.id}>
               {item.name}
             </option>
@@ -142,11 +148,20 @@ export function AppShell() {
 
   return (
     <div className="app-shell">
-      {menuOpen ? <div className="app-drawer-backdrop" onClick={() => setMenuOpen(false)} /> : null}
-      <aside className={`app-sidebar${menuOpen ? ' app-sidebar-open' : ''}`}>{nav}</aside>
+      {!menuOpen ? <aside className="app-sidebar">{nav}</aside> : null}
+      {menuOpen ? <Sheet open onOpenChange={setMenuOpen}>
+        <SheetContent side="left" className="app-mobile-navigation" aria-describedby={undefined} showCloseButton={false}
+          onCloseAutoFocus={(event) => { event.preventDefault(); menuTrigger.current?.focus() }}>
+          <SheetTitle className="sr-only">Workspace navigation</SheetTitle>
+          <Button variant="quiet" onClick={() => setMenuOpen(false)}>Close menu</Button>
+          <div className="app-navigation-content" onClick={(event) => {
+            if ((event.target as HTMLElement).closest('a')) setMenuOpen(false)
+          }}>{nav}</div>
+        </SheetContent>
+      </Sheet> : null}
       <div className="app-main">
         <div className="app-mobile-bar">
-          <Button variant="quiet" onClick={() => setMenuOpen(true)}>
+          <Button variant="quiet" aria-expanded={menuOpen} aria-haspopup="dialog" onClick={() => { menuTrigger.current = document.activeElement as HTMLElement; setMenuOpen(true) }}>
             Menu
           </Button>
           <strong>{workspace.data.name}</strong>

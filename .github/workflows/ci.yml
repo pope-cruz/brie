@@ -31,3 +31,6 @@ jobs:
       # Starts only Postgres and applies every migration from scratch.
       - run: supabase db start
       - run: supabase test db
+      # Separate connections, interrupted writes, capacity and a disposable restore.
+      # The harness replays migrations in its own databases; no reset of the stack.
+      - run: python3 tests/reliability/run.py

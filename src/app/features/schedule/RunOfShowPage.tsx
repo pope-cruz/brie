@@ -5,7 +5,7 @@ import { Checkbox } from '../../components/shadcn/checkbox'
 import { useState } from 'react'
 import { useOutletContext } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Button, EmptyState, Field } from '../../components/ui'
+import { Button, EmptyState, ErrorRetry, Field, SkeletonRows } from '../../components/ui'
 import { listSegments, listTeam, removeSegment, restoreSegment, saveSegment } from '../../data/api'
 import type { WorkspaceSummary } from '../../data/api'
 import { toAppError } from '../../data/errors'
@@ -19,7 +19,7 @@ export function RunOfShowPage() {
   const [editing, setEditing] = useState<SegmentRecord | 'new' | null>(null)
   const [expanded, setExpanded] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
-  const manage = canManageEvents(workspace.role)
+  const manage = canManageEvents(workspace.role) && !event.archivedAt
   const segments = useQuery({
     queryKey: ['segments', workspace.id, event.id],
     queryFn: () => listSegments(workspace.id, event.id, manage),
@@ -40,6 +40,7 @@ export function RunOfShowPage() {
       setActionError(toAppError(caught).message)
     } finally {
       queryClient.invalidateQueries({ queryKey: ['segments'] })
+      queryClient.invalidateQueries({ queryKey: ['overview-segments'] })
     }
   }
 
@@ -64,7 +65,9 @@ export function RunOfShowPage() {
           {actionError}
         </p>
       ) : null}
-      {visible.length === 0 ? (
+      {segments.isLoading ? <SkeletonRows count={3} /> : null}
+      {segments.isError ? <ErrorRetry message={toAppError(segments.error).message} onRetry={() => segments.refetch()} /> : null}
+      {segments.data && visible.length === 0 ? (
         <EmptyState
           title={manage ? 'Build the schedule for event day' : 'The schedule hasn’t been added yet.'}
           body={manage ? 'Include setup, program, and cleanup.' : undefined}
@@ -77,7 +80,7 @@ export function RunOfShowPage() {
               <p className="app-tabular">
                 {formatTimeRange(segment.startsAt, segment.endsAt, event.timezone)}
               </p>
-              <button className="app-btn app-btn-quiet" onClick={() => setExpanded(expanded === segment.id ? null : segment.id)}>
+              <button className="app-task-title" aria-expanded={expanded === segment.id} aria-controls={`instructions-${segment.id}`} onClick={() => setExpanded(expanded === segment.id ? null : segment.id)}>
                 {segment.title}
               </button>
               <p className="app-meta">
@@ -85,7 +88,7 @@ export function RunOfShowPage() {
                 {segment.overlaps ? ' · Overlaps another segment' : ''}
                 {segment.outOfRange ? ' · Outside event time' : ''}
               </p>
-              {expanded === segment.id ? <p>{segment.instructions || 'No instructions.'}</p> : null}
+              {expanded === segment.id ? <p id={`instructions-${segment.id}`} className="app-task-copy">{segment.instructions || 'No instructions.'}</p> : null}
               {manage ? (
                 <div className="app-toolbar">
                   <Button variant="quiet" onClick={() => setEditing(segment)}>
@@ -103,7 +106,7 @@ export function RunOfShowPage() {
           )
         })
       )}
-      {removed.length > 0 ? (
+      {manage && removed.length > 0 ? (
         <details style={{ marginTop: 24 }}>
           <summary>Removed items</summary>
           {removed.map((segment) => (
@@ -129,6 +132,7 @@ export function RunOfShowPage() {
           onSaved={() => {
             setEditing(null)
             queryClient.invalidateQueries({ queryKey: ['segments'] })
+      queryClient.invalidateQueries({ queryKey: ['overview-segments'] })
           }}
         />
       ) : null}

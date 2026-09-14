@@ -50,3 +50,56 @@ Full MVP release acceptance is still pending. The prior “Done” labels overst
 - Phones: the event list now has Duplicate and Archive/Restore. Failed archive/restore, segment remove/restore, task restore/remove, and task status changes now show an error instead of failing silently.
 - CI (`.github/workflows/ci.yml`) runs lint, unit tests, build, and every migration plus database test on each pull request.
 - Verification: 52 unit/component tests and 110 database checks pass; build and lint pass with the existing warnings.
+
+## MVP assessment and editor recovery — 2026-09-13
+
+Rough engineering estimate: **80% toward a release-ready MVP** (judgment, not a measured completion metric). All 13 functional slices have implementations. Release hardening is the remaining slice, and its acceptance work is substantial: full multi-account browser flow, responsive/keyboard checks, concurrent writes and rollback behavior, import capacity, backup restoration, and production auth/setup validation. This estimate is not a claim that 80% of acceptance criteria have passed.
+
+- Pulled and fast-forwarded the working branch to latest main, `68b3c64` (merged permission-hardening PR).
+- Fixed failed event loads opening empty edit/duplicate forms. The page now offers retry and a route back to Events; successful retry initializes the form with actual server values.
+- Switching between cached event routes now resets the form to the selected event. Background refresh failures preserve unsaved input.
+- Added five component regression cases for failed edit/duplicate loads and retries, initial loading, cached-event navigation, and preserving drafts after a failed refresh.
+- Verification: 57 app tests and 110 local database checks pass; build and lint pass with existing Fast Refresh and bundle-size warnings. Inspected the unavailable-event editor at desktop and 375px; keyboard activation triggers retry and returns to Events. The browser check used an absent event ID without changing saved event data. The full multi-account browser demonstration remains unautomated.
+
+Next work, in order:
+1. Automate the multi-account release demonstration in `TESTING.md`, including mobile task completion and overlapping attendance imports/reversion.
+2. Complete the remaining viewport/keyboard acceptance checks and fix failures.
+3. Measure 5,000-row imports; exercise simultaneous writes, transaction rollback, clean setup and backup restoration in an isolated stack.
+4. Finish production email/redirect setup and the maintainer license decision before release.
+
+## Team workflow and usability — 2026-09-14
+
+Priority agreed with the user: improve team workflows and usability first. Data reliability and release preparation remain separate follow-up work; no database migrations or infrastructure changes were made in this pass.
+
+Implemented:
+- Assigned members save task status through the member-permitted command instead of the organizer-only task editor. Other members’ tasks and archived tasks are read-only, with an explanation and fully readable notes.
+- Task details use an accessible sheet with keyboard focus containment, Escape/Close handling, return focus, and explicit discard of unsaved changes. Deep-linked tasks close correctly without losing filters. Status controls and filters have accessible names. Long titles and instructions wrap on phones.
+- Task saves, removal/restoration, and status changes refresh related lists and overview data. Success feedback no longer covers mobile Save buttons. Empty states reflect filters; Show all tasks clears both personal/status filters. Completed task lists no longer appear as never-created lists.
+- Invitation creation explains manual sharing and role capabilities, identifies the recipient, and reports clipboard success/failure with a selectable fallback link. Team loading failures are recoverable instead of showing a false empty list. Role changes/revocation/removal/ownership transfer report results and errors; removal explains consequences before confirmation.
+- Confirmation dialogs and mobile navigation trap focus, support Escape, and restore focus; choosing a navigation destination closes the mobile menu. Workspace creation and invitation acceptance refresh the switcher. The current workspace remains selectable while that list refreshes. Workspace creation now explains that display names are shared across workspaces.
+- Schedule loading/error states are distinct from an empty schedule. Instructions preserve line breaks and wrap, expansion is exposed to assistive technology, and archived schedules omit editing actions.
+
+Verification:
+- 69 app tests pass, including 12 new team-workflow regressions covering member status saves, read-only/archived tasks, retry, deep links, draft protection, filter reset, invitation sharing failure, role-change failure, team-load failure, and removal confirmation/retry.
+- Lint and production build pass with existing Fast Refresh and bundle-size warnings.
+- Live local owner flow: created a separate QA workspace/event, added an assigned task from the overview shortcut, saved Done and reloaded, created/copied a fictional member invitation. Inspected desktop and 375px task/sheet/team layouts.
+- Live local member flow: switched account through the invitation, verified a Mailpit email code, returned to and accepted the invitation; verified member navigation excludes attendance/admin; completed an assigned task in the detail sheet at 375px; reloaded Done filter and confirmed persistence; read full multiline schedule instructions; overview reported no open tasks. Member task and schedule fixtures were prepared through the existing organizer RPCs in the QA workspace, not through a second organizer browser session.
+- Mobile menu: Shift+Tab wraps inside it, Escape restores Menu focus, selecting Settings closes it.
+- QA fixtures remain in local workspace `Brie workflow QA · Sep 13` (`69423870-4794-4a91-a5aa-540f291ec0c9`), with `Workflow rehearsal`, test tasks/schedule, and fictional member `brie-workflow-member@example.test`. The original display name changed during workspace setup was restored. Browser approval review timed out while restoring the original sign-in; its completion could not be verified.
+
+Remaining team/usability work: a repeatable automated multi-account browser suite; full organizer-role/ownership-transition browser coverage; all five viewports, 200% zoom, reduced-motion and landing baseline checks; remaining attendance screens’ interaction acceptance. These are not marked complete by the passing component suite.
+
+Separate backlogs retained:
+- Data reliability: the database-level items below are now verified; full-instance restore/sign-in and target-host capacity remain release checks.
+- Release preparation: isolated clean setup, production email/redirect configuration, deployment readiness, and license/asset review.
+
+## Data reliability — 2026-09-14
+
+- Added and locally applied `0016_data_reliability.sql` after taking a database backup. It serializes workspace writes before authorization/version/assignment checks, optimizes attendance preview processing, and allows authorized receipt recovery after preview expiry or event archive. Missing previews no longer bypass receipt authorization. No RPC signature/type changes or frontend changes were needed in this pass.
+- Added a repeatable isolated database harness (`npm run test:reliability`) to CI. It replays migrations from scratch using only the local Auth schema and fictional rows. Separate sessions prove overlapping commits, retries, edits, task status saves, archive/demotion/removal races, ownership transfer and reversion.
+- Terminated a connection after the second contribution was inserted; every application row matched the pre-commit snapshot afterward. Injected a failure at the final audit write and verified the same rollback, including preview purge and revision updates. Same-preview/key recovery succeeds.
+- A 5,000-row overlapping preview previously took 25.458 seconds. Set-based processing reduced the measured new/overlapping previews to 0.223/0.278 seconds and commits to 0.242/0.349 seconds, below the 10-second local target. These are local database measurements, not remote HTTP or browser timings.
+- Restored fictional fixtures into a second empty database. Every application row and fictional Auth account matched; owner RPC access and member attendance denial passed; reverted overlapping evidence retained the correct active count.
+- Verification: 125 pgTAP checks and 39 additional reliability assertions pass; all 69 app tests, lint and production build pass with existing warnings. The harness cleans up its databases and fixtures. Existing local workspace data was not reset.
+
+Remaining: a full separate-instance Supabase restore including email-code sign-in, target-host HTTP/capacity measurements, and the other release/browser acceptance items above. Database-level restore success is not full disaster-recovery acceptance. Reproduction, hardware, timings and limits are in [DATA_RELIABILITY.md](DATA_RELIABILITY.md).

@@ -2,7 +2,7 @@ import { TimeZonePicker } from '../../components/TimeZonePicker'
 import { useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Button, ConfirmDialog, Field } from '../../components/ui'
+import { Button, ConfirmDialog, ErrorRetry, Field, SkeletonRows } from '../../components/ui'
 import {
   changeMemberRole,
   createInvitation,
@@ -33,7 +33,23 @@ export function SettingsPage() {
   const [inviteLink, setInviteLink] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const [copyStatus, setCopyStatus] = useState('')
+  const [inviteRecipient, setInviteRecipient] = useState('')
+  const [notice, setNotice] = useState('')
+  const [removeId, setRemoveId] = useState<string | null>(null)
   const [transferId, setTransferId] = useState<string | null>(null)
+
+  async function teamAction(action: () => Promise<unknown>, success: string) {
+    if (busy) return false
+    setBusy(true); setError(null); setNotice('')
+    try {
+      await action()
+      setNotice(success)
+      await Promise.all(['team', 'workspace', 'workspaces'].map((key) => queryClient.invalidateQueries({ queryKey: [key] })))
+      return true
+    } catch (caught) { setError(toAppError(caught).message); return false }
+    finally { setBusy(false) }
+  }
 
   if (!canAdminWorkspace(workspace.role)) {
     return (
@@ -50,6 +66,7 @@ export function SettingsPage() {
   return (
     <div className="app-page">
       <h1 className="app-h1">Settings</h1>
+      {notice ? <p role="status" className="app-banner">{notice}</p> : null}
       <div className="app-tabs">
         <button className="app-tab" aria-selected={tab === 'general'} onClick={() => setParams({ tab: 'general' })}>
           General
@@ -67,7 +84,9 @@ export function SettingsPage() {
             setError(null)
             try {
               await saveWorkspace(workspace.id, name, timezone, workspace.version)
+              setNotice('Workspace settings saved.')
               queryClient.invalidateQueries({ queryKey: ['workspace', workspace.id] })
+              queryClient.invalidateQueries({ queryKey: ['workspaces'] })
             } catch (caught) {
               setError(toAppError(caught).message)
             } finally {
@@ -81,7 +100,7 @@ export function SettingsPage() {
           <Field label="Default time zone" hint="This only affects events created after you save.">
             <TimeZonePicker value={timezone} onChange={setTimezone} />
           </Field>
-          {error ? <p className="app-error-text">{error}</p> : null}
+          {error ? <p className="app-error-text" role="alert">{error}</p> : null}
           <Button type="submit" busy={busy}>
             Save
           </Button>
@@ -89,6 +108,7 @@ export function SettingsPage() {
       ) : (
         <div>
           <h2 className="app-section-title">Invite teammate</h2>
+          <p className="app-lede">Create a link, then share it with your teammate. Brie does not send an invitation email.</p>
           <form
             className="app-page-narrow"
             onSubmit={async (event) => {
@@ -99,6 +119,8 @@ export function SettingsPage() {
                 const invite = await createInvitation(workspace.id, inviteEmail, inviteRole)
                 const url = `${window.location.origin}/app/invite/${invite.token}`
                 setInviteLink(url)
+                setInviteRecipient(invite.email)
+                setCopyStatus('')
                 setInviteEmail('')
                 queryClient.invalidateQueries({ queryKey: ['team', workspace.id] })
               } catch (caught) {
@@ -111,7 +133,7 @@ export function SettingsPage() {
             <Field label="Email">
               <input className="app-input" type="email" value={inviteEmail} onChange={(event) => setInviteEmail(event.target.value)} required />
             </Field>
-            <Field label="Role">
+            <Field label="Role" hint={inviteRole === 'organizer' ? 'Organizers manage events, tasks, schedules, and attendance. Only the owner manages the team.' : 'Members read event plans and update their own assigned tasks. They cannot see attendee details.'}>
               <select
                 className="app-select"
                 value={inviteRole}
@@ -126,26 +148,29 @@ export function SettingsPage() {
             </Button>
           </form>
           {inviteLink ? (
-            <p>
-              <input className="app-input" readOnly value={inviteLink} />
-              <Button
-                variant="secondary"
-                onClick={() => navigator.clipboard.writeText(inviteLink).catch(() => undefined)}
-              >
-                Copy
-              </Button>
-            </p>
+            <div className="app-page-narrow" style={{ marginTop: 16 }}>
+              <Field label="Invitation link" hint={`Share this link with ${inviteRecipient}. They must sign in with that email to join.`}>
+                <input className="app-input" readOnly value={inviteLink} onFocus={(event) => event.target.select()} />
+              </Field>
+              <Button variant="secondary" onClick={async () => {
+                try { await navigator.clipboard.writeText(inviteLink); setCopyStatus('Link copied. Ready to share with your teammate.') }
+                catch { setCopyStatus('Couldn’t copy automatically. Select the link above and copy it manually.') }
+              }}>Copy invitation link</Button>
+              <p role="status" className="app-meta">{copyStatus}</p>
+            </div>
           ) : null}
+          {team.isLoading ? <SkeletonRows count={3} /> : null}
+          {team.isError ? <ErrorRetry message="Couldn’t load the team. Retry to see current members and invitations." onRetry={() => team.refetch()} /> : null}
           <h2 className="app-section-title" style={{ marginTop: 32 }}>
             Team
           </h2>
-          {members.filter((member) => !member.removedAt).length === 1 ? (
+          {team.data && members.filter((member) => !member.removedAt).length === 1 ? (
             <p className="app-lede">Add your organizing team.</p>
           ) : null}
           {members
             .filter((member) => !member.removedAt)
             .map((member) => (
-              <div key={member.id} className="app-toolbar">
+              <div key={member.id} className="app-toolbar app-team-row">
                 <div>
                   <strong>{member.displayName}</strong>
                   <p className="app-meta">
@@ -157,10 +182,12 @@ export function SettingsPage() {
                     <select
                       className="app-select"
                       style={{ maxWidth: 160 }}
+                      aria-label={`Role for ${member.displayName}`}
+                      disabled={busy}
                       value={member.role}
                       onChange={async (event) => {
-                        await changeMemberRole(workspace.id, member.id, event.target.value as MemberRole, member.version)
-                        queryClient.invalidateQueries({ queryKey: ['team', workspace.id] })
+                        const role = event.target.value as MemberRole
+                        await teamAction(() => changeMemberRole(workspace.id, member.id, role, member.version), `${member.displayName} is now ${roleLabel(role)}.`)
                       }}
                     >
                       <option value="organizer">Organizer</option>
@@ -168,14 +195,12 @@ export function SettingsPage() {
                     </select>
                     <Button
                       variant="quiet"
-                      onClick={async () => {
-                        await removeMember(workspace.id, member.id, member.version)
-                        queryClient.invalidateQueries({ queryKey: ['team', workspace.id] })
-                      }}
+                      disabled={busy}
+                      onClick={() => { setError(null); setRemoveId(member.id) }}
                     >
                       Remove
                     </Button>
-                    <Button variant="secondary" onClick={() => setTransferId(member.id)}>
+                    <Button variant="secondary" disabled={busy} onClick={() => { setError(null); setTransferId(member.id) }}>
                       Make owner
                     </Button>
                   </>
@@ -185,38 +210,41 @@ export function SettingsPage() {
           <h2 className="app-section-title" style={{ marginTop: 32 }}>
             Pending invitations
           </h2>
-          {invitations.length === 0 ? <p className="app-meta">No pending invitations.</p> : null}
+          {team.data && invitations.length === 0 ? <p className="app-meta">No pending invitations.</p> : null}
           {invitations.map((invite) => (
-            <div key={invite.id} className="app-toolbar">
+            <div key={invite.id} className="app-toolbar app-team-row">
               <span>
                 {invite.email} · {roleLabel(invite.role)} · expires {new Date(invite.expiresAt).toLocaleDateString()}
               </span>
               <Button
                 variant="quiet"
-                onClick={async () => {
-                  await revokeInvitation(invite.id)
-                  queryClient.invalidateQueries({ queryKey: ['team', workspace.id] })
-                }}
+                disabled={busy}
+                onClick={() => teamAction(() => revokeInvitation(invite.id), `Invitation for ${invite.email} revoked.`)}
               >
                 Revoke
               </Button>
             </div>
           ))}
-          {error ? <p className="app-error-text">{error}</p> : null}
+          {error ? <p className="app-error-text" role="alert">{error}</p> : null}
+          {removeId ? <ConfirmDialog title="Remove teammate?"
+            body={`${members.find((member) => member.id === removeId)?.displayName || 'This teammate'} will lose access to this workspace. Their previous assignments remain in its history.${error ? ` ${error}` : ''}`}
+            actionLabel="Remove teammate" danger pending={busy} onCancel={() => setRemoveId(null)}
+            onConfirm={async () => {
+              const member = members.find((item) => item.id === removeId)
+              if (member && await teamAction(() => removeMember(workspace.id, member.id, member.version), 'Teammate removed.')) setRemoveId(null)
+            }} /> : null}
           {transferId && owner ? (
             <ConfirmDialog
               title="Transfer ownership?"
-              body="You will become an organizer. This teammate will become the only owner."
+              body={`You will become an organizer. This teammate will become the only owner.${error ? ` ${error}` : ''}`}
+              pending={busy}
               actionLabel="Transfer ownership"
               danger
               onCancel={() => setTransferId(null)}
               onConfirm={async () => {
                 const target = members.find((member) => member.id === transferId)
                 if (!target) return
-                await transferOwnership(workspace.id, target.id, owner.version, target.version)
-                setTransferId(null)
-                queryClient.invalidateQueries({ queryKey: ['workspace'] })
-                queryClient.invalidateQueries({ queryKey: ['team'] })
+                if (await teamAction(() => transferOwnership(workspace.id, target.id, owner.version, target.version), 'Ownership transferred.')) setTransferId(null)
               }}
             />
           ) : null}

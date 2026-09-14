@@ -1,5 +1,6 @@
 import { TimeZonePicker } from '../../components/TimeZonePicker'
 import { useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { Link, Navigate, useNavigate } from 'react-router-dom'
 import { Button, Field } from '../../components/ui'
 import { createWorkspace } from '../../data/api'
@@ -10,6 +11,7 @@ import { rememberWorkspace, workspacePath } from '../../lib/paths'
 import { defaultTimeZone } from '../../lib/timezone'
 
 export function NewWorkspacePage() {
+  const queryClient = useQueryClient()
   const { user, loading } = useSession()
   const navigate = useNavigate()
   const [name, setName] = useState('')
@@ -38,6 +40,7 @@ export function NewWorkspacePage() {
         requestKey: getRequestKey('create_workspace'),
       })
       clearRequestKey('create_workspace')
+      await queryClient.invalidateQueries({ queryKey: ['workspaces'] })
       rememberWorkspace(result.workspace.id)
       navigate(workspacePath(result.workspace.id))
     } catch (caught) {
@@ -60,7 +63,7 @@ export function NewWorkspacePage() {
           <Field label="Workspace name" error={errors.name}>
             <input className="app-input" value={name} onChange={(event) => setName(event.target.value)} maxLength={80} required />
           </Field>
-          <Field label="Your display name" error={errors.displayName}>
+          <Field label="Your display name" error={errors.displayName} hint="This name is shared across all your workspaces.">
             <input
               className="app-input"
               value={displayName}

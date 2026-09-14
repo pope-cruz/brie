@@ -59,6 +59,8 @@ Sign-in uses a 6-digit email code. Local messages appear in Mailpit at [http://1
 | Recreate the database | `supabase db reset` |
 | Generate types (optional) | `supabase gen types typescript --local` |
 | Database tests | `supabase test db` |
+| Simultaneous writes, rollback, import timing and disposable restore | `npm run test:reliability` (Python 3 required) |
+| Apply pending migrations without resetting saved data | `supabase migration up --local` |
 | Purge expired import previews | `select public.purge_expired_previews();` |
 
 ## First-use path

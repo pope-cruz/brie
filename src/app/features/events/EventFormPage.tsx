@@ -36,11 +36,24 @@ export function EventFormPage({ mode }: { mode: Mode }) {
     )
   }
 
-  if (mode !== 'new' && source.isLoading) {
+  if (mode !== 'new' && source.isPending && !source.errorUpdatedAt) {
     return (
       <div className="app-page app-page-narrow">
         <h1 className="app-h1">{mode === 'edit' ? 'Edit event' : 'Duplicate event'}</h1>
-        <p>Loading…</p>
+        <p role="status">Loading…</p>
+      </div>
+    )
+  }
+
+  if (mode !== 'new' && !source.data) {
+    return (
+      <div className="app-page app-page-narrow">
+        <h1 className="app-h1">{mode === 'edit' ? 'Edit event' : 'Duplicate event'}</h1>
+        <p role="alert">Couldn’t load this event. It may be unavailable, or your connection may have dropped.</p>
+        <div className="app-toolbar">
+          <Button onClick={() => source.refetch()} busy={source.isFetching} busyLabel="Retrying…">Try again</Button>
+          <Link className="app-link" to={`/app/w/${workspace.id}/events`}>Back to events</Link>
+        </div>
       </div>
     )
   }
@@ -51,6 +64,7 @@ export function EventFormPage({ mode }: { mode: Mode }) {
 
   return (
     <EventFormFields
+      key={`${mode}:${workspace.id}:${eventId}`}
       mode={mode}
       workspaceId={workspace.id}
       timezoneDefault={initial?.timezone || workspace.timezone}

@@ -119,6 +119,8 @@ These names are proposed application contracts, not assertions about existing co
 
 Use row version predicates for writes; zero updated rows means conflict, not success. Creation commands have request keys to avoid duplicate events/tasks/segments on retries. No general `update(any JSON)` endpoint. New assignments cannot select removed members, including if removal happens between opening the picker and saving.
 
+Implemented concurrency boundary (migration 0016): event/task/schedule/settings mutations and attendance previews lock the workspace before checking permissions, request keys and input references. Attendance commit/reversion and membership administration share that lock. This prevents queued writes from authorizing against pre-removal roles or assigning removed teammates, and keeps preview counts on a coherent revision. Writes within one workspace serialize; separate workspaces retain independent locks. See [data reliability evidence](DATA_RELIABILITY.md) for simultaneous-session tests and measured import costs.
+
 ### Import algorithm
 
 1. Parse UTF-8 CSV in browser with a maintained parser, never `split(',')`. Preserve original logical record number for user-facing errors, including multiline quoted fields. Reject malformed CSV/invalid encoding rather than repairing silently. Count blank records separately; trim fields, bound email to 254 chars and name to 200; do not transmit ignored columns.

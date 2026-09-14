@@ -1,8 +1,8 @@
+import { Dialog as DialogPrimitive } from 'radix-ui'
 import { Button as ShadcnButton } from './shadcn/button'
 import {
   cloneElement,
   isValidElement,
-  useEffect,
   useId,
   useRef,
   type ButtonHTMLAttributes,
@@ -152,27 +152,26 @@ export function ConfirmDialog({
   onCancel: () => void
   onConfirm: () => void
 }) {
-  const headingRef = useRef<HTMLHeadingElement>(null)
-  useEffect(() => {
-    headingRef.current?.focus()
-  }, [])
+  const cancelRef = useRef<HTMLButtonElement>(null)
+  const opener = useRef(document.activeElement as HTMLElement | null)
   return (
-    <div className="app-dialog-backdrop">
-      <div className="app-dialog" role="dialog" aria-modal="true" aria-labelledby="dialog-title">
-        <h2 id="dialog-title" className="app-section-title" tabIndex={-1} ref={headingRef}>
-          {title}
-        </h2>
-        <p className="app-lede">{body}</p>
-        <div className="app-toolbar">
-          <Button variant="secondary" onClick={onCancel} disabled={pending}>
-            Cancel
-          </Button>
-          <Button variant={danger ? 'danger' : 'primary'} busy={pending} onClick={onConfirm}>
-            {actionLabel}
-          </Button>
-        </div>
-      </div>
-    </div>
+    <DialogPrimitive.Root open onOpenChange={(open) => { if (!open && !pending) onCancel() }}>
+      <DialogPrimitive.Portal container={document.querySelector<HTMLElement>('.brie-app')}>
+        <DialogPrimitive.Overlay className="app-dialog-backdrop" />
+        <DialogPrimitive.Content className="app-dialog app-confirm-dialog"
+          onOpenAutoFocus={(event) => { event.preventDefault(); cancelRef.current?.focus() }}
+          onCloseAutoFocus={(event) => { event.preventDefault(); opener.current?.focus() }}
+          onInteractOutside={(event) => event.preventDefault()}
+          onEscapeKeyDown={(event) => { if (pending) event.preventDefault() }}>
+          <DialogPrimitive.Title className="app-section-title">{title}</DialogPrimitive.Title>
+          <DialogPrimitive.Description className="app-lede" aria-live="polite">{body}</DialogPrimitive.Description>
+          <div className="app-toolbar">
+            <button ref={cancelRef} className="app-btn app-btn-secondary" onClick={onCancel} disabled={pending}>Cancel</button>
+            <Button variant={danger ? 'danger' : 'primary'} busy={pending} onClick={onConfirm}>{actionLabel}</Button>
+          </div>
+        </DialogPrimitive.Content>
+      </DialogPrimitive.Portal>
+    </DialogPrimitive.Root>
   )
 }
 

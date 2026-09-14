@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Button, ErrorRetry } from '../../components/ui'
 import { acceptInvitation, peekInvitation } from '../../data/api'
 import { toAppError } from '../../data/errors'
@@ -9,6 +9,7 @@ import { rememberWorkspace, workspacePath } from '../../lib/paths'
 import { useSession } from '../auth/SessionProvider'
 
 export function InvitePage() {
+  const queryClient = useQueryClient()
   const { token = '' } = useParams()
   const { user, loading, signOut } = useSession()
   const navigate = useNavigate()
@@ -26,6 +27,7 @@ export function InvitePage() {
     setError(null)
     try {
       const result = await acceptInvitation(token)
+      await queryClient.invalidateQueries({ queryKey: ['workspaces'] })
       rememberWorkspace(result.workspaceId)
       navigate(workspacePath(result.workspaceId), { replace: true })
     } catch (caught) {

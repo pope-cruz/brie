@@ -17,7 +17,7 @@ export function EventOverviewPage() {
     queryKey: ['overview-segments', workspace.id, event.id],
     queryFn: () => listOverviewSegments(workspace.id, event.id),
   })
-  const manage = canManageEvents(workspace.role)
+  const manage = canManageEvents(workspace.role) && !event.archivedAt
 
   return (
     <div>
@@ -63,11 +63,11 @@ export function EventOverviewPage() {
             </ul>
           ) : (
             <EmptyState
-              title="No tasks yet"
-              body="Add the work your team needs to do."
+              title={event.taskTotal > 0 ? 'No open tasks' : 'No tasks yet'}
+              body={event.taskTotal > 0 ? 'Your team has completed the current task list.' : manage ? 'Add the work your team needs to do.' : 'Ask an organizer to add or assign work.'}
               action={
                 manage ? (
-                  <Link className="app-btn app-btn-secondary" to={`/app/w/${workspace.id}/events/${event.id}/tasks`}>
+                  <Link className="app-btn app-btn-secondary" to={`/app/w/${workspace.id}/events/${event.id}/tasks?task=new`}>
                     Add task
                   </Link>
                 ) : null
@@ -95,7 +95,7 @@ export function EventOverviewPage() {
           ) : (
             <EmptyState
               title="No schedule yet"
-              body="Add your first segment."
+              body={manage ? 'Add your first segment.' : 'Ask an organizer to add the event schedule.'}
               action={
                 manage ? (
                   <Link className="app-btn app-btn-secondary" to={`/app/w/${workspace.id}/events/${event.id}/run-of-show`}>

@@ -15,7 +15,7 @@
 | 11 Attendance history | Implemented; broader acceptance pending | History and person detail queries |
 | 12 Duplicate event | Implemented; broader acceptance pending | Plan copy, no attendance |
 | 13 Workspace admin | Implemented; broader acceptance pending | Settings, roles, transfer |
-| 14 Release hardening | In progress | Setup/ops docs, unit tests, sample CSV |
+| 14 Release hardening | In progress | Docs, unit tests, sample CSV, automated public-surface and release-demo browser suites; separate-stack restore, production auth and license still open |
 
 ## Verification on 2026-09-12
 
@@ -103,3 +103,30 @@ Separate backlogs retained:
 - Verification: 125 pgTAP checks and 39 additional reliability assertions pass; all 69 app tests, lint and production build pass with existing warnings. The harness cleans up its databases and fixtures. Existing local workspace data was not reset.
 
 Remaining: a full separate-instance Supabase restore including email-code sign-in, target-host HTTP/capacity measurements, and the other release/browser acceptance items above. Database-level restore success is not full disaster-recovery acceptance. Reproduction, hardware, timings and limits are in [DATA_RELIABILITY.md](DATA_RELIABILITY.md).
+
+## Release hardening — 2026-09-15
+
+Worked on a Mac without Docker, Homebrew or the Supabase CLI, so nothing below that needs the database was executed here. Everything that does not need it was run and is reported with its actual result.
+
+Fixed the three application findings from [QA_SEED_CHECKPOINT.md](QA_SEED_CHECKPOINT.md), each with a component regression test that fails on the previous code:
+- Duplicate event no longer offers Description and Location fields that `duplicate_event` ignored. The copy explains that description, location, tasks and schedule come from the original and can be edited afterwards. No migration; the RPC contract is unchanged.
+- Saving an event (create, edit, duplicate) now seeds the `['event', workspace, id]` cache with the returned record and invalidates the event list, so the header, overview and attendance pages show the new status immediately instead of a stale Draft until refetch.
+- Blank start or end fields now say "Enter a start date and time." / "Enter an end date and time." instead of the daylight-saving "does not exist" message.
+
+Added browser automation with Playwright (`@playwright/test` devDependency, `playwright.config.ts`, `tests/e2e/`):
+- `npm run test:e2e:public` — landing and sign-in at 1440×900, 1024×768, 768×1024, 375×812 and 320×640 with no horizontal overflow; DESIGN.md control heights (36px desktop, 44px below 768px); 200% zoom; reduced motion disables transitions; keyboard-only submit with focus on the email field and a retained address on failure; visible focus and ≥4.5:1 contrast on the primary control, lede and heading; unauthenticated deep links return to sign-in with the same-origin path; unknown app routes show the unavailable state; foreign return URLs never leave the origin. **Executed here: 18 passed.** Screenshots for each viewport were captured as evidence.
+- `npm run test:e2e:release` — the multi-account demonstration from [TESTING.md](TESTING.md) in sixteen serial steps: wrong code, owner workspace creation and reload, event validation and creation, task and segment creation, status edit reflected without reload, organizer and member invitations, member acceptance on a 375px viewport with no privileged navigation and a denied direct `create_event` RPC, assignment and phone completion persisting across reload, full run-of-show reading, organizer capabilities, overlapping imports A/B with receipt totals, reversion keeping Bo and Cy, member seeing only the scalar count, duplicate as a clean draft, cross-event history counting each event once, two-tab conflict, archive/restore, filtered deep link across sign-out, cross-workspace isolation, member removal with revoked access and "Former member" attribution, and a backend outage on reload showing Retry rather than onboarding. Sign-in codes are read from Mailpit's API. **Not executed here: it needs `supabase start`.** It skips itself when Mailpit is unreachable. Its selectors were written from the current component source, and the file type-checks, but the first run on a database-capable machine may still need selector adjustments.
+- CI now runs the public suite in the app job and the release suite in a new `browser` job that starts the full local stack.
+
+Verification actually run on this pass:
+- 72 unit/component tests pass (69 existing + 3 new); lint and production build pass with the existing Fast Refresh and bundle-size warnings.
+- 18 public-surface browser checks pass against the Vite dev server.
+- The three new component tests were confirmed to fail against the previous `EventFormPage.tsx` and pass with the fix.
+
+Documented production sign-in email and redirect configuration in [OPERATIONS.md](OPERATIONS.md). No deployment was performed.
+
+Still open for release acceptance, in order:
+1. Run `npm run test:e2e:release` on a machine with Docker and the Supabase CLI (or let the new CI job run it) and fix any selector or behavior failures it surfaces.
+2. Full separate-instance Supabase restore including email-code sign-in, and HTTP/capacity measurements through the intended host.
+3. Configure production SMTP and redirect URLs on the real origin, then verify both the code and link returns.
+4. Maintainer license decision and asset/dependency audit (checklist in OPERATIONS.md).

@@ -10,6 +10,17 @@ These are operator responsibilities. Reversion and archive are not privacy erasu
 - Allowlisted auth redirect URLs that match the deployed origin.
 - Telemetry stays off unless a later release decides otherwise.
 
+## Production sign-in email and redirects
+
+Brie signs people in with a six-digit email code, so production needs a real SMTP sender and an exact redirect allowlist. In `supabase/config.toml` (self-host) or the hosted Auth settings, set:
+
+- `site_url` to `https://<your-origin>/app`.
+- Redirect allowlist entries for `https://<your-origin>`, `https://<your-origin>/app`, `https://<your-origin>/app/sign-in` and `https://<your-origin>/app/sign-in?**`. The `?**` entry is required because the emailed link returns to the original route (invitations, filtered task pages). Never allow the landing page `/` alone; the session is stored under `/app`.
+- `[auth.email.smtp]` with `host`, `port`, `user`, `pass` (read from an environment variable, never committed), `admin_email` and `sender_name`. Keep the `magic_link` and `confirmation` templates pointing at `supabase/templates/magic_link.html` so the code stays in the message body.
+- Keep `otp_length = 6`, `max_frequency = "1m0s"` and `otp_expiry` at or below one hour. The app's resend countdown assumes the one-minute limit.
+
+After changing auth settings, restart Auth (`supabase stop` / `supabase start` locally) and verify both paths on the real origin: paste a code from a real inbox, and open the emailed link. Both must land inside `/app` with the session stored and return to the route that started the sign-in.
+
 ## Migrations and upgrades
 
 1. Back up the database.

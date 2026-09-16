@@ -6,8 +6,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { EventFormPage } from '../../src/app/features/events/EventFormPage'
 
-const api = vi.hoisted(() => ({ getEvent: vi.fn(), listTeam: vi.fn() }))
-vi.mock('../../src/app/data/api', () => ({ ...api, createEvent: vi.fn(), duplicateEvent: vi.fn(), updateEvent: vi.fn() }))
+const api = vi.hoisted(() => ({ getEvent: vi.fn(), listTeam: vi.fn(), createEvent: vi.fn(), duplicateEvent: vi.fn(), updateEvent: vi.fn() }))
+vi.mock('../../src/app/data/api', () => api)
 vi.mock('../../src/app/features/workspaces/workspaceContext', () => ({
   useCurrentWorkspace: () => ({ id: 'workspace', timezone: 'America/New_York', role: 'owner' }),
 }))
@@ -19,8 +19,11 @@ let root: Root
 let client: QueryClient
 let router: ReturnType<typeof createMemoryRouter>
 async function flush() { await act(async () => { await new Promise((resolve) => setTimeout(resolve, 20)) }) }
-async function mount(mode: 'edit' | 'duplicate' = 'edit') {
-  router = createMemoryRouter([{ path: '/events/:eventId', element: createElement(EventFormPage, { mode }) }], { initialEntries: ['/events/one'] })
+async function mount(mode: 'new' | 'edit' | 'duplicate' = 'edit') {
+  router = createMemoryRouter([
+    { path: '/events/:eventId', element: createElement(EventFormPage, { mode }) },
+    { path: '*', element: createElement('p', { 'data-testid': 'elsewhere' }, 'elsewhere') },
+  ], { initialEntries: ['/events/one'] })
   await act(async () => root.render(createElement(QueryClientProvider, { client }, createElement(RouterProvider, { router }))))
   await flush()
 }
@@ -30,6 +33,7 @@ beforeEach(() => {
   vi.stubGlobal('ResizeObserver', class { observe() {} unobserve() {} disconnect() {} })
   api.getEvent.mockReset().mockImplementation((_workspace, id) => Promise.resolve(event(id)))
   api.listTeam.mockReset().mockResolvedValue({ members: [], invitations: [] })
+  api.createEvent.mockReset(); api.duplicateEvent.mockReset(); api.updateEvent.mockReset()
   client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity } } })
   host = document.createElement('div'); document.body.append(host); root = createRoot(host)
 })
@@ -72,5 +76,55 @@ describe('event editor recovery', () => {
     await act(async () => { await client.invalidateQueries({ queryKey: ['event'] }) })
     await flush()
     expect(titleInput().value).toBe('Unsaved draft')
+  })
+})
+
+function submitForm() {
+  return act(async () => {
+    host.querySelector('form')!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
+  })
+}
+function setValue(element: HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement, value: string) {
+  const proto = Object.getPrototypeOf(element)
+  Object.getOwnPropertyDescriptor(proto, 'value')!.set!.call(element, value)
+  element.dispatchEvent(new Event(element instanceof HTMLSelectElement ? 'change' : 'input', { bubbles: true }))
+}
+
+describe('event editor saves', () => {
+  it('shows required-field guidance instead of a daylight-saving message when dates are blank', async () => {
+    await mount('new')
+    await act(async () => setValue(titleInput(), 'Welcome night'))
+    await submitForm()
+    await flush()
+    const alerts = [...host.querySelectorAll('[role="alert"]')].map((node) => node.textContent)
+    expect(alerts).toContain('Enter a start date and time.')
+    expect(alerts).toContain('Enter an end date and time.')
+    expect(alerts.join(' ')).not.toContain('does not exist')
+    expect(api.createEvent).not.toHaveBeenCalled()
+  })
+  it('updates the cached event so the header shows the new status before any refetch', async () => {
+    api.updateEvent.mockImplementation(async (input) => ({ ...event('one'), status: input.status, version: 2 }))
+    client.setQueryData(['events', 'workspace', 'upcoming'], { items: [] })
+    await mount('edit')
+    const statusSelect = [...host.querySelectorAll<HTMLSelectElement>('select')].find((node) =>
+      [...node.options].some((option) => option.value === 'planned'))!
+    await act(async () => setValue(statusSelect, 'planned'))
+    await submitForm()
+    await flush()
+    expect(api.updateEvent).toHaveBeenCalledWith(expect.objectContaining({ eventId: 'one', status: 'planned', expectedVersion: 1 }))
+    expect(client.getQueryData(['event', 'workspace', 'one'])).toMatchObject({ status: 'planned', version: 2 })
+    expect(client.getQueryState(['events', 'workspace', 'upcoming'])?.isInvalidated).toBe(true)
+    expect(router.state.location.pathname).toBe('/app/w/workspace/events/one')
+  })
+  it('does not offer description or location edits that a duplicate would discard', async () => {
+    api.duplicateEvent.mockResolvedValue({ ...event('copy'), title: 'Event one copy' })
+    await mount('duplicate')
+    expect(host.querySelector('textarea')).toBeNull()
+    expect(host.querySelector('input[maxlength="200"]')).toBeNull()
+    expect(host.textContent).toContain('original description, location')
+    await submitForm()
+    await flush()
+    expect(api.duplicateEvent).toHaveBeenCalledWith(expect.objectContaining({ sourceEventId: 'one', title: 'Event one copy' }))
+    expect(client.getQueryData(['event', 'workspace', 'copy'])).toMatchObject({ title: 'Event one copy' })
   })
 })

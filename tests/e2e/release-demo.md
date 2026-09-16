@@ -1,6 +1,6 @@
 # Release demonstration checklist
 
-Run after `npm run build`, `npm run lint`, `npm test`, and a local `supabase db reset`.
+Run after `npm run build`, `npm run lint`, `npm test`, and a local `supabase db reset`. `npm run test:e2e:public` covers the landing, sign-in, viewport, zoom, motion and contrast items; `npm run test:e2e:release` covers the remaining items with fresh fictional accounts. Tick a box only after the corresponding automated run or manual check actually passed.
 
 - [ ] Landing at `/` matches the approved desktop and mobile baselines.
 - [ ] `/app/sign-in` email code works on 375px and desktop keyboard-only.

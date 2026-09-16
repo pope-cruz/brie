@@ -2,11 +2,11 @@ import { DateTimeRange } from '../../components/DateTimeRange'
 import { TimeZonePicker } from '../../components/TimeZonePicker'
 import { useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Button, Field } from '../../components/ui'
 import { createEvent, duplicateEvent, getEvent, listTeam, updateEvent } from '../../data/api'
 import { toAppError } from '../../data/errors'
-import { canManageEvents, type EventStatus } from '../../data/types'
+import { canManageEvents, type EventRecord, type EventStatus } from '../../data/types'
 import { clearRequestKey, getRequestKey } from '../../lib/idempotency'
 import { resolveLocalDateTime, splitInZone } from '../../lib/timezone'
 import { useCurrentWorkspace } from '../workspaces/workspaceContext'
@@ -127,6 +127,7 @@ function EventFormFields({
   onCancel: () => void
 }) {
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const [title, setTitle] = useState(defaultTitle)
   const [description, setDescription] = useState(defaultDescription)
   const [location, setLocation] = useState(defaultLocation)
@@ -147,6 +148,10 @@ function EventFormFields({
   )
 
   function resolveRange() {
+    const missing: Record<string, string> = {}
+    if (!startDate || !startTime) missing.startsAt = 'Enter a start date and time.'
+    if (!endDate || !endTime) missing.endsAt = 'Enter an end date and time.'
+    if (Object.keys(missing).length > 0) return { error: missing }
     const start = resolveLocalDateTime(startDate, startTime, timezone, startOffset)
     const end = resolveLocalDateTime(endDate, endTime, timezone, endOffset)
     if (!start.ok && start.reason === 'nonexistent') {
@@ -163,6 +168,13 @@ function EventFormFields({
     }
     if (start.ok && end.ok) return { start: start.iso, end: end.iso }
     return { error: { form: 'Enter a start and end.' } as Record<string, string> }
+  }
+
+  // The event header and overview read ['event', …]; seed it with the saved
+  // record so status/title changes show before any background refetch.
+  function rememberSaved(saved: EventRecord) {
+    queryClient.setQueryData(['event', workspaceId, saved.id], saved)
+    void queryClient.invalidateQueries({ queryKey: ['events', workspaceId] })
   }
 
   async function onSubmit(event: React.FormEvent) {
@@ -196,6 +208,7 @@ function EventFormFields({
           requestKey: getRequestKey(`create_event:${workspaceId}`),
         })
         clearRequestKey(`create_event:${workspaceId}`)
+        rememberSaved(created)
         navigate(`/app/w/${workspaceId}/events/${created.id}`)
       } else if (mode === 'duplicate' && sourceId) {
         const created = await duplicateEvent({
@@ -208,6 +221,7 @@ function EventFormFields({
           requestKey: getRequestKey(`duplicate_event:${sourceId}`),
         })
         clearRequestKey(`duplicate_event:${sourceId}`)
+        rememberSaved(created)
         navigate(`/app/w/${workspaceId}/events/${created.id}`)
       } else if (sourceId) {
         const updated = await updateEvent({
@@ -223,6 +237,7 @@ function EventFormFields({
           status,
           expectedVersion: version,
         })
+        rememberSaved(updated)
         navigate(`/app/w/${workspaceId}/events/${updated.id}`)
       }
     } catch (caught) {
@@ -240,19 +255,24 @@ function EventFormFields({
       <h1 className="app-h1">{headings[mode]}</h1>
       {mode === 'duplicate' ? (
         <p className="app-lede">
-          The copy starts as a Draft. Tasks reset to Todo and unassigned. Attendance is not copied.
+          The copy starts as a Draft with the original description, location, task titles and notes, and schedule shifted to
+          the new start. Tasks reset to Todo and unassigned. Attendance is not copied. Edit the copy after creating it.
         </p>
       ) : null}
       <form onSubmit={onSubmit}>
         <Field label="Title" error={errors.title}>
           <input className="app-input" value={title} maxLength={120} required onChange={(event) => setTitle(event.target.value)} />
         </Field>
-        <Field label="Description">
-          <textarea className="app-textarea" value={description} maxLength={2000} onChange={(event) => setDescription(event.target.value)} />
-        </Field>
-        <Field label="Location">
-          <input className="app-input" value={location} maxLength={200} onChange={(event) => setLocation(event.target.value)} />
-        </Field>
+        {mode !== 'duplicate' ? (
+          <>
+            <Field label="Description">
+              <textarea className="app-textarea" value={description} maxLength={2000} onChange={(event) => setDescription(event.target.value)} />
+            </Field>
+            <Field label="Location">
+              <input className="app-input" value={location} maxLength={200} onChange={(event) => setLocation(event.target.value)} />
+            </Field>
+          </>
+        ) : null}
         <Field label="Time zone" error={errors.timezone} hint="Enter all dates and times in this zone. Changing it keeps the clock times you entered.">
             <TimeZonePicker value={timezone} onChange={(zone) => { setTimezone(zone); setStartOffset(undefined); setEndOffset(undefined) }} />
         </Field>

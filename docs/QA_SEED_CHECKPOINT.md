@@ -25,6 +25,8 @@ Paused to conserve the user's usage. This is partial browser testing, not releas
 
 ## Findings to investigate
 
+Update 2026-09-15: findings 1–3 are fixed in `EventFormPage.tsx` with regression tests in `tests/unit/event-form.test.ts` (see [SLICE_STATUS.md](SLICE_STATUS.md)). Finding 4 stays unreproduced. The "Next browser work" list below is now automated in `tests/e2e/release-demo.spec.ts`, pending a run on a machine with the local stack.
+
 1. Duplicate form allowed editing Description, but the created copy retained the source description. Later ordinary edit corrected it. Reproduce and check other editable duplicate fields.
 2. After ordinary event edit, overview and attendance header still showed Draft; reload showed Planned. Check query invalidation and whether stale display persists beyond refetch.
 3. Empty start fields produced a misleading nonexistent-local-time message rather than required-fields guidance.

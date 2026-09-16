@@ -61,6 +61,8 @@ Sign-in uses a 6-digit email code. Local messages appear in Mailpit at [http://1
 | Database tests | `supabase test db` |
 | Simultaneous writes, rollback, import timing and disposable restore | `npm run test:reliability` (Python 3 required) |
 | Apply pending migrations without resetting saved data | `supabase migration up --local` |
+| Browser checks that need no database (viewports, keyboard, contrast) | `npx playwright install chromium` once, then `npm run test:e2e:public` |
+| Multi-account release demonstration in a browser (needs the local stack) | `npm run test:e2e:release` |
 | Purge expired import previews | `select public.purge_expired_previews();` |
 
 ## First-use path

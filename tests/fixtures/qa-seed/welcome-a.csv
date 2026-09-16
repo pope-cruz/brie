@@ -1,0 +1,11 @@
+name,email
+Ana Rivera,ana.rivera@example.test
+Bo Chen,bo.chen@example.test
+Cy Patel,cy.patel@example.test
+Dana Brooks,dana.brooks@example.test
+Eli Santos,eli.santos@example.test
+Fatima Noor,fatima.noor@example.test
+Grace Kim,grace.kim@example.test
+Hugo Martin,hugo.martin@example.test
+Ana duplicate, ANA.RIVERA@example.test 
+Invalid email,not-an-email

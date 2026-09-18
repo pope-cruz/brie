@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from 'node:fs'
+import { copyFileSync, existsSync, mkdirSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { expect, test, type Browser, type BrowserContext, type Page } from '@playwright/test'
 import { signIn, signOut, uniqueEmail } from './helpers/auth'
@@ -74,6 +74,25 @@ async function addScheduleItem(page: Page, input: { title: string; start: string
   await page.getByLabel('Notes for new item').fill(input.notes)
   await page.getByLabel('Activity for new item').press('Enter')
   await expect(page.getByRole('button', { name: `Edit ${input.title}`, exact: true })).toBeVisible()
+}
+
+/** Downloads the run-of-show PDF for a choice and checks that making it sent nothing to the backend. */
+async function downloadPdf(page: Page, choice: { label: string } | { value: string }) {
+  await page.getByRole('button', { name: 'Download PDF' }).click()
+  await page.getByLabel('Download for').selectOption(choice)
+  const backend: string[] = []
+  const record = (request: { url: () => string }) => { if (request.url().startsWith(SUPABASE_URL)) backend.push(request.url()) }
+  page.on('request', record)
+  const [download] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Download', exact: true }).click()])
+  page.off('request', record)
+  expect(backend).toEqual([])
+  const file = await download.path()
+  const bytes = readFileSync(file)
+  expect(bytes.subarray(0, 5).toString()).toBe('%PDF-')
+  const pages = (bytes.toString('latin1').match(/\/Type \/Page\b/g) ?? []).length
+  mkdirSync('test-results/release-evidence', { recursive: true })
+  copyFileSync(file, `test-results/release-evidence/${download.suggestedFilename()}`)
+  return { name: download.suggestedFilename(), pages }
 }
 
 async function importCsv(page: Page, eventId: string, file: string) {
@@ -190,17 +209,9 @@ test('2. owner plans an event with a task and a run-of-show segment', async () =
 
   await ownerPage.reload()
   await expect(ownerPage.getByRole('textbox', { name: 'Team briefing' })).toHaveValue(/Volunteer call is 4:45 PM/)
-  await ownerPage.emulateMedia({ media: 'print' })
-  await expect(ownerPage.locator('.app-sidebar')).toBeHidden()
-  await expect(ownerPage.locator('#before')).toBeHidden()
-  await expect(ownerPage.locator('#after')).toBeHidden()
-  await expect(ownerPage.locator('.ros-screen-field').first()).toBeHidden()
-  await expect(ownerPage.locator('.ros-add-row')).toBeHidden()
-  await expect(ownerPage.locator('.ros-readable-notes').filter({ hasText: 'Bring the sign-in sheet' })).toBeVisible()
-  await expect(ownerPage.locator('.ros-readable-notes').filter({ hasText: 'The last organizer locks the doors.' })).toBeVisible()
-  const pdf = await ownerPage.pdf({ format: 'Letter', printBackground: true })
-  expect(pdf.byteLength).toBeGreaterThan(10_000)
-  await ownerPage.emulateMedia({ media: 'screen' })
+  const everyone = await downloadPdf(ownerPage, { label: 'Everyone' })
+  expect(everyone.name).toBe('welcome-night-run-of-show-everyone.pdf')
+  expect(everyone.pages).toBeGreaterThanOrEqual(1)
   await expect(ownerPage.getByLabel('Show schedule for')).toHaveValue('everyone')
   await ownerPage.locator('#day-of').screenshot({ path: 'test-results/release-evidence/owner-schedule-desktop.png' })
 })
@@ -327,6 +338,11 @@ test('7. member reads the full run of show at 375px without horizontal scroll', 
   await memberPage.goto(eventUrl('/run-of-show'))
   await expect(memberPage.getByLabel('Show schedule for')).toHaveValue('everyone')
   expect(await horizontalOverflow(memberPage)).toBeLessThanOrEqual(0)
+
+  // A teammate downloads their own PDF on a phone.
+  const mine = await downloadPdf(memberPage, { value: 'mine' })
+  expect(mine.name).toMatch(/^welcome-night-run-of-show-.+\.pdf$/)
+  expect(mine.name).not.toContain('everyone')
 })
 
 test('8. organizer joins, can plan and manage attendance, but cannot administer the workspace', async () => {

@@ -911,3 +911,40 @@
   .brie-app .todo-row-status:not(:empty) { padding-left: 32px; }
   .brie-app .todo-sheet { width: 100%; height: 100%; }
 }
+
+/* Day of calendar */
+.brie-app .ros-view { display: inline-flex; padding: 2px; border: 1px solid var(--app-border); border-radius: 8px; background: var(--app-subtle); }
+.brie-app .ros-view button { min-height: 32px; padding: 4px 12px; border: 0; border-radius: 6px; background: none; color: var(--app-muted); font: inherit; font-size: 13px; cursor: pointer; }
+.brie-app .ros-view button[aria-pressed='true'] { background: var(--app-canvas); color: var(--app-ink); font-weight: 500; box-shadow: 0 0 0 1px var(--app-border); }
+.brie-app .ros-by-person { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--app-muted); }
+.brie-app .ros-toolbar > :last-child { margin-left: auto; }
+.brie-app .ros-calendar-wrap { margin-top: 16px; }
+.brie-app .ros-calendar-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-bottom: 12px; }
+.brie-app .cal { --cal-gutter: 64px; overflow-x: auto; }
+.brie-app .cal-head { display: grid; grid-template-columns: var(--cal-gutter) repeat(var(--cal-cols), minmax(140px, 1fr)); min-width: calc(var(--cal-gutter) + var(--cal-cols) * 140px); border-bottom: 1px solid var(--app-border); }
+.brie-app .cal-col-head { display: flex; flex-direction: column; padding: 6px 8px; border-left: 1px solid var(--app-border); font-size: 12px; line-height: 16px; }
+.brie-app .cal-col-day { color: var(--app-muted); }
+.brie-app .cal-col-person { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.brie-app .cal-body { position: relative; display: grid; grid-template-columns: var(--cal-gutter) 1fr; min-width: calc(var(--cal-gutter) + var(--cal-cols) * 140px); }
+.brie-app .cal-hours { position: relative; }
+.brie-app .cal-hours span { position: absolute; right: 8px; transform: translateY(-50%); color: var(--app-muted); font-size: 11px; line-height: 14px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.brie-app .cal-hours span:first-child { transform: none; }
+.brie-app .cal-grid { position: relative; display: grid; grid-template-columns: repeat(var(--cal-cols), minmax(0, 1fr)); background-image: linear-gradient(to bottom, var(--app-border) 1px, transparent 1px); background-size: 100% 96px; border-bottom: 1px solid var(--app-border); }
+.brie-app .cal-col { border-left: 1px solid var(--app-border); }
+.brie-app .cal-col-add { cursor: copy; }
+.brie-app .cal-col-add:hover { background: var(--app-subtle); }
+.brie-app .cal-blocks { position: absolute; inset: 0; margin: 0; padding: 0; list-style: none; pointer-events: none; }
+.brie-app .cal-blocks li { position: absolute; padding: 1px 2px; }
+.brie-app .cal-block { display: flex; flex-direction: column; align-items: flex-start; gap: 1px; width: 100%; height: 100%; overflow: hidden; padding: 3px 6px; border: 1px solid var(--app-control-border); border-left-width: 3px; border-radius: 4px; background: var(--app-canvas); color: var(--app-ink); font: inherit; text-align: left; cursor: pointer; pointer-events: auto; }
+.brie-app .cal-block:hover { background: var(--app-subtle); }
+.brie-app .cal-block:focus-visible { outline: 2px solid var(--app-focus); outline-offset: 1px; }
+.brie-app .cal-buffer { border-style: dashed; border-left-width: 1px; background: repeating-linear-gradient(135deg, var(--app-canvas), var(--app-canvas) 6px, var(--app-subtle) 6px, var(--app-subtle) 12px); color: var(--app-muted); }
+.brie-app .cal-now { border-color: var(--app-primary); box-shadow: inset 0 0 0 1px var(--app-primary); }
+.brie-app .cal-block-time { font-size: 11px; line-height: 14px; color: var(--app-muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.brie-app .cal-block-title { font-size: 12px; line-height: 16px; font-weight: 500; overflow-wrap: anywhere; }
+.brie-app .cal-compact { flex-direction: row; align-items: baseline; gap: 6px; padding-top: 2px; padding-bottom: 2px; }
+.brie-app .cal-compact .cal-block-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; overflow-wrap: normal; }
+.brie-app .cal-block-owner { font-size: 11px; line-height: 14px; color: var(--app-muted); }
+.brie-app .ros-item-panel { width: min(400px, 100%); max-width: none; }
+.brie-app .ros-item-form { display: grid; gap: 4px; }
+.brie-app .ros-item-form .app-field { display: grid; gap: 4px; margin-top: 8px; }

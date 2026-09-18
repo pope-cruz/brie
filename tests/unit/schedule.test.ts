@@ -278,3 +278,81 @@ describe('run of show now and next', () => {
     expect(marks).toEqual(['Now', 'Next'])
   })
 })
+
+describe('run of show calendar', () => {
+  const items = () => [
+    segment({ id: 'panel', title: 'Panel', ownerMembershipId: 'ana', ownerName: 'Ana', startsAt: '2026-09-18T00:00:00Z', endsAt: '2026-09-18T00:30:00Z', version: 2 }),
+    segment({ id: 'doors', title: 'Doors open', startsAt: '2026-09-17T23:30:00Z', endsAt: '2026-09-18T00:00:00Z', instructions: 'Greet people.\nHand out badges.' }),
+    segment({ id: 'buffer', title: 'Buffer', startsAt: '2026-09-18T00:30:00Z', endsAt: '2026-09-18T00:40:00Z' }),
+  ]
+  const blocks = () => [...host.querySelectorAll('.cal-block')].map((block) => block.querySelector('.cal-block-title')?.textContent)
+
+  it('switches to a calendar kept in the URL, with blocks in time order and buffers dashed', async () => {
+    state.segments = items()
+    await render()
+    expect(host.querySelector('.cal')).toBeNull()
+    await act(async () => { button('Calendar')!.click() })
+    expect(state.navigate).toHaveBeenLastCalledWith({ search: '?view=calendar', hash: '#day-of' }, expect.objectContaining({ replace: true }))
+    await render()
+    expect(blocks()).toEqual(['Doors open', 'Panel', 'Buffer'])
+    expect(host.querySelector('.cal-block.cal-buffer .cal-block-title')?.textContent).toBe('Buffer')
+    expect(host.querySelector('.ros-schedule-table')).toBeNull()
+  })
+
+  it('splits into a column per person with Everyone items in each', async () => {
+    state.segments = items()
+    state.search = '?view=calendar&cols=people'
+    await render()
+    expect([...host.querySelectorAll('.cal-col-person')].map((head) => head.textContent)).toEqual(['Ana'])
+    expect(blocks()).toEqual(['Doors open', 'Panel', 'Buffer'])
+  })
+
+  it('opens a block in the item panel and saves it against its version', async () => {
+    state.segments = items()
+    state.search = '?view=calendar'
+    await render()
+    await act(async () => { (host.querySelector('[aria-label^="Panel,"]') as HTMLButtonElement).click() })
+    const activity = document.querySelector<HTMLInputElement>('[aria-label="Activity for Panel"]')!
+    await type(activity, 'Panel Q&A')
+    await act(async () => { [...document.querySelectorAll('button')].find((item) => item.textContent === 'Save')!.click() })
+    expect(state.save).toHaveBeenCalledWith(expect.objectContaining({ segmentId: 'panel', title: 'Panel Q&A', expectedVersion: 2, ownerMembershipId: 'ana' }))
+  })
+
+  it('offers a new item at the clicked time', async () => {
+    state.segments = items()
+    state.search = '?view=calendar'
+    await render()
+    // The grid starts at 7 PM; 120px down at 96px an hour is 8:15 PM.
+    await act(async () => { host.querySelector('.cal-col')!.dispatchEvent(new MouseEvent('click', { bubbles: true, clientY: 120 })) })
+    expect(document.querySelector<HTMLInputElement>('[aria-label="Start for new item"]')!.value).toBe('8:15 PM')
+    const activity = document.querySelector<HTMLInputElement>('[aria-label="Activity for new item"]')!
+    await type(activity, 'Photos')
+    await act(async () => { [...document.querySelectorAll('button')].find((item) => item.textContent === 'Add')!.click() })
+    expect(state.save).toHaveBeenCalledWith(expect.objectContaining({ segmentId: null, title: 'Photos', startsAt: '2026-09-18T00:15:00.000Z' }))
+  })
+
+  it('shows members full notes and no way to add', async () => {
+    state.role = 'member'
+    state.segments = items()
+    state.search = '?view=calendar'
+    await render()
+    expect(host.querySelector('.cal-col-add')).toBeNull()
+    await act(async () => { (host.querySelector('[aria-label^="Doors open,"]') as HTMLButtonElement).click() })
+    expect(document.body.textContent).toContain('Greet people.\nHand out badges.')
+    expect(document.querySelector('[aria-label="Activity for Doors open"]')).toBeNull()
+  })
+
+  it('keeps phones on the list', async () => {
+    vi.stubGlobal('matchMedia', (query: string) => ({ matches: query === '(max-width: 767px)', addEventListener() {}, removeEventListener() {} }))
+    try {
+      state.segments = items()
+      state.search = '?view=calendar'
+      await render()
+      expect(button('Calendar')).toBeUndefined()
+      expect(host.querySelector('.cal')).toBeNull()
+      expect(host.querySelector('.ros-schedule-table')).not.toBeNull()
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  })
+})

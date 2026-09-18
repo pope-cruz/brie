@@ -38,13 +38,17 @@ export function EventLayout() {
   }
 
   const base = `/app/w/${workspace.id}/events/${event.data.id}`
+  // Opened from Home: the breadcrumb returns there instead of the event list.
+  const fromHome = (location.state as { from?: string } | null)?.from === 'home'
   const subpage = location.pathname.replace(/\/$/, '') !== base
   const manage = canManageEvents(workspace.role) && !event.data.archivedAt
   const lead = event.data.leadFormer ? 'Former member' : event.data.leadName
   return (
     <div className="app-page">
       <p className="app-meta app-event-breadcrumb">
-        <NavLink to={`/app/w/${workspace.id}/events`}>Events</NavLink> /{' '}
+        {fromHome
+          ? <Link to={`/app/w/${workspace.id}/home`}>Home</Link>
+          : <NavLink to={`/app/w/${workspace.id}/events`}>Events</NavLink>} /{' '}
         {subpage ? <Link to={base}>{event.data.title}</Link> : event.data.title}
       </p>
       <header className="event-header">

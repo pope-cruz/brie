@@ -47,7 +47,7 @@ export function HistoryPage() {
 
   return (
     <div className="app-page">
-      <h1 className="app-h1">Attendance history</h1>
+      <h1 className="app-h1">People</h1>
       <p className="app-lede">People recorded at your workspace’s events.</p>
       <div className="app-toolbar">
         <input
@@ -87,7 +87,7 @@ export function HistoryPage() {
       ) : null}
       {history.data?.rows.map((person) => (
         <div key={person.id} style={{ padding: '12px 0', borderBottom: '1px solid var(--app-border)' }}>
-          <Link to={`/app/w/${workspace.id}/attendance/${person.id}?${params.toString()}`}>
+          <Link to={`/app/w/${workspace.id}/people/${person.id}?${params.toString()}`}>
             {person.name || 'Name not provided'}
           </Link>
           <p className="app-meta">

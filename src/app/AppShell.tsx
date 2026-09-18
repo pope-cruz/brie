@@ -114,15 +114,15 @@ export function AppShell() {
         </select>
       </div>
       <nav className="app-nav" aria-label="Workspace">
+        <NavLink className="app-nav-item" to={workspacePath(workspaceId, 'home')}>
+          Home
+        </NavLink>
         <NavLink className="app-nav-item" to={workspacePath(workspaceId, 'events')}>
           Events
         </NavLink>
-        <NavLink className="app-nav-item" to={workspacePath(workspaceId, 'tasks')}>
-          Tasks
-        </NavLink>
         {canSeeAttendance(role) ? (
-          <NavLink className="app-nav-item" to={workspacePath(workspaceId, 'attendance')}>
-            Attendance
+          <NavLink className="app-nav-item" to={workspacePath(workspaceId, 'people')}>
+            People
           </NavLink>
         ) : null}
       </nav>

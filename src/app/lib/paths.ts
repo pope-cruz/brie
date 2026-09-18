@@ -12,7 +12,7 @@ export function safeReturnPath(value: string | null | undefined): string {
   }
 }
 
-export function workspacePath(workspaceId: string, suffix = 'events') {
+export function workspacePath(workspaceId: string, suffix = 'home') {
   return `/app/w/${workspaceId}/${suffix}`
 }
 

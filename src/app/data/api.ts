@@ -87,6 +87,20 @@ export async function getEvent(workspaceId: string, eventId: string) {
   return rpc<EventRecord>('get_event', { p_workspace_id: workspaceId, p_event_id: eventId })
 }
 
+export async function saveTeamBriefing(
+  workspaceId: string,
+  eventId: string,
+  teamBriefing: string,
+  expectedVersion: number,
+) {
+  return rpc<EventRecord>('save_team_briefing', {
+    p_workspace_id: workspaceId,
+    p_event_id: eventId,
+    p_team_briefing: teamBriefing,
+    p_expected_version: expectedVersion,
+  })
+}
+
 export async function createEvent(input: {
   workspaceId: string
   title: string
@@ -207,13 +221,6 @@ export async function listWorkspaceTasks(
   })
 }
 
-export async function listOverviewTasks(workspaceId: string, eventId: string) {
-  return rpc<TaskRecord[]>('list_overview_tasks', {
-    p_workspace_id: workspaceId,
-    p_event_id: eventId,
-  })
-}
-
 export async function saveTask(input: {
   workspaceId: string
   eventId: string
@@ -310,13 +317,6 @@ export async function listSegments(workspaceId: string, eventId: string, include
     p_workspace_id: workspaceId,
     p_event_id: eventId,
     p_include_removed: includeRemoved,
-  })
-}
-
-export async function listOverviewSegments(workspaceId: string, eventId: string) {
-  return rpc<SegmentRecord[]>('list_overview_segments', {
-    p_workspace_id: workspaceId,
-    p_event_id: eventId,
   })
 }
 

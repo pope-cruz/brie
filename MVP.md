@@ -1,21 +1,23 @@
 # Brie MVP specification
 
-Status: implementation-ready plan, 2026-09-12. Proposed scope and defaults; no application code changes are part of this deliverable.
+Status: implementation-ready plan, 2026-09-12. Revised 2026-09-18 for the one-page event, Home, and run-of-show direction in [PRODUCT.md](PRODUCT.md#product-shape). Sections 4A–4I describe the revised structure; decisions still open are in section 5.
 
 ## 1. Scope and outcome
 
-Brie lets a small organizing team create an event, assign the work, prepare a chronological run of show, import actual attendance from a CSV, and look up participation across past events. The organizing unit is a private workspace. Every event belongs to exactly one workspace; every active workspace member can see its operational plans.
+Brie lets a small organizing team create an event, assign the work before it, prepare the run of show for the day, import actual attendance from a CSV, and look up participation across past events. The organizing unit is a private workspace. Every event belongs to exactly one workspace; every active workspace member can see its operational plans.
 
-**The release demonstration:** an owner creates a workspace and invites a teammate; an organizer creates an event and assigns a task; the teammate completes it on a phone; the organizer adds a schedule and imports an attendance file; a second event establishes repeat attendance; reverting the first import adjusts history correctly. A second workspace cannot access any of those records.
+**The release demonstration:** an owner creates a workspace and invites a teammate; an organizer quick-creates an event and assigns a to-do; the teammate checks it off from Home on a phone; the organizer adds a run of show, the teammate reads their own items under Mine and downloads their PDF, and the organizer imports an attendance file; a second event establishes repeat attendance; reverting the first import adjusts history correctly. A second workspace cannot access any of those records.
 
-Design envelope, to validate with fixtures: 2–30 active teammates, up to 500 events and 10,000 attendee identities per workspace, 200 tasks and 200 schedule segments per event, 5,000 data rows / 2 MiB per CSV. These are explicit MVP limits, not measured capacity claims. UI queries paginate; do not fetch the entire workspace to render a screen.
+Design envelope, to validate with fixtures: 2–30 active teammates, up to 500 events and 10,000 attendee identities per workspace, 200 to-dos and 200 schedule items per event, 5,000 data rows / 2 MiB per CSV. These are explicit MVP limits, not measured capacity claims. UI queries paginate; do not fetch the entire workspace to render a screen.
 
 ### Included
 
 - Email-code sign-in, workspace creation and switching, email-bound invitation links, and three roles.
 - Event creation/editing, draft/planned/completed/canceled status, archive/restore, and duplication for reuse.
-- Tasks with one optional assignee, optional due date, and todo/in-progress/done status.
-- Run-of-show segments with explicit start/end, title, optional owner, and plain-text instructions.
+- One page per event with Before (to-dos), Day of (team briefing and run of show), and After (attendance) sections.
+- To-dos with a title, optional date, one optional person, optional notes, and a done checkbox.
+- Schedule items with a title, start and duration, any number of people (none means everyone), and optional notes; shown as a list or a one-day calendar, filterable to Mine, and downloadable as a PDF for everyone or one person.
+- Home: each person's open to-dos and upcoming schedule items across events.
 - Reviewed CSV import of people who actually attended, duplicate handling, import receipts, and whole-batch reversion.
 - Event attendance list, workspace attendance history, and individual participation detail.
 - Basic workspace name/time-zone settings and team membership administration.
@@ -23,7 +25,7 @@ Design envelope, to validate with fixtures: 2–30 active teammates, up to 500 e
 
 ### Excluded
 
-Public event pages, RSVPs, ticketing/payments, QR scanning, live check-in, email campaigns, announcements, push notifications, calendar/chat/CRM integrations, native apps, offline writes, realtime co-editing, AI assistants, file attachments, rich-text editors, budgets, recurring-event engines, dependencies/Gantt/Kanban, custom roles, private subteams, custom fields, member rankings, analytics dashboards, and a template library/editor.
+Public event pages, RSVPs, ticketing/payments, QR scanning, live check-in, email campaigns, announcements, push notifications, calendar/chat/CRM integrations, native apps, offline writes, realtime co-editing, AI assistants, file attachments, rich-text editors, budgets, recurring-event engines, dependencies/Gantt/Kanban, custom roles, private subteams, custom fields, member rankings, analytics dashboards, a template library/editor, live show-calling or countdown timers, per-department schedule columns, and public share links for a run of show (share the PDF instead).
 
 Existing landing copy mentions reusable templates. MVP reuse is **Duplicate event**, which copies the plan; a dedicated template system remains later work. Do not change the approved landing copy to resolve that distinction. Imported attendees do not become user accounts or workspace members.
 
@@ -31,48 +33,53 @@ Existing landing copy mentions reusable templates. MVP reuse is **Duplicate even
 
 | Capability | Owner | Organizer | Member |
 | --- | --- | --- | --- |
-| Read events, all tasks, run of show, team names | Yes | Yes | Yes |
-| Create/edit/archive/duplicate events; manage tasks and schedule | Yes | Yes | No |
-| Change own assigned task status | Yes | Yes | Yes |
+| Read events, all to-dos, run of show, team names; download any run-of-show PDF | Yes | Yes | Yes |
+| Create/edit/archive/duplicate events; manage to-dos, schedule, and team briefing | Yes | Yes | No |
+| Check off or reopen own to-dos | Yes | Yes | Yes |
 | Import/revert attendance; see attendee names/emails/history | Yes | Yes | No |
-| See aggregate attendance count on overview | Yes | Yes | Yes |
+| See aggregate attendance count on the event page | Yes | Yes | Yes |
 | Invite/revoke/remove members, change roles, workspace settings | Yes | No | No |
 | Transfer ownership | Yes | No | No |
 
-Exactly one owner. Ownership transfer to an active teammate is atomic and demotes the former owner to organizer. A member cannot edit a task’s title, date, assignee, or notes. Authorization is enforced at the data boundary, including direct requests, not merely by hiding controls. Removed memberships immediately lose access on the next request. Members see “Ask an organizer” where an empty workflow requires privileged action.
+Exactly one owner. Ownership transfer to an active teammate is atomic and demotes the former owner to organizer. A member cannot edit a to-do’s title, date, person, or notes. Authorization is enforced at the data boundary, including direct requests, not merely by hiding controls. Removed memberships immediately lose access on the next request. Members see “Ask an organizer” where an empty workflow requires privileged action.
 
 ### Product rules
 
 - Default event status is Draft. Organizer explicitly chooses Planned, Completed, or Canceled. Time passing does not change status. Planned requires valid start/end; all events require title, start/end, and time zone at creation.
-- Archive is separate from status, reversible, and hides an event from default lists. Archived events and their tasks/schedule/attendance are read-only until restored. History still includes archived events with active attendance.
+- Archive is separate from status, reversible, and hides an event from default lists. Archived events and their to-dos/schedule/attendance are read-only until restored. History still includes archived events with active attendance.
 - Completed events remain editable for cleanup. Canceled events keep previously recorded attendance but reject new imports until moved to another status. Never infer absence or delete attendance when status changes.
-- Event date/time uses the event’s IANA time zone; workspace time zone supplies the initial default. Show the zone wherever a person enters or reads schedule times. Task due dates are calendar dates interpreted in the event zone; no due time or reminders.
-- A task is overdue when its date is before today in the event zone and it is not done; do not flag tasks of completed/canceled/archived events as operationally overdue.
-- Duplicate event requires a new title and start/end. Copy description/location, task titles/notes, and schedule instructions/durations/offsets. Reset status to Draft, tasks to Todo, lead and assignees to Unassigned, due dates to none; copy no attendance, imports, or audit records. New schedule times are calculated from the new start by elapsed offsets; show an out-of-range warning if the chosen event end is earlier than copied segments.
-- No hard-delete event action in MVP. Individual tasks/segments support reversible removal via undo or a “Removed items” disclosure in their tab; organizer restores them. Attendee identity correction uses batch reversion and corrected reimport; no fuzzy identity merge UI.
+- Event date/time uses the event’s IANA time zone; workspace time zone supplies the initial default. Show the zone wherever a person enters or reads schedule times. To-do dates are calendar dates interpreted in the event zone; no due time or reminders.
+- A to-do is overdue when its date is before today in the event zone and it is not done; do not flag to-dos of completed/canceled/archived events as operationally overdue.
+- Schedule order is time order: start, then end, then creation. There is no manual reordering; moving an item means changing its time. A new item starts where the item before it ends.
+- Changing a schedule item’s start or duration moves only that item unless the organizer chooses “Also shift later items” when saving, which moves every later item by the same amount. The choice is offered per save and is never the default.
+- Duplicate event requires a new title and start/end. Copy description/location, team briefing, to-do titles/notes, and schedule titles/notes/durations/offsets. Reset status to Draft, to-dos to not done, lead and all people to none, to-do dates to none; copy no attendance, imports, or audit records. New schedule times are calculated from the new start by elapsed offsets; show an out-of-range warning if the chosen event end is earlier than copied schedule items.
+- No hard-delete event action in MVP. Individual to-dos and schedule items support reversible removal via Undo or a “Removed items” disclosure in their section; organizer restores them. Attendee identity correction uses batch reversion and corrected reimport; no fuzzy identity merge UI.
 
 ### Release criteria
 
-- First-time organizer can create a usable event, task, and schedule without seed data or training.
+- First-time organizer can create a usable event, to-do, and schedule without seed data or training, and can enter a ten-item schedule using only the keyboard.
 - Import preview reconciles every nonblank row into one outcome; confirmed totals exactly match committed data.
 - Two simultaneous saves cannot silently overwrite each other. Two retries cannot duplicate an import.
-- A volunteer completes an assigned task and reads all schedule instructions at 375px width using touch, and at desktop using only a keyboard.
+- A volunteer checks off an assigned to-do and reads all of their schedule notes at 375px width using touch, and at desktop using only a keyboard.
+- The run-of-show PDF matches the on-screen list for the same filter, never splits an item across pages, and opens identically on desktop and phone.
 - Every specified screen has implemented empty/loading/error/permission states. No sample numbers appear in real empty workspaces.
 - Landing visuals and content are unchanged at agreed desktop/mobile screenshot baselines.
 
 ## 2. Core flows and inventory
 
-Route convention: `w` and `e` below are immutable UUIDs, never trusted as authorization. Workspace and event titles are display labels. `/app` redirects to the last accessible workspace’s event list, or onboarding. Use browser history for back navigation; preserve filters in query parameters.
+Route convention: `w` and `e` below are immutable UUIDs, never trusted as authorization. Workspace and event titles are display labels. `/app` redirects to the last accessible workspace’s Home, or onboarding. Use browser history for back navigation; preserve filters in query parameters.
 
 | Flow | Steps | Destination / success |
 | --- | --- | --- |
-| Start a workspace | Sign in → verify code → name workspace + choose zone | Event list; owner membership created atomically |
-| Join a team | Open invite → authenticate matching email → accept membership | Invited workspace event list, clear role label |
-| Plan | Events → New event → overview → Tasks → Run of show | Persisted plan with owners and chronological schedule |
-| Carry out assigned work | Workspace Tasks → Mine → open task → update status | Status persists; event totals update |
-| Record attendance | Event Attendance → Import → choose CSV → map → review → confirm | Import receipt and updated distinct attendance count |
-| Correct a mistaken import | Attendance → Imports → receipt → Revert → confirm impact | Active contribution removed; other batches preserved |
-| Remember | Workspace Attendance → search/date filter → person | List of distinct attended events with context |
+| Start a workspace | Sign in → verify code → name workspace + choose zone | Home; owner membership created atomically |
+| Join a team | Open invite → authenticate matching email → accept membership | Invited workspace Home, clear role label |
+| Plan | Events → New event (title, date, times) → event page → Before → Day of | Persisted plan with people and a time-ordered schedule |
+| Carry out assigned work | Home → check off to-do | Done persists; event progress updates |
+| Follow event day | Home or event page → Day of → Mine | Own items with Now/Next; optional PDF |
+| Share the schedule | Event page → Day of → Download PDF → Everyone or a person | PDF file generated in the browser |
+| Record attendance | Event page → After → Import attendance → choose CSV → map → review → confirm | Import receipt and updated distinct attendance count |
+| Correct a mistaken import | Event page → After → Imports → receipt → Revert → confirm impact | Active contribution removed; other batches preserved |
+| Remember | People → search/date filter → person | List of distinct attended events with context |
 | Reuse | Event menu → Duplicate → choose new dates → create | Draft with copied plan and reset ownership/status |
 
 | Screen | Route |
@@ -81,29 +88,28 @@ Route convention: `w` and `e` below are immutable UUIDs, never trusted as author
 | Onboarding / create workspace | `/app/new-workspace` |
 | Invite acceptance | `/app/invite/:token` |
 | Shared workspace shell/sidebar | Every authenticated workspace route |
+| Home | `/app/w/:w/home` |
 | Event list | `/app/w/:w/events` |
-| Event create/edit/duplicate form | `.../events/new`, `.../events/:e/edit`, `.../events/:e/duplicate` |
-| Event overview | `.../events/:e` |
-| Event task assignments | `.../events/:e/tasks` |
-| Workspace tasks (same component, event column) | `/app/w/:w/tasks` |
-| Run of show | `.../events/:e/run-of-show` |
-| Event attendance; Imports subview | `.../events/:e/attendance?view=people|imports` |
+| Event quick create | Popover on the event list; no route |
+| Event details edit / duplicate | Panel on the event page; `.../events/:e/duplicate` for duplication |
+| Event page (Before / Day of / After) | `.../events/:e`, with `#before`, `#day-of`, `#after` anchors and `?view=list|calendar&who=all|me|:membership` for Day of |
+| Event attendees; Imports subview | `.../events/:e/attendance?view=people|imports` |
 | Attendance import / receipt | `.../events/:e/attendance/import`, `.../attendance/imports/:batch` |
-| Workspace attendance history | `/app/w/:w/attendance` |
-| Attendee detail | `/app/w/:w/attendance/:person` |
+| People (attendance history) | `/app/w/:w/people` |
+| Attendee detail | `/app/w/:w/people/:person` |
 | Workspace settings / team | `/app/w/:w/settings?tab=general|team` |
 | Unavailable, forbidden, session expired | In-route state; unknown route gets app 404 |
 
-No dashboard, calendar, inbox, or standalone attendee CRM screen. The Events list is home.
+No dashboard, inbox, or standalone attendee CRM screen. Home is a list of the signed-in person’s work, not a dashboard. The only calendar grid is the event-day view of the run of show. Old routes (`.../tasks`, `.../run-of-show`, `/app/w/:w/tasks`, `/app/w/:w/attendance`) redirect to their new location.
 
 ## 3. Shared screen contract
 
 All screens below inherit this contract; per-screen states supplement it. Visual dimensions and state tokens are in [DESIGN.md](DESIGN.md).
 
-- **Hierarchy:** one h1, optional single-line contextual description, one primary action for the current task, then filters and the working content. Event screens share title, metadata, and tabs: Overview, Tasks, Run of show, Attendance (last tab only for owner/organizer).
+- **Hierarchy:** one h1, optional single-line contextual description, one primary action for the current job, then filters and the working content. Event pages have no tabs. One page carries the title, metadata, and Before / Day of / After sections; attendance subpages keep the event title and a backlink to the event page.
 - **Loading:** render the stable shell immediately after authentication; skeleton only the pending region with its eventual geometry and `aria-busy`. Never show a false zero or empty state before data resolves. Refetch preserves rows and labels them updating.
 - **Errors:** inline explanation + Retry for failed reads; retain form values on failed writes. A session expiration returns to sign-in with a same-origin return path; do not persist attendance payloads in local storage. Show safe navigation when the record is inaccessible, without confirming another workspace’s record exists.
-- **Save feedback:** ordinary forms explicitly Save/Cancel. Row status updates may be optimistic with rollback and inline error. Import, role changes, and reversion are pessimistic. Stale version errors offer Reload latest and retain the unsaved input for comparison; no silent last-write-wins.
+- **Save feedback:** ordinary forms explicitly Save/Cancel. Sheet-style rows on the event page save when focus leaves the row or on Enter, show “Saving…” then “Saved” beside the row, and keep failed input in place with Retry. Row status updates may be optimistic with rollback and inline error. Import, role changes, and reversion are pessimistic. Stale version errors offer Reload latest and retain the unsaved input for comparison; no silent last-write-wins.
 - **Mobile:** 320px minimum width; below 768px replace sidebar with a labeled menu drawer, stack forms, and turn operational tables into labeled rows. Tables that truly need column comparison can scroll in a labeled region. Actions remain visible without hover; touch targets at least 44px.
 - **Search:** all MVP search fields use case-insensitive prefix matching on the named fields (title/location, or name/email). A match at the start of either field qualifies; substring and fuzzy search are out of scope. Apply the query before pagination and distinguish filtered zero results from first-use emptiness.
 - **Accessibility:** links navigate, buttons act, native labels precede fields, errors reference their fields, dialogs trap/restore focus, Escape closes dismissible overlays, and background content is inert while a drawer/dialog is open. Screen changes focus the h1; validation focuses the first error. Never use color alone for status.
@@ -112,9 +118,9 @@ All screens below inherit this contract; per-screen states supplement it. Visual
 
 ### A. Workspace sidebar and shell
 
-**Hierarchy/layout:** fixed 224px desktop sidebar with pale neutral surface and 1px right border. Top 56px contains a small `brie` wordmark and workspace switcher. Middle navigation: Events, Tasks, Attendance (owner/organizer only). Bottom: Settings (owner only), current user name, account menu. Inside event pages, retain workspace navigation and use event tabs in the main pane; do not grow a second event tree. No badge unless it carries a defined actionable count; MVP ships without sidebar counts.
+**Hierarchy/layout:** fixed 224px desktop sidebar with pale neutral surface and 1px right border. Top 56px contains a small `brie` wordmark and workspace switcher. Middle navigation: Home, Events, People (owner/organizer only). Bottom: Settings (owner only), current user name, account menu. Inside event pages, retain workspace navigation; the event page uses sections, not tabs or a second event tree. No badge unless it carries a defined actionable count; MVP ships without sidebar counts.
 
-**Actions:** switch to another accessible workspace; Create workspace; open nav destinations; sign out from account menu. Workspace switch clears prior-workspace query caches before painting the destination. Current item uses a filled neutral selection plus medium weight and `aria-current=page`; event child routes keep Events selected. Task detail opened from workspace Tasks preserves its return location.
+**Actions:** switch to another accessible workspace; Create workspace; open nav destinations; sign out from account menu. Workspace switch clears prior-workspace query caches before painting the destination. Current item uses a filled neutral selection plus medium weight and `aria-current=page`; event child routes keep Events selected. An item opened from Home preserves Home as its return location.
 
 **Empty:** user with no membership sees onboarding without a dummy workspace sidebar. Switcher with one workspace shows its name and Create workspace; no “no results” filler.
 
@@ -124,69 +130,89 @@ All screens below inherit this contract; per-screen states supplement it. Visual
 
 ### B. Event list
 
-**Hierarchy/layout:** h1 “Events,” short workspace context, right-aligned New event. Segmented filters Upcoming / Past / All / Archived, then search. Flat table: Event (title + optional location), When (date/time + zone), Status, Lead, Tasks (done/total). Lead is optional active workspace teammate, not a separate permission role. Rows are 64px; title is a real link and trailing menu is a separate button. No hero stats.
+**Hierarchy/layout:** h1 “Events,” short workspace context, right-aligned New event, which opens quick create (section C). Segmented filters Upcoming / Past / All / Archived, then search. Flat table: Event (title + optional location), When (date/time + zone), Status, Lead, To-dos (done/total). Lead is optional active workspace teammate, not a separate permission role. Rows are 64px; title is a real link and trailing menu is a separate button. No hero stats.
 
-**Behavior/actions:** Upcoming defaults to unarchived Draft/Planned with end at or after now, earliest start first. Past includes unarchived events ended before now or explicitly Completed/Canceled, latest start first. These tabs are intentionally disjoint; All includes every unarchived event. Archived is separate, latest start first. Search is case-insensitive title/location within current filter; URL stores query and page. Fifty results per page with total and previous/next. Menu: Edit, Duplicate, Archive; archived menu: Restore. Member gets navigation only. Archive confirmation states read-only effect and history retention.
+**Behavior/actions:** Upcoming defaults to unarchived Draft/Planned with end at or after now, earliest start first. Past includes unarchived events ended before now or explicitly Completed/Canceled, latest start first. These tabs are intentionally disjoint; All includes every unarchived event. Archived is separate, latest start first. Search is case-insensitive title/location within current filter; URL stores query and page. Fifty results per page with total and previous/next. Menu: Edit details, Duplicate, Archive; archived menu: Restore. Member gets navigation only. Archive confirmation states read-only effect and history retention.
 
 **Empty:** first workspace: “Plan your first event” + New event; member: “Your team hasn’t added an event yet.” Filter empty: “No upcoming events” or “No events match ‘…’” + Clear filters / All. Archived empty: “Archived events will appear here.”
 
 **Loading/error:** six row skeletons under actual headers; keep filter toolbar stable. On failed pagination retain last successful rows with Retry. Archive/restore error stays beside the affected row.
 
-**Mobile:** stacked rows show title, date/time, status, task fraction; lead/location in secondary line or row detail. Filters wrap; search fills width; New event becomes compact text button. Menus have visible 44px targets. No whole-page horizontal scroll.
+**Mobile:** stacked rows show title, date/time, status, to-do fraction; lead/location in secondary line or row detail. Filters wrap; search fills width; New event becomes compact text button. Menus have visible 44px targets. No whole-page horizontal scroll.
 
-### C. Event creation, editing, and duplication
+### C. Event quick create, details, and duplication
 
-**Hierarchy/layout:** full-page form, max 640px, backlink to Events or event; h1 “New event,” “Edit event,” or “Duplicate event.” Fields in order: title (required, 120 characters), description (plain text, 2,000), location (optional, 200), start/end date and time, IANA time zone (required), lead (optional). Status field appears on edit; creation/duplication is Draft. Display Save/Create event and Cancel at the form end.
+**Quick create:** New event opens a small popover anchored to the button (a full-screen sheet on mobile) with three fields: title (required, 120 characters), date, and start–end time. Time zone shows as text with the workspace default and a Change link; lead, location, and description are not asked. Create event saves a Draft and opens the event page with focus in the first Before row. Enter submits; Escape closes after confirming discard of typed input.
 
-**Actions/rules:** validate end after start; explicitly resolve ambiguous daylight-saving times by choosing offset and reject nonexistent local times. Changing event start/zone does not silently move existing schedule segments: show “Schedule times stay fixed; review Run of show.” Duplication summarizes what resets before Create copy. Prevent double submission; navigate only after transaction success. Confirm discarding dirty input on navigation.
+**Details panel:** Edit details on the event page opens a 400px side panel (full-screen sheet on mobile) with title, description (plain text, 2,000), location (200), start/end, IANA time zone, lead, and status. Validate end after start; explicitly resolve ambiguous daylight-saving times by choosing offset and reject nonexistent local times. Changing event start or zone does not silently move schedule items: after saving, offer “Shift the schedule by the same amount” once, with the number of items affected. Removed lead remains labeled “Former member” but cannot be chosen for a new assignment.
 
-**Empty:** blank creation form with workspace zone preselected; no invented location or dates. Duplication pre-fills a title ending “copy” and asks for dates. No teammates beyond owner still allows Unassigned lead.
+**Duplicate:** full-page form at `.../events/:e/duplicate` asking a new title and start/end, pre-filled with the source title ending “copy.” Summarize what resets before Create copy (product rules). Prevent double submission; navigate only after transaction success; confirm discarding dirty input.
 
-**Loading/error:** edit/duplicate skeleton before fetching source; errors inline; preserve data after save failure. Not found returns safe event-list link. Removed lead remains labeled “Former member” on an existing event, but cannot be chosen for a new assignment.
+**Loading/error:** errors inline beside the field; preserve input after save failure. Not found returns a safe event-list link.
 
-**Mobile:** full-width single-column form with 16px field text, stacked date/time inputs, natural document scrolling. Save/Cancel may stick above safe area only if they do not cover content or focused inputs.
+### D. Event page
 
-### D. Event overview
+**Hierarchy/layout:** breadcrumb Events / event; event title (wraps); one metadata line: status, date and time range with zone, location, lead; an Edit details button and an overflow menu (Duplicate, Archive). Below, three sections in fixed order, each with an h2 and a one-line summary:
 
-**Hierarchy/layout:** breadcrumb Events / event, 24px event title, status, compact metadata (date range, zone, location, lead), Edit event and overflow. Tabs below a divider. Main pane at desktop uses 2:1 columns: description then upcoming/open task rows on left; event details and next five schedule segments on right. Attendance is one quiet text line (“84 attendees recorded”) linked for privileged users, not a KPI tile. Member sees the aggregate only.
+- **Before** — “3 of 5 done.” To-dos (section E).
+- **Day of** — event date and zone. Team briefing, then the run of show (section F).
+- **After** — organizers see the distinct attendee count, Import attendance, View attendees, and View imports; members see the aggregate count only (“84 attendees recorded”) or “Attendance hasn’t been recorded.”
 
-**Actions:** edit/status change in Edit event; shortcuts Add task, Add segment, Import attendance in their sections, shown by permission. View all tasks/schedule; open task; Duplicate/Archive in overflow. Section headings own their links; no universal “Quick actions” panel.
+No tabs, preview widgets, or KPI tiles. A compact sticky jump bar (Before · Day of · After) appears after the header scrolls away; it contains links, not tabs.
 
-**Content rules:** open tasks ordered overdue first, then dated, then undated; at most five. Schedule preview uses first upcoming segment by time, or first five if event is not in progress; label the time rule. Derived counts come from server aggregates. Archived banner explains Restore to edit; canceled banner explains event status without a destructive warning tone.
+**Phase default:** before the event day, open at the top. On the event day in the event zone, open scrolled to Day of. After the event ends, open scrolled to After for organizers and to Day of for members. Opening never moves focus except to the h1.
 
-**Empty:** each absent object teaches locally: “No tasks yet. Add the work your team needs to do”; “No schedule yet. Add your first segment”; “Attendance hasn’t been imported.” Members receive explanatory text without unavailable CTAs. Missing description/location uses unobtrusive “Not added.”
+**Actions:** section-local only: add to-do, add schedule item, edit briefing, import attendance, download PDF. Archived events show a banner explaining Restore to edit; canceled events show the status without a destructive tone.
 
-**Loading/error:** metadata and each section have separate skeletons; a failed task section does not hide event details. Failed counts show “Unavailable,” never 0. Stale content exposes Refresh.
+**Empty:** each section teaches locally: “Add the work your team needs to do before the event,” “Build the schedule for event day. Include setup, program, and cleanup,” “Attendance hasn’t been imported.” Members see explanatory text without unavailable actions.
 
-**Mobile:** one column: metadata → description → tasks → schedule → attendance. Tabs remain a horizontally scrollable, keyboard-accessible tab strip; short labels fit when possible. Long event titles wrap to multiple lines. Primary edit action moves into the title action row, never over the title.
+**Loading/error:** header, and each section, load and fail independently; a failed section shows Retry and never a false zero.
 
-### E. Task assignments and workspace Tasks
+**Mobile:** one column. The section for the current phase is expanded; the others collapse to their h2 and summary line and expand on tap. The metadata line wraps; Edit details sits in the title action row.
 
-**Hierarchy/layout:** event tab shows “Tasks,” status filter All/Open/Done, assignee filter Anyone/Me/Unassigned/person, and Add task. Table columns: Status, Task, Assignee, Due, row menu. Workspace Tasks defaults to Me + Open, adds Event column, excludes completed/canceled/archived events unless “Include closed events” is on. No separate custom saved-view system. Query params hold filters; use 50-row pagination. Sort open overdue dates first, then due date, then creation; Done rows last in All.
+### E. Before (to-dos) and Home
 
-**Actions:** click title opens a 400px detail panel with title (required, 200 characters), notes (2,000 characters), single assignee, due date, status, and Save/Cancel. Add task opens the same blank panel; workspace creation additionally requires Event. Inline status select labels Todo, In progress, Done. Organizer can assign active teammates or Unassigned; member can change only own task status. Removed assignee displays Former member and no longer counts as “Me.” Remove task offers Undo and remains restorable from Removed items.
+**Before layout:** a sheet-style list with four columns: done checkbox, To-do (title, 200), Date (optional), Person (one optional active teammate). Notes (2,000 characters) expand beneath a row on click or Space on the row’s notes toggle. Order: not done with overdue dates first, then by date, then undated in creation order; done items collapse into “Done (3)” at the end. Filter: Everyone / Mine.
 
-**Empty:** “No tasks yet” + Add task for organizers; filtered view “No open tasks assigned to you” + Show all tasks. Assignee search with zero matches says so and offers Unassigned, never silently invites someone.
+**Sheet-style entry (organizers, desktop):** the last row is always an empty “Add a to-do” row. Typing a title and pressing Enter saves it and starts another; Tab moves across fields; Escape reverts the current row. Date accepts typed shortcuts (“fri,” “10/17”) and shows the resolved date. Pasting several lines into a title cell creates one to-do per line after a confirmation that states the count. Remove is in the row menu with Undo; removed items stay restorable from “Removed items.”
 
-**Loading/error:** row skeletons, assignee options skeleton, explicit “Saving status…” announced quietly. Failed optimistic update rolls back and retains Retry on that row. Concurrent reassignment while member saves status rejects the mutation and refreshes permissions. A detail panel never discards a draft after conflict.
+**Members:** read-only rows; they can check off or reopen their own to-dos only. A removed person displays “Former member” and no longer counts as Mine.
 
-**Mobile:** list rows show status control + title, then assignee and labeled due date. Detail panel becomes full-screen sheet with heading, Close, body scrolling, Save at bottom. Filters wrap. Inline controls remain visible and 44px; removal is in the menu. No drag-and-drop requirement.
+**Home (`/app/w/:w/home`):** h1 “Home.” Two lists, each grouped by event with the event title as a link: “Your to-dos” (not done, across unarchived Draft/Planned events, overdue first, then by date) and “Your schedule” (your schedule items, plus items with no people, for events in the next 7 days, in time order, with Now/Next labels on the event day). Checking off a to-do works in place. Organizers additionally see “Upcoming events” (next 5 by start) as plain rows. No counts, charts, or greetings.
 
-### F. Run of show
+**Empty:** Before: “Add the work your team needs to do” for organizers. Mine filter: “Nothing assigned to you” + Show everyone. Home: “Nothing assigned to you yet” with a link to Events.
 
-**Hierarchy/layout:** h1 remains event title; tab heading “Run of show,” event date/zone, Add segment. Chronological table: Start–End (tabular numbers), Segment, Owner, Instructions preview, menu. Each segment shows full date when spanning dates. Optional “Now” text indicator is derived from wall clock and event zone, never a live-sync claim. Expand a row to read full instructions without leaving the schedule. No calendar grid or decorative timeline spine.
+**Loading/error:** row skeletons; check-off is optimistic with rollback and inline Retry on that row. Concurrent reassignment while a member checks off rejects the change and refreshes. A row being typed in never loses input after a conflict; offer Reload latest beside it.
 
-**Actions/rules:** Add/Edit uses detail panel: title (120), start, end, owner, instructions (4,000 plain-text characters). Both times required, end after start. Sort by start then creation ID; equal/overlapping segments allowed with “Overlaps another segment” text and a warning before saving. Segments outside event range warn but may be saved for setup/cleanup. Editing one segment never cascades times. Owner optional; active teammates only. Organizer can remove/restore; members read and expand. No reorder handles because chronological times define order.
+**Mobile:** rows show checkbox and title, then person and date as secondary text; notes expand beneath. Organizers edit through a full-screen sheet with the four fields; no inline cell editing below 768px. Targets at least 44px.
 
-**Empty:** “Build the schedule for event day” + Add segment, helper “Include setup, program, and cleanup.” Members see “The schedule hasn’t been added yet.”
+### F. Day of (team briefing and run of show)
 
-**Loading/error:** five fixed-height schedule skeletons; retain expanded rows during refetch. Stale edit offers latest data; save errors preserve times/instructions. Refetch on focus and expose Last updated + Refresh; no realtime or offline indicator suggesting functionality that does not exist.
+**Team briefing:** plain text (4,000) above the schedule for arrival time, meeting point, contacts, and event-wide notes. Organizers edit in place with Save/Cancel; members read it. Included at the top of every PDF.
 
-**Mobile:** vertically ordered rows: time range first, title next, owner and expandable instructions below. Date and zone stay visible in the section header; no horizontally scrolling table. Add/Edit is full-screen sheet. “Now” does not auto-scroll or steal focus during use.
+**Fields:** a schedule item has four fields only: When (start time and duration), Title (120), People, and Notes (4,000). End time is derived and shown. People is any number of active teammates; none means Everyone. The date is the event date and is not asked unless the event spans more than one day, when a day picker appears. There are no types, priorities, colors, or custom columns; a buffer is an item named “Buffer,” drawn dashed.
+
+**List view (default):** time-ordered rows: time range (tabular numerals), title with notes shown in full beneath, people (“Everyone” when none). Overlaps and gaps show as text on the later row (“Overlaps Panel,” “10-minute gap before”). Items outside event hours are allowed and labeled. A “Now” label on the current item and “Next” on the following one derive from the wall clock in the event zone, never a live-sync claim; nothing auto-scrolls.
+
+**Sheet-style entry (organizers, desktop):** the last row is an empty add row whose start is prefilled with the previous item’s end and duration with 30 minutes. Typing a title and pressing Enter saves and starts the next row; Tab moves across When, Title, People, Notes. Duration accepts “15,” “1h,” or “1:30.” Start accepts “6,” “6:30p,” or “18:30” and resolves in the event zone. Saving a changed start or duration offers “Also shift later items” (product rules). Pasting rows with tab- or comma-separated columns (time, title, person, notes) previews the parsed items and unmatched people before creating them.
+
+**Calendar view:** a one-day time grid (one column per day for multi-day events) where block height is duration; hours run from the earliest item to the latest, not midnight to midnight. “Column per person” splits the grid into a column for each person with items, with Everyone items repeated in each column. Clicking a block opens the item panel; clicking empty time opens a new item at that time. Drag to move or resize is not in the MVP. Calendar is desktop and tablet only; below 768px the view control is hidden and the list is shown.
+
+**Who filter:** Everyone / Mine / a named person. Mine shows items with you plus Everyone items. Members default to Mine; organizers default to Everyone. The choice is kept in the URL and in local storage per workspace.
+
+**PDF:** Download PDF asks Everyone or a person (default: the current filter) and generates a PDF in the browser: event title, date, zone, location, the team briefing, then the list view for that filter with page headers and footers (“Welcome night · Mine: Sam · page 2 of 3 · generated Oct 18, 4:05 PM EDT”). Items never split across pages. Available to every role. No server storage and no share link.
+
+**Editing an item:** rows are read-only. Clicking a row’s title (or a calendar block) turns that row into its editor with the same four fields and Save/Cancel; Enter saves, Escape cancels, and only one row is open at a time. The row menu offers Edit, Duplicate (prefills the add row to start when the original ends), and Remove. Removal is restorable from “Removed items.”
+
+**Empty:** “Build the schedule for event day” + Add item, helper “Include setup, program, and cleanup.” Members see “The schedule hasn’t been added yet.” Mine with no items: “Nothing on the schedule for you” + Show everyone.
+
+**Loading/error:** five fixed-height skeleton rows; refetch on focus with Last updated + Refresh; stale edits offer Reload latest while keeping input; no realtime or offline indicators.
+
+**Mobile:** list only, one column: time range first, then title, people, and full notes. Who filter and Download PDF stay in the section header. Organizers add and edit through the full-screen item sheet. No horizontal scrolling.
 
 ### G. Event attendance and import receipts
 
-**Hierarchy/layout:** Attendance tab: heading, distinct active attendee total, Import CSV. Local switch People / Imports. People columns Name, Email, Recorded in (latest active batch date); searchable by name/email, 50-row pagination. Imports columns file label, imported at, imported by, rows added, status Active/Reverted; latest first. Counts describe distinct people, not file rows.
+**Hierarchy/layout:** the event page’s After section links to this subpage (`.../attendance`), which keeps the event title and a backlink to the event page: heading, distinct active attendee total, Import CSV. Local switch People / Imports. People columns Name, Email, Recorded in (latest active batch date); searchable by name/email, 50-row pagination. Imports columns file label, imported at, imported by, rows added, status Active/Reverted; latest first. Counts describe distinct people, not file rows.
 
 **Actions:** People opens attendee detail; Imports opens receipt with totals and link back to people. Receipt lists aggregate accepted/skipped/duplicate outcomes and uploader/time; rejected row details are available only in the preview and are not retained after commit. Revert import is an explicit secondary destructive action, requiring confirmation with recalculated number of attendance records that disappear and number retained through other active batches. Reverted receipt remains visible, read-only. Correct mistakes with revert → corrected file → new import. No raw file download or individual attendance editing in MVP.
 
@@ -198,7 +224,7 @@ All screens below inherit this contract; per-screen states supplement it. Visual
 
 ### H. Attendance import
 
-**Hierarchy/layout:** full-page workflow within the event shell, max 880px. Always show event title/date and “This file records people who attended.” Step indicator Choose file → Map columns → Review → Result. One primary continuation button per step; Back retains in-memory inputs. No upload modal.
+**Hierarchy/layout:** full-page workflow under the event, with a backlink to the event page, max 880px. Always show event title/date and “This file records people who attended.” Step indicator Choose file → Map columns → Review → Result. One primary continuation button per step; Back retains in-memory inputs. No upload modal.
 
 **Actions:** Choose file, Download example, map/ignore columns, filter preview outcomes, acknowledge skipped invalid rows, Record attendance, and View receipt. Back is available before commit; Exit import confirms discarding local selection or the current draft. The step rules below define when each action is available.
 
@@ -216,9 +242,9 @@ All screens below inherit this contract; per-screen states supplement it. Visual
 
 **Mobile:** file picker is primary; mapping fields stack with visible sample text. Review rows become expandable outcome rows, with counts and outcome filter above. Sticky continuation button cannot cover the final row or errors. All review/confirm steps work on mobile; do not require desktop to finish a selected file.
 
-### I. Workspace attendance history
+### I. People (workspace attendance history)
 
-**Hierarchy/layout:** “Attendance history,” explanatory line “People recorded at your workspace’s events,” search and event-date From/To filters. Table: Person (name + email), Events attended, Last attended (event local date), Last event. Default last-attended descending then person ID; 50-row pagination. A short summary line may show distinct people and distinct attended events in the filtered result, never retention percentages or ranking charts.
+**Hierarchy/layout:** h1 “People,” explanatory line “People recorded at your workspace’s events,” search and event-date From/To filters. Table: Person (name + email), Events attended, Last attended (event local date), Last event. Default last-attended descending then person ID; 50-row pagination. A short summary line may show distinct people and distinct attended events in the filtered result, never retention percentages or ranking charts.
 
 **Rules/actions:** count distinct events with at least one active import contribution. Date filter compares each event’s start date in its own time zone, inclusive endpoints; this is event date, not import date. Include archived/completed/canceled events with recorded attendance and label their status. Person click opens detail and preserves history filters for Back. Search is case-insensitive name/email. No zero-attendance identities in the list. Names are not unique; email is always visible to distinguish them. No member access, bulk export, marketing action, or engagement score.
 
@@ -272,7 +298,20 @@ All screens below inherit this contract; per-screen states supplement it. Visual
 
 **Empty:** absence is the state itself; no illustration or fake content. **Loading:** shell skeleton while authentication/permissions resolve. **Mobile:** centered text with natural width and full-sized actions; no sidebar until membership is known.
 
-## 5. Planning references
+## 5. Open decisions
+
+Defaults chosen on 2026-09-18 and written into sections 1–4. Change them here first.
+
+1. **To-do status is two states.** A checkbox replaces Todo / In progress / Done. Existing In progress to-dos migrate to not done. Reason: a third state is a field most small teams never use.
+2. **People per item.** A schedule item takes any number of people, so Mine and the per-person calendar are complete. A to-do keeps one person, because a to-do with two owners has no owner. This needs a join table for schedule people replacing `owner_membership_id`.
+3. **Tables stay separate.** To-dos and schedule items share the page, entry pattern, and Mine filter, but remain separate tables in the MVP. Merge them only if the shared UI proves itself.
+4. **Order is time.** Drop the uncommitted `sort_order` column and reorder command from `0017_run_of_show_briefing.sql`; keep `team_briefing`.
+5. **Cascading times is opt-in per save**, never automatic.
+6. **Calendar drag-to-move and resize is later work.** Click to edit and click empty time to add cover the MVP.
+7. **PDF is generated in the browser** with a PDF library rather than `window.print()`, so every browser and phone gets the same file. Library choice is an implementation decision.
+8. **An Events month calendar is later work.** The event list stays a list in the MVP.
+
+## 6. Planning references
 
 - [Design tokens and component behavior](DESIGN.md)
 - [Schema, security, import semantics, and deployment](docs/ARCHITECTURE.md)

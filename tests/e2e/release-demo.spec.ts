@@ -23,6 +23,7 @@ const SUPABASE_URL = process.env.VITE_SUPABASE_URL || ENV.VITE_SUPABASE_URL || '
 const SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY || ENV.VITE_SUPABASE_ANON_KEY || ''
 const STAMP = Date.now().toString(36)
 const OWNER = uniqueEmail('owner')
+const WRONG_CODE_EMAIL = uniqueEmail('wrong-code')
 const ORGANIZER = uniqueEmail('organizer')
 const MEMBER = uniqueEmail('member')
 const OUTSIDER = uniqueEmail('outsider')
@@ -59,9 +60,20 @@ async function openMobileMenu(page: Page) {
 }
 
 async function fillRange(page: Page, start: { date: string; time: string }, endTime: string) {
-  await page.getByLabel('Start date').fill(start.date)
-  await page.getByLabel('Start time').fill(start.time)
-  await page.getByLabel('End time').fill(endTime)
+  await page.getByLabel('Start date', { exact: true }).fill(start.date)
+  await page.getByLabel('Start time', { exact: true }).fill(start.time)
+  await page.getByLabel('End time', { exact: true }).fill(endTime)
+}
+
+async function addScheduleItem(page: Page, input: { title: string; start: string; end: string; notes: string; assigned?: boolean }) {
+  const minutes = (clock: string) => Number(clock.slice(0, 2)) * 60 + Number(clock.slice(3, 5))
+  await page.getByLabel('Activity for new item').fill(input.title)
+  await page.getByLabel('Start for new item').fill(input.start)
+  await page.getByLabel('Length for new item').fill(`${minutes(input.end) - minutes(input.start)}m`)
+  if (input.assigned) await page.getByLabel('Owner for new item').selectOption({ label: 'Owner QA' })
+  await page.getByLabel('Notes for new item').fill(input.notes)
+  await page.getByLabel('Activity for new item').press('Enter')
+  await expect(page.getByRole('button', { name: `Edit ${input.title}`, exact: true })).toBeVisible()
 }
 
 async function importCsv(page: Page, eventId: string, file: string) {
@@ -99,7 +111,7 @@ test.afterAll(async () => {
 
 test('1. owner signs in, rejects a wrong code, and creates exactly one workspace', async () => {
   await ownerPage.goto('/app/sign-in')
-  await ownerPage.getByLabel('Email').fill(OWNER)
+  await ownerPage.getByLabel('Email').fill(WRONG_CODE_EMAIL)
   await ownerPage.getByRole('button', { name: 'Send code' }).click()
   await expect(ownerPage.getByRole('heading', { name: 'Enter your code' })).toBeVisible()
   await ownerPage.getByLabel('Code').fill('000000')
@@ -107,7 +119,7 @@ test('1. owner signs in, rejects a wrong code, and creates exactly one workspace
   await expect(ownerPage.getByRole('alert')).toContainText(/invalid or has expired|Couldn’t verify/)
   await expect(ownerPage.getByRole('button', { name: /Resend in \d+s/ })).toBeDisabled()
   await ownerPage.getByRole('button', { name: 'Change email' }).click()
-  await expect(ownerPage.getByLabel('Email')).toHaveValue(OWNER)
+  await expect(ownerPage.getByLabel('Email')).toHaveValue(WRONG_CODE_EMAIL)
   await expect(ownerPage.getByRole('alert')).toHaveCount(0)
 
   // The helper waits out the one-minute resend limit for this address.
@@ -135,7 +147,7 @@ test('2. owner plans an event with a task and a run-of-show segment', async () =
   await expect(ownerPage.locator('[role="alert"], .app-error-text').first()).toBeVisible()
   await expect(ownerPage.getByLabel('Title')).toHaveValue('Welcome night')
 
-  await ownerPage.getByLabel('End time').fill('20:00')
+  await ownerPage.getByLabel('End time', { exact: true }).fill('20:00')
   await ownerPage.getByRole('button', { name: 'Create event' }).click()
   await expect(ownerPage).toHaveURL(/\/events\/[0-9a-f-]{36}$/)
   state.eventId = ownerPage.url().match(/\/events\/([0-9a-f-]{36})$/)![1]
@@ -145,7 +157,7 @@ test('2. owner plans an event with a task and a run-of-show segment', async () =
   await expect(ownerPage.getByText(/^Draft ·/)).toBeVisible()
 
   await ownerPage.goto(eventUrl('/tasks'))
-  await ownerPage.getByRole('button', { name: 'Add task' }).first().click()
+  await ownerPage.getByRole('button', { name: 'Add to-do' }).first().click()
   const taskSheet = ownerPage.getByRole('dialog')
   await taskSheet.getByLabel('Title').fill('Set up welcome desk')
   await taskSheet.getByLabel('Notes').fill('Table by the main doors.')
@@ -154,13 +166,37 @@ test('2. owner plans an event with a task and a run-of-show segment', async () =
   await expect(ownerPage.getByLabel('Status for Set up welcome desk')).toHaveValue('todo')
 
   await ownerPage.goto(eventUrl('/run-of-show'))
-  await ownerPage.getByRole('button', { name: 'Add segment' }).first().click()
-  const segmentSheet = ownerPage.getByRole('dialog')
-  await segmentSheet.getByLabel('Title').fill('Doors open')
-  await expect(segmentSheet.getByLabel('Start date')).toHaveValue('2026-10-20')
-  await segmentSheet.getByLabel('Instructions').fill('Bring the sign-in sheet and markers.\nGreet people at the desk.')
-  await segmentSheet.getByRole('button', { name: 'Save' }).click()
-  await expect(ownerPage.getByRole('button', { name: 'Doors open' })).toBeVisible()
+  await expect(ownerPage.getByLabel('Start for new item')).toHaveValue('6 PM')
+  await ownerPage.getByLabel('Activity for new item').fill('Doors open')
+  await ownerPage.getByLabel('Length for new item').fill('2h')
+  await expect(ownerPage.getByText('Ends 8 PM')).toBeVisible()
+  await ownerPage.getByLabel('Notes for new item').fill('Bring the sign-in sheet and markers.\nGreet people at the desk.')
+  await ownerPage.getByRole('button', { name: 'Add', exact: true }).click()
+  await expect(ownerPage.getByRole('button', { name: 'Edit Doors open', exact: true })).toBeVisible()
+  await expect(ownerPage.getByLabel('Start for new item')).toHaveValue('8 PM')
+
+  await ownerPage.getByRole('textbox', { name: 'Team briefing' }).fill('Volunteer call is 4:45 PM at the east lobby.\nPick up a badge and radio before the walkthrough.')
+  await ownerPage.getByRole('button', { name: 'Save briefing' }).click()
+  await addScheduleItem(ownerPage, { title: 'Room setup and AV check', start: '16:45', end: '17:15', assigned: true, notes: 'Place signs from the lobby to the room.\nTest the projector, microphone, captions, and clicker.' })
+  await addScheduleItem(ownerPage, { title: 'Volunteer check-in', start: '17:15', end: '17:35', notes: 'Hand out badges, radios, and printed briefings.\nConfirm coverage for the accessible entrance.' })
+  await addScheduleItem(ownerPage, { title: 'Team welcome', start: '17:35', end: '17:50', assigned: true, notes: 'Review exits, speaker names, timing cues, and the Q&A handoff.' })
+  await addScheduleItem(ownerPage, { title: 'Project presentation', start: '18:30', end: '19:05', assigned: true, notes: 'Dim the front lights when the first slide appears.\nGive the speaker a five-minute cue and a one-minute cue.\nKeep captions visible throughout.' })
+  await addScheduleItem(ownerPage, { title: 'Audience Q&A', start: '19:05', end: '19:25', notes: 'Bring the microphone to each questioner.\nSignal the moderator for the final question at 7:23 PM.' })
+  await addScheduleItem(ownerPage, { title: 'Teardown and room handoff', start: '20:00', end: '20:45', assigned: true, notes: 'Collect radios, signs, and feedback cards.\nReturn furniture to the room diagram and check the quiet room.\nThe last organizer locks the doors.' })
+
+  await ownerPage.reload()
+  await expect(ownerPage.getByRole('textbox', { name: 'Team briefing' })).toHaveValue(/Volunteer call is 4:45 PM/)
+  await ownerPage.emulateMedia({ media: 'print' })
+  await expect(ownerPage.locator('.app-sidebar')).toBeHidden()
+  await expect(ownerPage.locator('#before')).toBeHidden()
+  await expect(ownerPage.locator('#after')).toBeHidden()
+  await expect(ownerPage.locator('.ros-screen-field').first()).toBeHidden()
+  await expect(ownerPage.locator('.ros-add-row')).toBeHidden()
+  await expect(ownerPage.locator('.ros-readable-notes').filter({ hasText: 'Bring the sign-in sheet' })).toBeVisible()
+  await expect(ownerPage.locator('.ros-readable-notes').filter({ hasText: 'The last organizer locks the doors.' })).toBeVisible()
+  const pdf = await ownerPage.pdf({ format: 'Letter', printBackground: true })
+  expect(pdf.byteLength).toBeGreaterThan(10_000)
+  await ownerPage.emulateMedia({ media: 'screen' })
 })
 
 test('3. owner edits status and the header updates without a reload', async () => {
@@ -186,7 +222,7 @@ test('4. owner creates organizer and member invitations', async () => {
     .poll(() => ownerPage.getByLabel('Invitation link').inputValue())
     .not.toBe(state.organizerLink)
   state.memberLink = await ownerPage.getByLabel('Invitation link').inputValue()
-  await expect(ownerPage.getByText(MEMBER)).toBeVisible()
+  await expect(ownerPage.locator('.app-team-row', { hasText: MEMBER })).toBeVisible()
 })
 
 test('5. member joins on a phone, sees no privileged navigation, and is denied direct privileged calls', async () => {
@@ -208,7 +244,7 @@ test('5. member joins on a phone, sees no privileged navigation, and is denied d
   await expect(memberPage.getByRole('button', { name: 'Menu' })).toBeFocused()
 
   await memberPage.goto(eventUrl())
-  await expect(memberPage.getByRole('link', { name: 'Edit event' })).toHaveCount(0)
+  await expect(memberPage.getByRole('link', { name: 'Edit details' })).toHaveCount(0)
   await expect(memberPage.getByRole('link', { name: 'New event' })).toHaveCount(0)
 
   // Authorization lives in the database, not in hidden buttons.
@@ -251,16 +287,16 @@ test('6. owner assigns the task; member completes it at 375px and it persists', 
   await expect(memberPage.getByLabel('Status for Set up welcome desk')).toHaveValue('done')
 
   await ownerPage.goto(eventUrl())
-  await expect(ownerPage.getByText('No open tasks')).toBeVisible()
+  await expect(ownerPage.getByText('1 of 1 done')).toBeVisible()
 })
 
 test('7. member reads the full run of show at 375px without horizontal scroll', async () => {
   await memberPage.goto(eventUrl('/run-of-show'))
-  await memberPage.getByRole('button', { name: 'Doors open' }).click()
+  await expect(memberPage.getByText('Doors open', { exact: true })).toBeVisible()
   await expect(memberPage.getByText('Bring the sign-in sheet and markers.')).toBeVisible()
   await expect(memberPage.getByText('Greet people at the desk.')).toBeVisible()
-  await expect(memberPage.getByRole('button', { name: 'Add segment' })).toHaveCount(0)
-  await expect(memberPage.getByRole('button', { name: 'Edit' })).toHaveCount(0)
+  await expect(memberPage.getByLabel('Activity for new item')).toHaveCount(0)
+  await expect(memberPage.locator('.ros-row-menu')).toHaveCount(0)
   expect(await horizontalOverflow(memberPage)).toBeLessThanOrEqual(0)
 })
 
@@ -274,9 +310,9 @@ test('8. organizer joins, can plan and manage attendance, but cannot administer 
   await expect(nav.getByRole('link', { name: 'Attendance' })).toBeVisible()
   await expect(nav.getByRole('link', { name: 'Settings' })).toHaveCount(0)
   await organizerPage.goto(`/app/w/${state.workspaceId}/settings`)
-  await expect(organizerPage.getByText('This page isn’t available')).toBeVisible()
+  await expect(organizerPage.getByRole('heading', { name: 'This page isn’t available' })).toBeVisible()
   await organizerPage.goto(eventUrl())
-  await expect(organizerPage.getByRole('link', { name: 'Edit event' })).toBeVisible()
+  await expect(organizerPage.getByRole('link', { name: 'Edit details' })).toBeVisible()
 })
 
 test('9. organizer imports overlapping batches; totals reconcile and reversion keeps shared evidence', async () => {
@@ -326,13 +362,13 @@ test('10. duplicate makes a clean draft; cross-event history counts each event o
   await organizerPage.getByRole('link', { name: 'Duplicate' }).click()
   await expect(organizerPage.getByLabel('Title')).toHaveValue('Welcome night copy')
   await expect(organizerPage.getByLabel('Description')).toHaveCount(0)
-  await organizerPage.getByLabel('Start date').fill('2026-11-03')
+  await organizerPage.getByLabel('Start date', { exact: true }).fill('2026-11-03')
   await organizerPage.getByRole('button', { name: 'Create copy' }).click()
   await expect(organizerPage).toHaveURL(/\/events\/[0-9a-f-]{36}$/)
   state.copyEventId = organizerPage.url().match(/\/events\/([0-9a-f-]{36})$/)![1]
   expect(state.copyEventId).not.toBe(state.eventId)
   await expect(organizerPage.getByText(/^Draft ·/)).toBeVisible()
-  await expect(organizerPage.getByText('Attendance hasn’t been imported.')).toBeVisible()
+  await expect(organizerPage.getByText('Attendance hasn’t been recorded')).toBeVisible()
 
   await organizerPage.goto(`/app/w/${state.workspaceId}/events/${state.copyEventId}/tasks`)
   await expect(organizerPage.getByLabel('Status for Set up welcome desk')).toHaveValue('todo')
@@ -372,7 +408,7 @@ test('11. simultaneous edits conflict instead of silently overwriting', async ()
 
   await ownerPage.reload()
   await expect(ownerPage.getByRole('heading', { name: 'Welcome night', exact: true })).toBeVisible()
-  await expect(ownerPage.getByText('Student center')).toBeVisible()
+  await expect(ownerPage.locator('.event-header').getByText('Student center')).toBeVisible()
 })
 
 test('12. archive hides and freezes the event; restore brings the plan back', async () => {
@@ -393,7 +429,7 @@ test('12. archive hides and freezes the event; restore brings the plan back', as
   await ownerPage.getByRole('button', { name: 'Upcoming' }).click()
   await expect(ownerPage.getByRole('link', { name: 'Welcome night', exact: true })).toBeVisible()
   await ownerPage.goto(eventUrl('/run-of-show'))
-  await expect(ownerPage.getByRole('button', { name: 'Doors open' })).toBeVisible()
+  await expect(ownerPage.getByRole('button', { name: 'Edit Doors open', exact: true })).toBeVisible()
 })
 
 test('13. a task deep link with filters survives sign-out and sign-in', async () => {
@@ -418,10 +454,10 @@ test('14. another workspace cannot read this one', async ({ browser }) => {
   await expect(page).toHaveURL(/\/app\/w\/[0-9a-f-]{36}\/events/)
 
   await page.goto(eventUrl())
-  await expect(page.getByText('This page isn’t available')).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'This page isn’t available' })).toBeVisible()
   await expect(page.getByText('Welcome night')).toHaveCount(0)
   await page.goto(`/app/w/${state.workspaceId}/attendance`)
-  await expect(page.getByText('This page isn’t available')).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'This page isn’t available' })).toBeVisible()
   await outsider.close()
 })
 
@@ -435,7 +471,7 @@ test('15. removing the member revokes access on their next request and keeps his
   await expect(ownerPage.locator('.app-team-row', { hasText: MEMBER })).toHaveCount(0)
 
   await memberPage.goto(`/app/w/${state.workspaceId}/tasks`)
-  await expect(memberPage.getByText('This page isn’t available')).toBeVisible()
+  await expect(memberPage.getByRole('heading', { name: 'This page isn’t available' })).toBeVisible()
   await expect(memberPage.getByLabel('Status for Set up welcome desk')).toHaveCount(0)
 
   await ownerPage.goto(eventUrl('/tasks'))

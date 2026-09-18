@@ -1,6 +1,6 @@
 import { DateTimeRange } from '../../components/DateTimeRange'
 import { TimeZonePicker } from '../../components/TimeZonePicker'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Button, Field } from '../../components/ui'
@@ -8,7 +8,7 @@ import { createEvent, duplicateEvent, getEvent, listTeam, updateEvent } from '..
 import { toAppError } from '../../data/errors'
 import { canManageEvents, type EventRecord, type EventStatus } from '../../data/types'
 import { clearRequestKey, getRequestKey } from '../../lib/idempotency'
-import { resolveLocalDateTime, splitInZone } from '../../lib/timezone'
+import { resolveLocalDateTime, splitInZone, timeZoneLabel } from '../../lib/timezone'
 import { useCurrentWorkspace } from '../workspaces/workspaceContext'
 
 type Mode = 'new' | 'edit' | 'duplicate'
@@ -63,8 +63,9 @@ export function EventFormPage({ mode }: { mode: Mode }) {
   const endParts = initial ? splitInZone(initial.endsAt, initial.timezone) : { date: '', time: '', offset: '' }
 
   return (
-    <EventFormFields
+    <EventForm
       key={`${mode}:${workspace.id}:${eventId}`}
+      layout="page"
       mode={mode}
       workspaceId={workspace.id}
       timezoneDefault={initial?.timezone || workspace.timezone}
@@ -87,8 +88,16 @@ export function EventFormPage({ mode }: { mode: Mode }) {
   )
 }
 
-function EventFormFields({
+/**
+ * The event fields for every place an event is created or edited.
+ * `page` is a full page; `embedded` sits in the quick-create popover or the details panel.
+ * A new event asks only title, zone, and times; the rest waits for Edit details.
+ */
+export function EventForm({
   mode,
+  layout = 'page',
+  onSaved,
+  onDirtyChange,
   workspaceId,
   timezoneDefault,
   defaultTitle,
@@ -125,6 +134,10 @@ function EventFormFields({
   sourceId?: string
   members: Array<{ id: string; displayName: string }>
   onCancel: () => void
+  layout?: 'page' | 'embedded'
+  /** Replaces the default navigation to the event page after a save. */
+  onSaved?: (saved: EventRecord) => void
+  onDirtyChange?: (dirty: boolean) => void
 }) {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
@@ -142,6 +155,22 @@ function EventFormFields({
   const [status, setStatus] = useState<EventStatus>(defaultStatus)
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [busy, setBusy] = useState(false)
+  const [changingZone, setChangingZone] = useState(mode !== 'new')
+  const dirty = title !== defaultTitle || description !== defaultDescription || location !== defaultLocation
+    || timezone !== timezoneDefault || startDate !== defaultStartDate || startTime !== defaultStartTime
+    || endDate !== defaultEndDate || endTime !== defaultEndTime || lead !== defaultLead || status !== defaultStatus
+
+  useEffect(() => { onDirtyChange?.(dirty) }, [dirty, onDirtyChange])
+
+  // Range errors describe the times that were submitted; they stop showing once those change.
+  const rangeKey = [startDate, startTime, endDate, endTime, startOffset, endOffset, timezone].join('|')
+  const [errorsFor, setErrorsFor] = useState(rangeKey)
+  const rangeErrors = errorsFor === rangeKey
+  function showErrors(next: Record<string, string>) {
+    setErrors(next)
+    setErrorsFor(rangeKey)
+  }
+
   const headings = useMemo(
     () => ({ new: 'New event', edit: 'Edit event', duplicate: 'Duplicate event' }),
     [],
@@ -181,11 +210,11 @@ function EventFormFields({
     event.preventDefault()
     const resolved = resolveRange()
     if ('error' in resolved && resolved.error) {
-      setErrors(resolved.error)
+      showErrors(resolved.error)
       return
     }
     if ('ambiguous' in resolved && resolved.ambiguous) {
-      setErrors({
+      showErrors({
         [resolved.ambiguous === 'start' ? 'startsAt' : 'endsAt']:
           'This time happens twice. Choose which offset to use.',
       })
@@ -209,7 +238,9 @@ function EventFormFields({
         })
         clearRequestKey(`create_event:${workspaceId}`)
         rememberSaved(created)
-        navigate(`/app/w/${workspaceId}/events/${created.id}`)
+        if (onSaved) onSaved(created)
+        // Land in the first Before row: the next step for a new event is its to-dos.
+        else navigate(`/app/w/${workspaceId}/events/${created.id}`, { state: { focus: 'before' } })
       } else if (mode === 'duplicate' && sourceId) {
         const created = await duplicateEvent({
           workspaceId,
@@ -222,7 +253,8 @@ function EventFormFields({
         })
         clearRequestKey(`duplicate_event:${sourceId}`)
         rememberSaved(created)
-        navigate(`/app/w/${workspaceId}/events/${created.id}`)
+        if (onSaved) onSaved(created)
+        else navigate(`/app/w/${workspaceId}/events/${created.id}`)
       } else if (sourceId) {
         const updated = await updateEvent({
           workspaceId,
@@ -238,32 +270,25 @@ function EventFormFields({
           expectedVersion: version,
         })
         rememberSaved(updated)
-        navigate(`/app/w/${workspaceId}/events/${updated.id}`)
+        if (onSaved) onSaved(updated)
+        else navigate(`/app/w/${workspaceId}/events/${updated.id}`)
       }
     } catch (caught) {
       const appError = toAppError(caught)
-      setErrors({ form: appError.message, ...appError.fields })
+      // A message already shown beside its field isn't repeated under the form.
+      const shownOnField = Object.values(appError.fields).includes(appError.message)
+      showErrors({ ...(shownOnField ? {} : { form: appError.message }), ...appError.fields })
     } finally {
       setBusy(false)
     }
   }
 
-
-  return (
-    <div className="app-page app-page-narrow">
-      <Link to={`/app/w/${workspaceId}/events`}>Events</Link>
-      <h1 className="app-h1">{headings[mode]}</h1>
-      {mode === 'duplicate' ? (
-        <p className="app-lede">
-          The copy starts as a Draft with the original description, location, task titles and notes, and schedule shifted to
-          the new start. Tasks reset to Todo and unassigned. Attendance is not copied. Edit the copy after creating it.
-        </p>
-      ) : null}
-      <form onSubmit={onSubmit}>
+  const form = (
+    <form onSubmit={onSubmit} className={layout === 'embedded' ? 'event-form-embedded' : undefined}>
         <Field label="Title" error={errors.title}>
           <input className="app-input" value={title} maxLength={120} required onChange={(event) => setTitle(event.target.value)} />
         </Field>
-        {mode !== 'duplicate' ? (
+        {mode === 'edit' ? (
           <>
             <Field label="Description">
               <textarea className="app-textarea" value={description} maxLength={2000} onChange={(event) => setDescription(event.target.value)} />
@@ -273,15 +298,25 @@ function EventFormFields({
             </Field>
           </>
         ) : null}
-        <Field label="Time zone" error={errors.timezone} hint="Enter all dates and times in this zone. Changing it keeps the clock times you entered.">
+        {changingZone ? (
+          <Field label="Time zone" error={errors.timezone} hint="Enter all dates and times in this zone. Changing it keeps the clock times you entered.">
             <TimeZonePicker value={timezone} onChange={(zone) => { setTimezone(zone); setStartOffset(undefined); setEndOffset(undefined) }} />
-        </Field>
+          </Field>
+        ) : (
+          <p className="app-meta event-form-zone">
+            Times in {timeZoneLabel(timezone, new Date().toISOString())}.{' '}
+            <button type="button" className="app-link-button" onClick={() => setChangingZone(true)}>Change</button>
+          </p>
+        )}
         <DateTimeRange startDate={startDate} endDate={endDate} startTime={startTime} endTime={endTime}
-          startOffset={startOffset} endOffset={endOffset} timezone={timezone} onStartDate={setStartDate} onEndDate={setEndDate} onStartTime={setStartTime} onEndTime={setEndTime} onStartOffset={setStartOffset} onEndOffset={setEndOffset} startError={errors.startsAt} endError={errors.endsAt} />
-        {mode !== 'duplicate' ? (
+          startOffset={startOffset} endOffset={endOffset} timezone={timezone} onStartDate={setStartDate} onEndDate={setEndDate} onStartTime={setStartTime} onEndTime={setEndTime} onStartOffset={setStartOffset} onEndOffset={setEndOffset} startError={rangeErrors ? errors.startsAt : undefined} endError={rangeErrors ? errors.endsAt : undefined} />
+        {mode === 'edit' ? (
           <Field label="Lead">
             <select className="app-select" value={lead} onChange={(event) => setLead(event.target.value)}>
               <option value="">Unassigned</option>
+              {/* A removed lead stays visible but can't be picked again. */}
+              {defaultLead && members.length > 0 && !members.some((member) => member.id === defaultLead)
+                ? <option value={defaultLead} disabled={lead !== defaultLead}>Former member</option> : null}
               {members.map((member) => (
                 <option key={member.id} value={member.id}>
                   {member.displayName}
@@ -303,7 +338,7 @@ function EventFormFields({
         {mode === 'edit' ? (
           <p className="app-meta">Changing the start or zone does not move existing schedule times. Review Run of show after saving.</p>
         ) : null}
-        {errors.form ? <p className="app-error-text">{errors.form}</p> : null}
+        {errors.form && rangeErrors ? <p className="app-error-text">{errors.form}</p> : null}
         <div className="app-toolbar">
           <Button type="submit" busy={busy}>
             {mode === 'new' ? 'Create event' : mode === 'duplicate' ? 'Create copy' : 'Save'}
@@ -313,6 +348,21 @@ function EventFormFields({
           </Button>
         </div>
       </form>
+  )
+  if (layout === 'embedded') return form
+
+  return (
+    <div className="app-page app-page-narrow">
+      <Link to={`/app/w/${workspaceId}/events`}>Events</Link>
+      <h1 className="app-h1">{headings[mode]}</h1>
+      {mode === 'new' ? <p className="app-lede">Add a title and times. Location, lead, and details can wait for Edit details.</p> : null}
+      {mode === 'duplicate' ? (
+        <p className="app-lede">
+          The copy starts as a Draft with the original description, location, task titles and notes, and schedule shifted to
+          the new start. Tasks reset to Todo and unassigned. Attendance is not copied. Edit the copy after creating it.
+        </p>
+      ) : null}
+      {form}
     </div>
   )
 }

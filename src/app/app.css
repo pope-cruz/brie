@@ -911,3 +911,16 @@
   .brie-app .todo-row-status:not(:empty) { padding-left: 32px; }
   .brie-app .todo-sheet { width: 100%; height: 100%; }
 }
+
+/* Quick create and details panel */
+.brie-app .event-quick-popover { width: min(380px, calc(100vw - 32px)); max-height: calc(100vh - 96px); overflow-y: auto; padding: 16px; }
+.brie-app .event-quick-popover > .app-section-title { margin: 0 0 12px; }
+.brie-app .event-form-embedded .app-toolbar { margin-top: 8px; }
+.brie-app .event-form-zone { margin: 0 0 12px; }
+.brie-app .app-link-button { padding: 0; border: 0; background: none; color: var(--app-ink); font: inherit; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.brie-app .event-details-panel { width: min(400px, 100%); max-width: none; }
+.brie-app .event-discard { margin-top: 12px; }
+@media (max-width: 767px) {
+  .brie-app .event-details-panel,
+  .brie-app .event-quick-sheet { width: 100%; height: 100%; max-height: none; }
+}

@@ -24,12 +24,12 @@ let root: Root
 let client: QueryClient
 let router: ReturnType<typeof createMemoryRouter>
 async function flush() { await act(async () => { await new Promise((resolve) => setTimeout(resolve, 20)) }) }
-async function mount(search = '') {
+async function mount(search = '', historyState?: unknown) {
   const context = {
     workspace: { id: 'workspace', role: state.role, membershipId: 'me' },
     event: { id: 'event', title: 'Welcome night', timezone: 'America/New_York', archivedAt: state.archivedAt },
   }
-  router = createMemoryRouter([{ path: '/', element: createElement(Outlet, { context }), children: [{ index: true, element: createElement(EventTasksPage) }] }], { initialEntries: [`/${search}#before`] })
+  router = createMemoryRouter([{ path: '/', element: createElement(Outlet, { context }), children: [{ index: true, element: createElement(EventTasksPage) }] }], { initialEntries: [{ pathname: '/', search, hash: '#before', state: historyState }] })
   await act(async () => root.render(createElement(QueryClientProvider, { client }, createElement(RouterProvider, { router }))))
   await flush()
 }
@@ -130,6 +130,14 @@ describe('Before add row', () => {
     expect(host.textContent).toContain('Added 1 of 3. “Two” didn’t save')
     await click(button('Retry remaining (2)'))
     expect(api.saveTask.mock.calls.map(([call]) => call.title)).toEqual(['One', 'Two', 'Two', 'Three'])
+  })
+})
+
+describe('Before after quick create', () => {
+  it('puts focus in the add row of a just-created event', async () => {
+    rows = []
+    await mount('', { focus: 'before' })
+    expect(document.activeElement).toBe(field('New to-do'))
   })
 })
 

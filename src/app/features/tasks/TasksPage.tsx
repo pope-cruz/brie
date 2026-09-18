@@ -67,6 +67,8 @@ export function EventTasksPage() {
   const params = new URLSearchParams(location.search)
   const mine = params.get('todos') === 'mine'
   const focusId = params.get('task')
+  // A just-created event opens here: start typing its first to-do.
+  const focusBefore = (location.state as { focus?: string } | null)?.focus === 'before'
   const archived = Boolean(event.archivedAt)
   const manage = canManageEvents(workspace.role) && !archived
   const today = eventLocalDate(new Date().toISOString(), event.timezone)
@@ -159,7 +161,7 @@ export function EventTasksPage() {
           <button type="button" aria-pressed={!mine} onClick={() => setWho('everyone')}>Everyone</button>
           <button type="button" aria-pressed={mine} onClick={() => setWho('mine')}>Mine</button>
         </div>
-        {manage && narrow ? <Button onClick={() => setSheet('new')}>Add to-do</Button> : null}
+        {manage && narrow ? <Button autoFocus={focusBefore} onClick={() => setSheet('new')}>Add to-do</Button> : null}
       </div>
 
       {undo ? (
@@ -183,7 +185,7 @@ export function EventTasksPage() {
         <div className="todo-list" role="list" aria-label="To-dos">
           {inline ? <div className="todo-head" aria-hidden="true"><span /><span>To-do</span><span>Date</span><span>Person</span><span /></div> : null}
           {open.map(renderRow)}
-          {inline ? <AddRow ctx={ctx} onSaved={saved} /> : null}
+          {inline ? <AddRow ctx={ctx} onSaved={saved} autoFocus={focusBefore} /> : null}
         </div>
       ) : null}
       {inline ? <p className="ros-add-hint">Type a date like <kbd>fri</kbd> or <kbd>10/17</kbd>. Enter saves; paste several lines to add several to-dos.</p> : null}
@@ -427,7 +429,7 @@ function ReadRow({ ctx, task, startOpen, archived, onOpen, onSaved, onRefresh }:
   )
 }
 
-function AddRow({ ctx, onSaved }: { ctx: Ctx; onSaved: (task: TaskRecord) => void }) {
+function AddRow({ ctx, onSaved, autoFocus = false }: { ctx: Ctx; onSaved: (task: TaskRecord) => void; autoFocus?: boolean }) {
   const blank: Draft = { title: '', date: '', assignee: '', notes: '' }
   const [draft, setDraft] = useState(blank)
   const [busy, setBusy] = useState(false)
@@ -435,7 +437,7 @@ function AddRow({ ctx, onSaved }: { ctx: Ctx; onSaved: (task: TaskRecord) => voi
   const [paste, setPaste] = useState<string[] | null>(null)
   const [batch, setBatch] = useState<{ id: string; lines: string[]; next: number } | null>(null)
   const titleRef = useRef<HTMLInputElement>(null)
-  const [refocus, setRefocus] = useState(0)
+  const [refocus, setRefocus] = useState(autoFocus ? 1 : 0)
   const scope = `save_task:${ctx.event.id}`
 
   // The title is disabled while saving; focus it once it is typeable again.

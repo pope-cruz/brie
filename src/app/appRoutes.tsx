@@ -8,7 +8,7 @@ import { ImportPage } from './features/attendance/ImportPage'
 import { PersonPage } from './features/attendance/PersonPage'
 import { ReceiptPage } from './features/attendance/ReceiptPage'
 import { EventFormPage } from './features/events/EventFormPage'
-import { EventLayout, EventSectionRedirect } from './features/events/EventLayout'
+import { EditDetailsRedirect, EventLayout, EventSectionRedirect } from './features/events/EventLayout'
 import { EventListPage } from './features/events/EventListPage'
 import { EventPage } from './features/events/EventPage'
 import { AppHome } from './features/workspaces/AppHome'
@@ -19,10 +19,6 @@ import { SettingsPage } from './features/workspaces/SettingsPage'
 
 function NewEventPage() {
   return <EventFormPage mode="new" />
-}
-
-function EditEventPage() {
-  return <EventFormPage mode="edit" />
 }
 
 function DuplicateEventPage() {
@@ -65,7 +61,7 @@ export const appChildren = [
       { path: 'home', Component: HomePage },
       { path: 'events', Component: EventListPage },
       { path: 'events/new', Component: NewEventPage },
-      { path: 'events/:eventId/edit', Component: EditEventPage },
+      { path: 'events/:eventId/edit', Component: EditDetailsRedirect },
       { path: 'events/:eventId/duplicate', Component: DuplicateEventPage },
       {
         path: 'events/:eventId',

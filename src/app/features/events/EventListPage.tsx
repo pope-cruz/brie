@@ -6,6 +6,7 @@ import { archiveEvent, listEvents, restoreEvent } from '../../data/api'
 import { toAppError } from '../../data/errors'
 import { canManageEvents, statusLabel, type EventRecord } from '../../data/types'
 import { formatTimeRange } from '../../lib/timezone'
+import { QuickCreateButton } from './EventPanels'
 import { useCurrentWorkspace } from '../workspaces/workspaceContext'
 import { SEARCH_DEBOUNCE_MS } from '../../lib/search'
 import { useDebouncedValue } from '../../lib/useDebouncedValue'
@@ -77,11 +78,7 @@ export function EventListPage() {
           <h1 className="app-h1">Events</h1>
           <p className="app-lede">{workspace.name}</p>
         </div>
-        {canManageEvents(workspace.role) ? (
-          <Link className="app-btn app-btn-primary" to={`/app/w/${workspace.id}/events/new`}>
-            New event
-          </Link>
-        ) : null}
+        {canManageEvents(workspace.role) ? <QuickCreateButton workspace={workspace} /> : null}
       </div>
       <div className="app-toolbar">
         {filters.map((item) => (

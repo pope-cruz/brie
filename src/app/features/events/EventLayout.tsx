@@ -1,4 +1,4 @@
-import { Link, Navigate, NavLink, Outlet, useLocation, useParams } from 'react-router-dom'
+import { Link, Navigate, NavLink, Outlet, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { getEvent } from '../../data/api'
 import { toAppError } from '../../data/errors'
@@ -6,12 +6,14 @@ import { canManageEvents, statusLabel } from '../../data/types'
 import { formatTimeRange, timeZoneLabel } from '../../lib/timezone'
 import { ErrorRetry } from '../../components/ui'
 import { useCurrentWorkspace } from '../workspaces/workspaceContext'
+import { DetailsPanel } from './EventPanels'
 import type { EventSectionId } from '../../lib/eventPhase'
 
 export function EventLayout() {
   const workspace = useCurrentWorkspace()
   const { eventId = '' } = useParams()
   const location = useLocation()
+  const navigate = useNavigate()
   const event = useQuery({
     queryKey: ['event', workspace.id, eventId],
     queryFn: () => getEvent(workspace.id, eventId),
@@ -43,6 +45,16 @@ export function EventLayout() {
   const subpage = location.pathname.replace(/\/$/, '') !== base
   const manage = canManageEvents(workspace.role) && !event.data.archivedAt
   const lead = event.data.leadFormer ? 'Former member' : event.data.leadName
+  const detailsOpen = manage && !subpage && new URLSearchParams(location.search).get('details') === '1'
+
+  function setDetails(open: boolean) {
+    const params = new URLSearchParams(location.search)
+    if (open) params.set('details', '1')
+    else params.delete('details')
+    const search = params.toString()
+    navigate({ search: search ? `?${search}` : '', hash: location.hash }, { replace: true, preventScrollReset: true, state: location.state })
+  }
+
   return (
     <div className="app-page">
       <p className="app-meta app-event-breadcrumb">
@@ -57,7 +69,7 @@ export function EventLayout() {
           {manage && !subpage ? (
             <div className="app-toolbar">
               <Link className="app-btn app-btn-quiet" to={`${base}/duplicate`}>Duplicate</Link>
-              <Link className="app-btn app-btn-secondary" to={`${base}/edit`}>Edit details</Link>
+              <button type="button" className="app-btn app-btn-secondary" onClick={() => setDetails(true)}>Edit details</button>
             </div>
           ) : null}
         </div>
@@ -75,11 +87,18 @@ export function EventLayout() {
         {event.data.status === 'canceled' ? <div className="app-banner">This event is canceled. Previously recorded attendance stays in history.</div> : null}
       </header>
       <Outlet context={{ workspace, event: event.data }} />
+      {detailsOpen ? <DetailsPanel workspace={workspace} event={event.data} onClose={() => setDetails(false)} /> : null}
     </div>
   )
 }
 
 /** Sends a former tab URL to its section on the event page, keeping filters and open panels. */
+/** The old full-page editor URL opens the details panel on the event page. */
+export function EditDetailsRedirect() {
+  const { workspaceId = '', eventId = '' } = useParams()
+  return <Navigate replace to={{ pathname: `/app/w/${workspaceId}/events/${eventId}`, search: '?details=1' }} />
+}
+
 export function EventSectionRedirect({ section }: { section: EventSectionId }) {
   const { workspaceId = '', eventId = '' } = useParams()
   const location = useLocation()

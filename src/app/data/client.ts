@@ -26,10 +26,24 @@ export function getSupabase(): SupabaseClient {
   return client
 }
 
+/**
+ * PostgREST reads the time from a clock it refreshes about once a second, so a token
+ * signed in the current second can look "issued at future" for up to a second right after
+ * sign-in or refresh. The token is rejected before any SQL runs, so retrying is safe for writes.
+ */
+const CLOCK_SKEW = /JWT issued at future/i
+export const CLOCK_SKEW_RETRY_MS = 1100
+
 export async function rpc<T>(fn: string, args: Record<string, unknown> = {}): Promise<T> {
-  const { data, error } = await getSupabase().rpc(fn, args)
-  if (error) throw toAppError(error)
-  return data as T
+  for (let attempt = 0; ; attempt += 1) {
+    const { data, error } = await getSupabase().rpc(fn, args)
+    if (!error) return data as T
+    if (attempt < 2 && CLOCK_SKEW.test(error.message ?? '')) {
+      await new Promise((resolve) => setTimeout(resolve, CLOCK_SKEW_RETRY_MS))
+      continue
+    }
+    throw toAppError(error)
+  }
 }
 
 export async function requireUserId(): Promise<string> {

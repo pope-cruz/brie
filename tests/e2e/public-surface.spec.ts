@@ -1,6 +1,7 @@
 import { mkdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { expect, test, type Page } from '@playwright/test'
+import { uniqueEmail } from './helpers/auth'
 
 // Landing and sign-in acceptance from DESIGN.md: five viewports, 200% zoom,
 // reduced motion, keyboard access, focus, contrast, and unauthenticated routing.
@@ -109,7 +110,9 @@ test.describe('sign-in surface', () => {
   test('focuses the email field, submits with the keyboard, and keeps the address on failure', async ({ page }) => {
     await page.goto('/app/sign-in')
     await expect(page.getByLabel('Email')).toBeFocused()
-    await page.keyboard.type('keyboard@example.test')
+    // A fresh address each run: Auth allows one code per address per minute.
+    const email = uniqueEmail('keyboard')
+    await page.keyboard.type(email)
     await page.keyboard.press('Enter')
     // With a live stack the code step appears; without one the send fails
     // with an actionable inline error and the address is kept for retry.
@@ -121,7 +124,7 @@ test.describe('sign-in surface', () => {
       }, { timeout: 15_000 })
       .not.toBe('pending')
     if (await page.getByText('Couldn’t send your code').isVisible()) {
-      await expect(page.getByLabel('Email')).toHaveValue('keyboard@example.test')
+      await expect(page.getByLabel('Email')).toHaveValue(email)
       await expect(page.getByLabel('Email')).toHaveAttribute('aria-invalid', 'true')
       await expect(page.getByRole('button', { name: 'Send code' })).toBeEnabled()
     }

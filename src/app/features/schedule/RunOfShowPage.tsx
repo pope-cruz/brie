@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent } from
 import { useLocation, useNavigate, useOutletContext } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Popover, PopoverContent, PopoverTrigger } from '../../components/shadcn/popover'
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '../../components/shadcn/sheet'
 import { Button, ConfirmDialog, EmptyState, ErrorRetry, SkeletonRows } from '../../components/ui'
 import { listSegments, listTeam, removeSegment, restoreSegment, saveSegment, saveTeamBriefing } from '../../data/api'
 import type { WorkspaceSummary } from '../../data/api'
@@ -12,6 +13,9 @@ import { buildRunOfShowDoc, downloadRunOfShowPdf, pdfFileName } from '../../lib/
 import { byTime, dayLabel, filterSchedule, ownerLabel, readStoredWho, resolveWho, rowTimeLabel, scheduleMarks, storeWho, type Who } from '../../lib/scheduleView'
 import { clockToMinutes, formatClock, formatDuration, minutesToClock, parseDurationInput, parseTimeInput } from '../../lib/timeInput'
 import { addMs, eventLocalDate, resolveLocalDateTime, splitInZone } from '../../lib/timezone'
+import { layoutCalendar } from '../../lib/calendarLayout'
+import { useNarrow } from '../../lib/useNarrow'
+import { CalendarView, type EmptySlot } from './CalendarView'
 
 type MemberOption = { id: string; displayName: string }
 
@@ -104,6 +108,8 @@ export function RunOfShowPage() {
   const [deleteBusy, setDeleteBusy] = useState(false)
   const [actionError, setActionError] = useState<string | null>(null)
   const [toast, setToast] = useState<string | null>(null)
+  const [panel, setPanel] = useState<{ key: number; segment?: SegmentRecord; initial?: Draft } | null>(null)
+  const narrow = useNarrow()
   const manage = canManageEvents(workspace.role) && !event.archivedAt
   const segments = useQuery({
     queryKey: ['segments', workspace.id, event.id],
@@ -122,13 +128,34 @@ export function RunOfShowPage() {
   const days = eventDays(event)
   const multiDay = days.length > 1
   const last = visible.at(-1)
+  const search = new URLSearchParams(location.search)
+  // The calendar is for desktop and tablet; phones always get the list.
+  const calendar = !narrow && search.get('view') === 'calendar'
+  const byPerson = search.get('cols') === 'people'
+
+  function setParams(patch: Record<string, string | null>) {
+    const params = new URLSearchParams(location.search)
+    for (const [key, value] of Object.entries(patch)) {
+      if (value === null) params.delete(key)
+      else params.set(key, value)
+    }
+    const next = params.toString()
+    // Keep the section hash so the page stays on Day of.
+    navigate({ search: next ? `?${next}` : '', hash: location.hash }, { replace: true, preventScrollReset: true })
+  }
 
   function chooseWho(next: Who) {
     storeWho(workspace.id, next)
-    const params = new URLSearchParams(location.search)
-    params.set('who', next)
-    // Keep the section hash so the page stays on Day of.
-    navigate({ search: `?${params}`, hash: location.hash }, { replace: true, preventScrollReset: true })
+    setParams({ who: next })
+  }
+
+  function openNewAt(slot: EmptySlot) {
+    const day = slot.minute >= 24 * 60 ? nextDay(slot.day) : slot.day
+    setToast(null)
+    setPanel((current) => ({
+      key: (current?.key ?? 0) + 1,
+      initial: blankDraft(event, undefined, { day, start: formatClock(slot.minute % (24 * 60)), ownerMembershipId: slot.personId ?? '' }),
+    }))
   }
 
   function refresh() {
@@ -179,6 +206,18 @@ export function RunOfShowPage() {
             {people.map((member) => <option key={member.id} value={member.id}>{member.displayName}</option>)}
           </select>
         </label>
+        {!narrow ? (
+          <div className="ros-view" role="group" aria-label="View">
+            <button type="button" aria-pressed={!calendar} onClick={() => setParams({ view: null })}>List</button>
+            <button type="button" aria-pressed={calendar} onClick={() => setParams({ view: 'calendar' })}>Calendar</button>
+          </div>
+        ) : null}
+        {calendar ? (
+          <label className="ros-by-person">
+            <input type="checkbox" checked={byPerson} onChange={(change) => setParams({ cols: change.target.checked ? 'people' : null })} />
+            Column per person
+          </label>
+        ) : null}
         <DownloadPdf workspace={workspace} event={event} all={all} members={members} current={who} showDates={multiDay} />
       </div>
 
@@ -198,7 +237,23 @@ export function RunOfShowPage() {
         <p className="ros-empty-copy">Build the schedule for event day. Include setup, program, and cleanup.</p>
       ) : null}
 
-      {segments.data && (visible.length > 0 || manage) ? (
+      {segments.data && calendar && (visible.length > 0 || manage) ? (
+        <div className="ros-calendar-wrap">
+          {manage ? (
+            <div className="ros-calendar-actions">
+              <Button variant="secondary" onClick={() => openNewAt({ day: last ? splitInZone(last.endsAt, event.timezone).date : days[0], minute: localMinutes(last?.endsAt ?? event.startsAt, event.timezone), personId: null })}>Add item</Button>
+              <span className="app-meta">Or click empty time in the grid.</span>
+            </div>
+          ) : null}
+          <CalendarView
+            layout={layoutCalendar(visible, { timezone: event.timezone, days, byPerson, people: members })}
+            showDayHeads={multiDay} marks={marks} ownerName={(segment) => ownerLabel(segment, members)}
+            onOpen={(segment) => { setToast(null); setPanel((current) => ({ key: (current?.key ?? 0) + 1, segment })) }}
+            onAddAt={manage ? openNewAt : undefined} />
+        </div>
+      ) : null}
+
+      {segments.data && !calendar && (visible.length > 0 || manage) ? (
         <div className="ros-table-wrap">
           <table className="ros-schedule-table">
             <colgroup><col className="ros-col-time" /><col className="ros-col-activity" /><col className="ros-col-owner" /><col className="ros-col-notes" />{manage ? <col className="ros-col-actions" /> : null}</colgroup>
@@ -237,6 +292,14 @@ export function RunOfShowPage() {
               finally { await refresh() }
             }}>Restore</Button></div>)}
         </details>
+      ) : null}
+
+      {panel ? (
+        <ItemPanel key={panel.key} event={event} workspace={workspace} members={members} days={days} manage={manage}
+          segment={panel.segment} initial={panel.initial ?? (panel.segment ? draftFromSegment(panel.segment, event.timezone) : blankDraft(event))}
+          siblings={all} onClose={() => setPanel(null)}
+          onSaved={async (saved) => { setPanel(null); setToast(panel.segment ? 'Changes saved.' : `Added “${saved.title}”.`); await refresh() }}
+          onRemove={(segment) => { setPanel(null); setDeleting(segment) }} />
       ) : null}
 
       {deleting ? <ConfirmDialog title={`Remove “${deleting.title}”?`} body="It will leave the schedule, but you can restore it from Removed items."
@@ -292,32 +355,27 @@ function ReadRow({ segment, event, members, manage, showDates, mark, gapMinutes,
   </tr>
 }
 
-function EditorRow({ mode, event, workspace, members, days, segment, initial, siblings, focus, onCancel, onSaved }: {
+type EditorInput = {
   mode: 'add' | 'edit'
   event: EventRecord
   workspace: WorkspaceSummary
-  members: MemberOption[]
   days: string[]
   segment?: SegmentRecord
   initial: Draft
   siblings: SegmentRecord[]
-  focus: boolean
-  onCancel: () => void
   onSaved: (saved: SegmentRecord) => void | Promise<void>
-}) {
+}
+
+/** Typed start, length, and fields for one schedule item; shared by the list row and the item panel. */
+function useSegmentEditor({ mode, event, workspace, days, segment, initial, siblings, onSaved }: EditorInput) {
   const [draft, setDraft] = useState(initial)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const titleRef = useRef<HTMLInputElement>(null)
   const label = mode === 'add' ? 'new item' : segment!.title
   // A bare "6" means whichever of 6 AM or 6 PM is nearer the row's starting point.
   const [reference] = useState(() => parseTimeInput(initial.start) ?? localMinutes(event.startsAt, event.timezone))
   const [baseline] = useState(initial)
   const dirty = JSON.stringify(draft) !== JSON.stringify(baseline)
-
-  useLayoutEffect(() => {
-    if (focus) titleRef.current?.focus()
-  }, [focus])
 
   const startMinutes = parseTimeInput(draft.start, reference)
   const lengthMinutes = parseDurationInput(draft.length)
@@ -363,6 +421,22 @@ function EditorRow({ mode, event, workspace, members, days, segment, initial, si
       setBusy(false)
     }
   }
+
+  return { draft, update, busy, error, dirty, label, startMinutes, lengthMinutes, resolution, endIso, endsNextDay, overlap, outside, dayOptions, save }
+}
+
+function EditorRow({ mode, event, workspace, members, days, segment, initial, siblings, focus, onCancel, onSaved }: EditorInput & {
+  members: MemberOption[]
+  focus: boolean
+  onCancel: () => void
+}) {
+  const editor = useSegmentEditor({ mode, event, workspace, days, segment, initial, siblings, onSaved })
+  const { draft, update, busy, error, dirty, label, startMinutes, lengthMinutes, resolution, endIso, endsNextDay, overlap, outside, dayOptions, save } = editor
+  const titleRef = useRef<HTMLInputElement>(null)
+
+  useLayoutEffect(() => {
+    if (focus) titleRef.current?.focus()
+  }, [focus])
 
   function cancel() {
     if (mode === 'add' && !dirty) return
@@ -487,6 +561,115 @@ function DownloadPdf({ workspace, event, all, members, current, showDates }: {
       </PopoverContent>
     </Popover>
   )
+}
+
+/** One schedule item from the calendar: its editor for organizers, its full text for everyone else. */
+function ItemPanel({ event, workspace, members, days, manage, segment, initial, siblings, onClose, onSaved, onRemove }: {
+  event: EventRecord
+  workspace: WorkspaceSummary
+  members: MemberOption[]
+  days: string[]
+  manage: boolean
+  segment?: SegmentRecord
+  initial: Draft
+  siblings: SegmentRecord[]
+  onClose: () => void
+  onSaved: (saved: SegmentRecord) => void | Promise<void>
+  onRemove: (segment: SegmentRecord) => void
+}) {
+  return (
+    <Sheet open onOpenChange={(open) => { if (!open) onClose() }}>
+      <SheetContent className="app-task-sheet ros-item-panel" showCloseButton={false}>
+        {manage
+          ? <ItemEditor event={event} workspace={workspace} members={members} days={days} segment={segment} initial={initial} siblings={siblings} onClose={onClose} onSaved={onSaved} onRemove={onRemove} />
+          : segment ? <ItemReader event={event} segment={segment} members={members} onClose={onClose} /> : null}
+      </SheetContent>
+    </Sheet>
+  )
+}
+
+function ItemReader({ event, segment, members, onClose }: { event: EventRecord; segment: SegmentRecord; members: MemberOption[]; onClose: () => void }) {
+  const time = rowTimeLabel(segment, event, true)
+  return <>
+    <SheetHeader>
+      <div className="app-header-row"><SheetTitle>{segment.title}</SheetTitle><Button variant="quiet" onClick={onClose}>Close</Button></div>
+      <SheetDescription>{time.date} · {time.range}</SheetDescription>
+    </SheetHeader>
+    <div className="app-panel-body">
+      <p className="app-meta">{ownerLabel(segment, members) ?? 'Everyone'}</p>
+      <p className="ros-readable-notes">{segment.instructions || 'No notes.'}</p>
+    </div>
+  </>
+}
+
+function ItemEditor({ event, workspace, members, days, segment, initial, siblings, onClose, onSaved, onRemove }: Omit<EditorInput, 'mode'> & {
+  members: MemberOption[]
+  onClose: () => void
+  onRemove: (segment: SegmentRecord) => void
+}) {
+  const mode = segment ? 'edit' : 'add'
+  const { draft, update, busy, error, dirty, label, startMinutes, resolution, endIso, endsNextDay, overlap, outside, dayOptions, save } =
+    useSegmentEditor({ mode, event, workspace, days, segment, initial, siblings, onSaved })
+  const [discard, setDiscard] = useState(false)
+  const close = () => (dirty ? setDiscard(true) : onClose())
+  return <>
+    <SheetHeader>
+      <div className="app-header-row">
+        <SheetTitle>{segment ? 'Edit item' : 'Add item'}</SheetTitle>
+        <Button variant="quiet" disabled={busy} onClick={close}>Close</Button>
+      </div>
+      <SheetDescription>{event.title}</SheetDescription>
+    </SheetHeader>
+    <form className="app-panel-body ros-item-form" onSubmit={(submit) => { submit.preventDefault(); void save() }}
+      onKeyDown={(key) => { if (key.key === 'Escape') { key.preventDefault(); key.stopPropagation(); close() } }}>
+      <div className="ros-when">
+        {dayOptions.length > 1 ? (
+          <select className="ros-when-day" aria-label={`Day for ${label}`} value={draft.day} disabled={busy} onChange={(change) => update({ day: change.target.value, offset: '' })}>
+            {dayOptions.map((day) => <option key={day} value={day}>{dayLabel(day)}</option>)}
+          </select>
+        ) : null}
+        <input className="ros-when-start" aria-label={`Start for ${label}`} value={draft.start} placeholder="6:30 PM" disabled={busy} autoComplete="off"
+          onChange={(change) => update({ start: change.target.value, offset: '' })}
+          onBlur={() => { if (startMinutes !== null) update({ start: formatClock(startMinutes) }) }} />
+        <input className="ros-when-length" aria-label={`Length for ${label}`} value={draft.length} placeholder="30 min" disabled={busy} autoComplete="off"
+          onChange={(change) => update({ length: change.target.value })} />
+        {resolution && !resolution.ok && resolution.reason === 'ambiguous' ? (
+          <select aria-label={`Which ${formatClock(startMinutes!)}`} value={draft.offset} onChange={(change) => update({ offset: change.target.value })}>
+            <option value="">Which one?</option>
+            {resolution.options.map((option, index) => <option key={option.iso} value={option.offset}>{index === 0 ? 'First' : 'Second'} (UTC{option.offset})</option>)}
+          </select>
+        ) : null}
+      </div>
+      <span className="ros-when-end" aria-live="polite">{endIso ? `Ends ${formatClock(localMinutes(endIso, event.timezone))}${endsNextDay ? ' next day' : ''}` : ' '}</span>
+      <label className="app-field"><span className="app-label">Activity</span>
+        <input className="app-input" aria-label={`Activity for ${label}`} value={draft.title} maxLength={120} disabled={busy} autoFocus={!segment}
+          onChange={(change) => update({ title: change.target.value })} /></label>
+      <label className="app-field"><span className="app-label">Person</span>
+        <select className="app-select" aria-label={`Owner for ${label}`} value={draft.ownerMembershipId} disabled={busy} onChange={(change) => update({ ownerMembershipId: change.target.value })}>
+          <option value="">Everyone</option>
+          {segment?.ownerFormer && draft.ownerMembershipId === segment.ownerMembershipId ? <option value={draft.ownerMembershipId}>Former member</option> : null}
+          {members.map((member) => <option key={member.id} value={member.id}>{member.displayName}</option>)}
+        </select></label>
+      <label className="app-field"><span className="app-label">Notes</span>
+        <textarea className="app-textarea" aria-label={`Notes for ${label}`} value={draft.notes} maxLength={4000} disabled={busy} onChange={(change) => update({ notes: change.target.value })} /></label>
+      {error ? <p className="app-error-text" role="alert">{error}</p> : null}
+      {!error && overlap ? <p className="ros-timing-note">Overlaps another item. You can still save it.</p> : null}
+      {!error && outside ? <p className="ros-timing-note">Outside event hours. Fine for setup and cleanup.</p> : null}
+      {discard ? <div role="alert" className="app-banner">
+        <p>Discard your changes?</p>
+        <div className="app-toolbar">
+          <Button type="button" variant="secondary" onClick={() => setDiscard(false)}>Keep editing</Button>
+          <Button type="button" variant="danger" onClick={onClose}>Discard</Button>
+        </div>
+      </div> : null}
+      <button type="submit" hidden aria-hidden="true" tabIndex={-1} />
+    </form>
+    <div className="app-panel-footer">
+      {segment ? <Button variant="quiet" disabled={busy} onClick={() => onRemove(segment)}>Remove</Button> : null}
+      <Button variant="secondary" disabled={busy} onClick={close}>Cancel</Button>
+      <Button busy={busy} busyLabel="Saving…" onClick={() => void save()}>{segment ? 'Save' : 'Add'}</Button>
+    </div>
+  </>
 }
 
 function TeamBriefing({ workspace, event, manage }: { workspace: WorkspaceSummary; event: EventRecord; manage: boolean }) {

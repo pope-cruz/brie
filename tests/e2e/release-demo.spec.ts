@@ -222,6 +222,28 @@ test('2. owner plans an event with a task and a run-of-show segment', async () =
 
   await ownerPage.reload()
   await expect(ownerPage.getByRole('textbox', { name: 'Team briefing' })).toHaveValue(/Volunteer call is 4:45 PM/)
+  // Calendar: the same items as a time grid, reachable by keyboard in time order.
+  await ownerPage.getByRole('button', { name: 'Calendar', exact: true }).click()
+  await expect(ownerPage).toHaveURL(/view=calendar/)
+  const calendarBlocks = ownerPage.locator('.cal-block')
+  await expect(calendarBlocks).toHaveCount(7)
+  const order = await calendarBlocks.evaluateAll((items) => items.map((item) => item.querySelector('.cal-block-title')?.textContent))
+  expect(order).toEqual(['Room setup and AV check', 'Volunteer check-in', 'Team welcome', 'Doors open', 'Project presentation', 'Audience Q&A', 'Teardown and room handoff'])
+  await ownerPage.getByLabel('Column per person').click()
+  await expect(ownerPage.getByLabel('Column per person')).toBeChecked()
+  await expect(ownerPage).toHaveURL(/cols=people/)
+  await expect(ownerPage.locator('.cal-col-person')).toHaveText(['Owner QA'])
+  await ownerPage.locator('#day-of').screenshot({ path: 'test-results/release-evidence/owner-calendar-desktop.png' })
+  await calendarBlocks.filter({ hasText: 'Doors open' }).click()
+  await expect(ownerPage.getByRole('dialog', { name: 'Edit item' })).toBeVisible()
+  await expect(ownerPage.getByLabel('Activity for Doors open')).toHaveValue('Doors open')
+  await ownerPage.keyboard.press('Escape')
+  await expect(ownerPage.getByRole('dialog')).toHaveCount(0)
+  await ownerPage.reload()
+  await expect(calendarBlocks).toHaveCount(7)
+  await ownerPage.getByRole('button', { name: 'List', exact: true }).click()
+  await expect(ownerPage.locator('.ros-schedule-table')).toBeVisible()
+
   const everyone = await downloadPdf(ownerPage, { label: 'Everyone' })
   expect(everyone.name).toBe('welcome-night-run-of-show-everyone.pdf')
   expect(everyone.pages).toBeGreaterThanOrEqual(1)
@@ -353,6 +375,9 @@ test('7. member reads the full run of show at 375px without horizontal scroll', 
   await memberPage.goto(eventUrl('/run-of-show'))
   await expect(memberPage.getByLabel('Show schedule for')).toHaveValue('everyone')
   expect(await horizontalOverflow(memberPage)).toBeLessThanOrEqual(0)
+
+  // Phones get the list only.
+  await expect(memberPage.getByRole('button', { name: 'Calendar', exact: true })).toHaveCount(0)
 
   // A teammate downloads their own PDF on a phone.
   const mine = await downloadPdf(memberPage, { value: 'mine' })

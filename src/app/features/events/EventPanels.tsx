@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type ReactNode } from 'react'
+import { useCallback, useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { Popover, PopoverContent, PopoverTrigger } from '../../components/shadcn/popover'
@@ -8,21 +8,8 @@ import type { WorkspaceSummary } from '../../data/api'
 import { listTeam } from '../../data/api'
 import type { EventRecord } from '../../data/types'
 import { eventFormDefaults } from '../../lib/eventForm'
+import { useNarrow } from '../../lib/useNarrow'
 import { EventForm } from './EventFormPage'
-
-const NARROW = '(max-width: 767px)'
-
-function useNarrow() {
-  const [narrow, setNarrow] = useState(() => typeof window !== 'undefined' && Boolean(window.matchMedia?.(NARROW).matches))
-  useEffect(() => {
-    const query = window.matchMedia?.(NARROW)
-    if (!query) return
-    const update = () => setNarrow(query.matches)
-    query.addEventListener('change', update)
-    return () => query.removeEventListener('change', update)
-  }, [])
-  return narrow
-}
 
 /** Closing with typed input asks first; closing an untouched form just closes. */
 function useGuardedClose(onClose: () => void) {

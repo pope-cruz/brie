@@ -11,25 +11,12 @@ import { formatDueDate, parseDateInput } from '../../lib/dateInput'
 import { clearRequestKey, getRequestKey } from '../../lib/idempotency'
 import { sortTodos } from '../../lib/todos'
 import { eventLocalDate } from '../../lib/timezone'
+import { useNarrow } from '../../lib/useNarrow'
 
 type Member = { id: string; displayName: string }
 type Ctx = { workspace: WorkspaceSummary; event: EventRecord; today: string; members: Member[] }
 /** What a person types into a row. The date stays as typed until it is read. */
 type Draft = { title: string; date: string; assignee: string; notes: string }
-
-const NARROW = '(max-width: 767px)'
-
-function useNarrow() {
-  const [narrow, setNarrow] = useState(() => typeof window !== 'undefined' && Boolean(window.matchMedia?.(NARROW).matches))
-  useEffect(() => {
-    const query = window.matchMedia?.(NARROW)
-    if (!query) return
-    const update = () => setNarrow(query.matches)
-    query.addEventListener('change', update)
-    return () => query.removeEventListener('change', update)
-  }, [])
-  return narrow
-}
 
 function draftFrom(task: TaskRecord | null, today: string): Draft {
   return {

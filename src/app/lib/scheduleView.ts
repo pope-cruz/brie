@@ -1,5 +1,6 @@
 import type { EventRecord, MemberRole, SegmentRecord } from '../data/types'
-import { eventLocalDate } from './timezone'
+import { clockToMinutes, formatClock } from './timeInput'
+import { eventLocalDate, formatInZone, splitInZone } from './timezone'
 
 /** Everyone, the signed-in person's items, or one person's membership id. */
 export type Who = 'everyone' | 'mine' | (string & {})
@@ -63,4 +64,41 @@ export function readStoredWho(workspaceId: string) {
 
 export function storeWho(workspaceId: string, who: Who) {
   try { localStorage.setItem(storageKey(workspaceId), who) } catch { /* private mode: the URL still carries it */ }
+}
+
+type MemberName = { id: string; displayName: string }
+
+export function dayLabel(date: string) {
+  return new Intl.DateTimeFormat('en-US', { timeZone: 'UTC', weekday: 'short', month: 'short', day: 'numeric' }).format(new Date(`${date}T12:00:00Z`))
+}
+
+/** The person on an item, or null for Everyone. */
+export function ownerLabel(segment: SegmentRecord, members: MemberName[]) {
+  if (segment.ownerFormer) return 'Former member'
+  return members.find((member) => member.id === segment.ownerMembershipId)?.displayName || segment.ownerName || null
+}
+
+export function eventDateLabel(event: Pick<EventRecord, 'startsAt' | 'endsAt' | 'timezone'>) {
+  const options = { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric', hour: undefined, minute: undefined } as const
+  const start = formatInZone(event.startsAt, event.timezone, options)
+  if (eventLocalDate(event.startsAt, event.timezone) === eventLocalDate(event.endsAt, event.timezone)) return start
+  return `${start} – ${formatInZone(event.endsAt, event.timezone, options)}`
+}
+
+export function eventTimeLabel(event: Pick<EventRecord, 'startsAt' | 'endsAt' | 'timezone'>) {
+  const formatter = new Intl.DateTimeFormat('en-US', { timeZone: event.timezone, hour: 'numeric', minute: '2-digit' })
+  return `${formatter.format(new Date(event.startsAt))}–${formatter.format(new Date(event.endsAt))}`
+}
+
+/** "6:30 PM – 7 PM", with the date only when it is not the event's first day. */
+export function rowTimeLabel(segment: Pick<SegmentRecord, 'startsAt' | 'endsAt'>, event: Pick<EventRecord, 'startsAt' | 'timezone'>, showDates: boolean) {
+  const start = splitInZone(segment.startsAt, event.timezone)
+  const end = splitInZone(segment.endsAt, event.timezone)
+  const range = `${formatClock(clockToMinutes(start.time))} – ${formatClock(clockToMinutes(end.time))}`
+  const dated = showDates || start.date !== eventLocalDate(event.startsAt, event.timezone)
+  return { date: dated ? dayLabel(start.date) : null, range: end.date !== start.date ? `${range} next day` : range }
+}
+
+export function byTime(a: SegmentRecord, b: SegmentRecord) {
+  return a.startsAt.localeCompare(b.startsAt) || a.endsAt.localeCompare(b.endsAt) || a.id.localeCompare(b.id)
 }

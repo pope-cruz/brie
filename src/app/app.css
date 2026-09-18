@@ -550,12 +550,6 @@
   z-index: 40;
 }
 
-.app-overview-grid {
-  display: grid;
-  grid-template-columns: 2fr 1fr;
-  gap: 32px;
-}
-
 .app-datetime {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -568,9 +562,6 @@
   }
   .app-page {
     padding: 24px;
-  }
-  .app-overview-grid {
-    grid-template-columns: 1fr;
   }
 }
 
@@ -675,3 +666,228 @@
   overflow: auto;
 }
 .brie-app .app-navigation-content { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+
+/* Event page: one page, three time-ordered sections. */
+.brie-app .event-header { padding-bottom: 8px; }
+.brie-app .event-header .app-header-row { align-items: center; }
+.brie-app .event-header .app-toolbar { margin: 0; }
+.brie-app .event-description { max-width: 70ch; margin: 8px 0 0; white-space: pre-wrap; }
+.brie-app .event-jump { position: sticky; top: 0; z-index: 5; display: flex; gap: 20px; margin-top: 16px; padding: 10px 0; background: var(--app-canvas); border-bottom: 1px solid var(--app-border); font-size: 13px; }
+.brie-app .event-jump a { color: var(--app-muted); text-decoration: none; }
+.brie-app .event-jump a:hover { color: var(--app-ink); }
+.brie-app .event-section { padding: 28px 0 8px; scroll-margin-top: 48px; }
+.brie-app .event-section + .event-section { border-top: 1px solid var(--app-border); }
+.brie-app .event-section-head { display: flex; align-items: baseline; gap: 12px; margin-bottom: 12px; }
+.brie-app .event-section-head h2 { margin: 0; font-size: 18px; line-height: 26px; font-weight: 500; }
+.brie-app .event-section-summary { color: var(--app-muted); font-size: 13px; }
+.brie-app .event-section-toggle { display: none; margin-left: auto; min-height: 44px; padding: 0 4px; border: 0; background: none; color: var(--app-muted); font: inherit; font-size: 13px; cursor: pointer; }
+.brie-app .event-after p { margin: 0 0 12px; }
+
+/* Run of show: a working briefing with compact, content-sized rows. */
+.brie-app .ros-toolbar { display: flex; justify-content: flex-end; margin-bottom: 8px; }
+.brie-app .ros-document-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 20px 32px;
+  padding: 20px 0 28px;
+  border-bottom: 1px solid var(--app-ink);
+}
+.brie-app .ros-document-header.ros-print-only { display: none; }
+.brie-app .ros-kicker { margin: 0 0 4px; color: var(--app-muted); font-size: 13px; }
+.brie-app .ros-title { margin: 0; font-size: 32px; line-height: 38px; font-weight: 500; letter-spacing: -0.025em; text-wrap: balance; }
+.brie-app .ros-event-facts { grid-column: 1 / -1; display: grid; grid-template-columns: 1.35fr 1fr 1fr; gap: 24px; margin: 0; }
+.brie-app .ros-event-facts div { min-width: 0; }
+.brie-app .ros-event-facts dt { color: var(--app-muted); font-size: 12px; line-height: 18px; }
+.brie-app .ros-event-facts dd { margin: 2px 0 0; line-height: 21px; overflow-wrap: anywhere; }
+.brie-app .ros-briefing { padding: 24px 0 28px; border-bottom: 1px solid var(--app-border); }
+.brie-app .ros-section-heading { display: flex; justify-content: space-between; align-items: flex-start; gap: 20px; margin-bottom: 12px; }
+.brie-app .ros-section-heading h2 { margin: 0; font-size: 16px; line-height: 24px; font-weight: 500; }
+.brie-app .ros-section-heading p { margin: 2px 0 0; color: var(--app-muted); font-size: 12px; line-height: 18px; }
+.brie-app .ros-briefing-input {
+  display: block;
+  width: 100%;
+  min-height: 68px;
+  resize: none;
+  overflow: hidden;
+  padding: 10px 12px;
+  border: 1px solid var(--app-border);
+  border-radius: 6px;
+  background: var(--app-subtle);
+  color: var(--app-ink);
+  font: inherit;
+  line-height: 21px;
+}
+.brie-app .ros-briefing-input:hover { border-color: var(--app-control-border); }
+.brie-app .ros-empty-copy { margin: 0; color: var(--app-muted); font-style: italic; }
+.brie-app .ros-table-wrap { width: 100%; overflow: visible; }
+.brie-app .ros-schedule-table { width: 100%; table-layout: fixed; border-collapse: collapse; }
+.brie-app .ros-col-time { width: 21%; }
+.brie-app .ros-col-activity { width: 22%; }
+.brie-app .ros-col-owner { width: 20%; }
+.brie-app .ros-col-notes { width: auto; }
+.brie-app .ros-col-actions { width: 84px; }
+.brie-app .ros-schedule-table th {
+  padding: 9px 10px;
+  border-bottom: 1px solid var(--app-border);
+  background: var(--app-subtle);
+  color: var(--app-muted);
+  font-size: 12px;
+  line-height: 18px;
+  font-weight: 500;
+  text-align: left;
+}
+.brie-app .ros-schedule-table td { padding: 10px; border-bottom: 1px solid var(--app-border); vertical-align: top; }
+.brie-app .ros-schedule-table tbody > tr:not(.ros-feedback-row):hover { background: var(--app-subtle); }
+.brie-app .ros-editor-row,
+.brie-app .ros-schedule-table tbody > tr.ros-editor-row:hover { background: var(--app-subtle); }
+.brie-app .ros-when { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.brie-app .ros-when input,
+.brie-app .ros-when select { min-height: 36px; padding: 6px 8px; border: 1px solid var(--app-border); border-radius: 6px; background: var(--app-canvas); color: var(--app-ink); font: inherit; font-size: 13px; font-variant-numeric: tabular-nums; }
+.brie-app .ros-when input:focus,
+.brie-app .ros-when select:focus { border-color: var(--app-control-border); }
+.brie-app .ros-when-start { width: 96px; }
+.brie-app .ros-when-length { width: 88px; }
+.brie-app .ros-when-day { width: 100%; }
+.brie-app .ros-when-end { display: block; margin-top: 4px; color: var(--app-muted); font-size: 12px; line-height: 18px; font-variant-numeric: tabular-nums; }
+.brie-app .ros-row-date { display: block; color: var(--app-muted); font-size: 12px; line-height: 18px; }
+.brie-app .ros-row-title { padding: 0; border: 0; background: none; color: inherit; font: inherit; font-weight: 500; text-align: left; overflow-wrap: anywhere; cursor: pointer; }
+.brie-app .ros-row-title:hover { text-decoration: underline; text-underline-offset: 3px; }
+.brie-app .ros-editor-actions { display: flex; flex-direction: column; gap: 4px; }
+.brie-app .ros-editor-row .ros-cell-input,
+.brie-app .ros-editor-row .ros-cell-select,
+.brie-app .ros-editor-row .ros-cell-textarea { border-color: var(--app-border); background: var(--app-canvas); }
+.brie-app .ros-add-hint { margin: 8px 0 0; color: var(--app-muted); font-size: 12px; line-height: 18px; }
+.brie-app .ros-add-hint kbd { padding: 0 4px; border: 1px solid var(--app-border); border-radius: 4px; background: var(--app-subtle); font: inherit; }
+.brie-app .ros-cell-input,
+.brie-app .ros-cell-select,
+.brie-app .ros-cell-textarea {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--app-ink);
+  font: inherit;
+}
+.brie-app .ros-cell-input { display: block; min-height: 40px; padding: 7px 6px; overflow: hidden; resize: none; line-height: 20px; font-weight: 500; }
+.brie-app .ros-cell-select { padding: 7px 5px; font-size: 13px; }
+.brie-app .ros-cell-textarea { display: block; min-height: 40px; padding: 7px 6px; resize: none; overflow: hidden; line-height: 20px; }
+.brie-app .ros-cell-input:hover,
+.brie-app .ros-cell-select:hover,
+.brie-app .ros-cell-textarea:hover { border-color: var(--app-border); background: var(--app-canvas); }
+.brie-app .ros-cell-input:focus,
+.brie-app .ros-cell-select:focus,
+.brie-app .ros-cell-textarea:focus { border-color: var(--app-control-border); background: var(--app-canvas); }
+.brie-app .ros-readable-time { display: block; font-size: 12px; line-height: 18px; font-variant-numeric: tabular-nums; }
+.brie-app .ros-readable-activity { display: block; font-weight: 500; overflow-wrap: anywhere; }
+.brie-app .ros-readable-notes { display: block; margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 21px; }
+.brie-app .ros-unassigned { color: var(--app-muted); font-style: italic; }
+.brie-app .ros-timing-note { display: block; margin-top: 5px; color: var(--app-warning); font-size: 11px; line-height: 16px; }
+.brie-app .ros-actions-cell { position: relative; padding-left: 4px !important; padding-right: 4px !important; }
+.brie-app .ros-row-menu { position: relative; }
+.brie-app .ros-row-menu summary { display: flex; align-items: center; justify-content: center; width: 36px; height: 36px; border-radius: 6px; cursor: pointer; color: var(--app-muted); letter-spacing: 1px; list-style: none; }
+.brie-app .ros-row-menu summary::-webkit-details-marker { display: none; }
+.brie-app .ros-row-menu summary:hover { background: var(--app-hover); color: var(--app-ink); }
+.brie-app .ros-row-menu > div { position: absolute; top: 38px; right: 0; z-index: 30; width: 150px; padding: 4px; border: 1px solid var(--app-border); border-radius: 8px; background: var(--app-canvas); box-shadow: 0 2px 6px rgb(0 0 0 / 0.08); }
+.brie-app .ros-row-menu button { display: block; width: 100%; padding: 7px 8px; border: 0; border-radius: 5px; background: transparent; color: var(--app-ink); font: inherit; text-align: left; cursor: pointer; }
+.brie-app .ros-row-menu button:hover:not(:disabled) { background: var(--app-hover); }
+.brie-app .ros-row-menu button:disabled { color: var(--app-disabled-text); cursor: not-allowed; }
+.brie-app .ros-row-menu .ros-danger-action { color: var(--app-danger); }
+.brie-app .ros-feedback-row td { padding: 0 10px 10px; background: var(--app-subtle); }
+.brie-app .ros-row-feedback .app-error-text { margin: 0 0 8px; }
+.brie-app .ros-inline-actions { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 8px; }
+.brie-app .ros-inline-actions > span { color: var(--app-muted); font-size: 12px; }
+.brie-app .ros-retry-link { padding: 0; border: 0; background: transparent; color: inherit; font: inherit; text-decoration: underline; cursor: pointer; }
+.brie-app .ros-removed { margin-top: 24px; }
+.brie-app .ros-removed summary { cursor: pointer; font-weight: 500; }
+.brie-app .ros-removed-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 10px 0; border-bottom: 1px solid var(--app-border); }
+.brie-app .ros-print-value { display: none; }
+
+@media (max-width: 767px) {
+  .brie-app .event-jump { gap: 16px; }
+  .brie-app .event-section { padding-top: 16px; }
+  .brie-app .event-section-toggle { display: block; }
+  .brie-app .event-section[data-collapsed] .event-section-body { display: none; }
+  .brie-app .ros-toolbar { justify-content: flex-start; }
+  .brie-app .ros-document-header { grid-template-columns: 1fr; gap: 16px; padding-top: 12px; }
+  .brie-app .ros-document-header > .app-btn { justify-self: start; grid-row: 3; }
+  .brie-app .ros-title { font-size: 26px; line-height: 32px; }
+  .brie-app .ros-event-facts { grid-template-columns: 1fr; gap: 12px; }
+  .brie-app .ros-section-heading { display: block; }
+  .brie-app .ros-section-heading .ros-inline-actions { margin-top: 12px; }
+  .brie-app .ros-schedule-table,
+  .brie-app .ros-schedule-table tbody { display: block; }
+  .brie-app .ros-schedule-table colgroup,
+  .brie-app .ros-schedule-table thead { display: none; }
+  .brie-app .ros-schedule-table tr:not(.ros-feedback-row) { display: grid; grid-template-columns: 1fr auto; padding: 14px 0; border-bottom: 1px solid var(--app-border); }
+  .brie-app .ros-schedule-table td { display: block; padding: 7px 0; border: 0; }
+  .brie-app .ros-schedule-table td::before { display: block; margin-bottom: 5px; color: var(--app-muted); font-size: 12px; line-height: 18px; font-weight: 500; content: attr(data-label); }
+  .brie-app .ros-schedule-table td:not(.ros-actions-cell) { grid-column: 1 / -1; }
+  .brie-app .ros-schedule-table .ros-actions-cell { position: absolute; right: 0; }
+  .brie-app .ros-schedule-table tr { position: relative; }
+  /* Read rows speak for themselves on phones: time, title, owner, notes, no field labels. */
+  .brie-app .ros-schedule-table tr:not(.ros-editor-row) td::before { display: none; }
+  .brie-app .ros-schedule-table tr:not(.ros-editor-row) td { padding: 2px 0; }
+  .brie-app .ros-schedule-table tr:not(.ros-editor-row) td[data-label="Owner"] { color: var(--app-muted); font-size: 13px; }
+  .brie-app .ros-schedule-table tr:not(.ros-editor-row) td[data-label="Notes / cues"] { padding-top: 6px; }
+  .brie-app .ros-editor-row .ros-actions-cell { position: static; grid-column: 1 / -1; }
+  .brie-app .ros-editor-row .ros-actions-cell::before { display: none; }
+  .brie-app .ros-editor-actions { flex-direction: row; }
+  .brie-app .ros-when-start,
+  .brie-app .ros-when-length { flex: 1; }
+  .brie-app .ros-when input,
+  .brie-app .ros-when select,
+  .brie-app .ros-cell-input,
+  .brie-app .ros-cell-select,
+  .brie-app .ros-cell-textarea { min-height: 44px; font-size: 16px; line-height: 24px; border-color: var(--app-border); background: var(--app-canvas); }
+  .brie-app .ros-feedback-row { display: block; }
+  .brie-app .ros-feedback-row td { padding: 0 0 14px; }
+}
+
+@page { margin: 0.55in; }
+@media print {
+  .brie-app { color: #202020; background: #fff; font-size: 10pt; line-height: 1.35; }
+  .brie-app .app-sidebar,
+  .brie-app .app-mobile-bar,
+  .brie-app .app-tabs,
+  .brie-app .app-event-breadcrumb,
+  .brie-app .event-header,
+  .brie-app .event-jump,
+  .brie-app .event-section-head,
+  .brie-app .event-section-before,
+  .brie-app .event-section-after,
+  .brie-app .ros-no-print,
+  .brie-app .ros-screen-field,
+  .brie-app .ros-feedback-row,
+  .brie-app .app-banner,
+  .brie-app .app-error-text { display: none !important; }
+  .brie-app .app-main,
+  .brie-app .app-page { display: block; width: 100%; max-width: none; margin: 0; padding: 0; }
+  .brie-app .event-section { padding: 0; border: 0; }
+  .brie-app .event-section-body { display: block !important; }
+  .brie-app .ros-document-header.ros-print-only { display: grid; }
+  .brie-app .ros-document { margin: 0; }
+  .brie-app .ros-document-header { padding: 0 0 14pt; gap: 12pt; }
+  .brie-app .ros-title { font-size: 22pt; line-height: 1.1; }
+  .brie-app .ros-event-facts { gap: 14pt; }
+  .brie-app .ros-briefing { padding: 12pt 0 14pt; }
+  .brie-app .ros-section-heading { margin-bottom: 6pt; }
+  .brie-app .ros-section-heading p { display: none; }
+  .brie-app .ros-print-value { display: block; }
+  .brie-app .ros-table-wrap { overflow: visible; }
+  .brie-app .ros-schedule-table { display: table; table-layout: fixed; font-size: 9pt; }
+  .brie-app .ros-schedule-table thead { display: table-header-group; }
+  .brie-app .ros-schedule-table tbody { display: table-row-group; }
+  .brie-app .ros-schedule-table tr { display: table-row; break-inside: avoid; page-break-inside: avoid; }
+  .brie-app .ros-schedule-table th { padding: 6pt 5pt; background: #f5f5f5 !important; color: #444; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .brie-app .ros-schedule-table td { display: table-cell; padding: 7pt 5pt; border-bottom: 0.5pt solid #d8d8d8; }
+  .brie-app .ros-schedule-table td::before { display: none; }
+  .brie-app .ros-col-time { width: 19%; }
+  .brie-app .ros-col-activity { width: 21%; }
+  .brie-app .ros-col-owner { width: 14%; }
+  .brie-app .ros-col-actions { display: none; width: 0; }
+  .brie-app .ros-actions-heading { display: none !important; }
+  .brie-app .ros-actions-cell { display: none !important; }
+  .brie-app .ros-readable-notes { line-height: 1.4; white-space: pre-wrap; overflow: visible; }
+  .brie-app .ros-timing-note { color: #6b4612; font-size: 8pt; }
+}

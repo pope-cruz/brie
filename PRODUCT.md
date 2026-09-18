@@ -12,7 +12,22 @@ Student organization officers and community organizers planning recurring, small
 
 Run events your way. Give a team one place to plan responsibilities, follow an event schedule, and retain trustworthy attendance history when leadership changes.
 
-The MVP is an internal operations tool. It is not a public event marketplace, registration platform, or member-management CRM. The complete scope is in [MVP.md](MVP.md).
+The MVP is a free internal operations tool. It is not a public event marketplace, registration platform, or member-management CRM. The complete scope is in [MVP.md](MVP.md).
+
+## Product shape
+
+**Type it like a Sheet, see it like a Calendar, check it on your phone.**
+
+Brie's real alternative is a free Google Sheet that everyone already knows. Brie must be faster than a blank Sheet from the first minute, and then win on what a Sheet cannot do cheaply: time math, a personal view on a phone, and a clean printout.
+
+- **One page per event, ordered by time.** An event is a single page with three sections: Before (to-dos), Day of (the run of show and team briefing), and After (attendance). Tasks, schedule, and attendance are phases of one event, not separate places.
+- **Sheet-fast entry.** Keyboard first, few fields, the next row pre-filled from the last. Editing a row feels like typing in a spreadsheet, not filling out a form.
+- **Calendar-clear shape.** The event day can be seen as a time grid where block height is duration, with a column per person.
+- **Phone-first reading.** Members open on what is theirs: now, next, and their to-dos. One column, full notes, no side-scrolling.
+- **Everyone sees everything; views filter, never hide.** "Mine" narrows a list; it is not a permission.
+- **The PDF is how a plan leaves the team.** Volunteers, venue staff, and speakers without accounts get a downloaded PDF, for everyone or one person.
+
+Not borrowed: spreadsheet formulas, formatting, or custom columns; calendar invites, recurrence, or sync; live show-calling, timers, or per-department columns from production rundown software.
 
 ## Brand personality
 
@@ -27,10 +42,11 @@ For the authenticated application, the primary reference is the desktop product 
 ## Design principles
 
 1. Put the next operational action beside the information it changes.
-2. Prefer readable lists and schedules to dashboard decoration.
-3. Make ownership, dates, time zones, and save status explicit.
-4. Preserve history without turning it into surveillance or a score of people.
-5. Keep administration small enough for next semester’s officers to understand.
+2. Fewer fields beat more options. Every field must earn its place against a blank spreadsheet row.
+3. Prefer readable lists and schedules to dashboard decoration.
+4. Make ownership, dates, time zones, and save status explicit.
+5. Preserve history without turning it into surveillance or a score of people.
+6. Keep administration small enough for next semester’s officers to understand.
 
 ## Anti-references
 

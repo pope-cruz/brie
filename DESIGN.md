@@ -76,7 +76,7 @@ Use rem equivalents with 16px browser default; do not change the root font size.
 | Shadows | None for pages, tables, panels, controls |
 | Overlay exception | Menu only: `0 2px 6px rgb(0 0 0 / 0.08)` if border alone is unclear |
 
-Main uses `min-width: 0`. Shell min-height is `100dvh`. Sidebar may scroll independently; page body normally has one main scroll container. Sticky headers remain below shell chrome and do not cover keyboard focus. Do not stack multiple independently scrolling table panes. At ≥1024px overview has 2:1 columns with 32px gap; below 1024px stack them. Keep forms single-column except paired date/time fields on desktop.
+Main uses `min-width: 0`. Shell min-height is `100dvh`. Sidebar may scroll independently; page body normally has one main scroll container. Sticky headers remain below shell chrome and do not cover keyboard focus. Do not stack multiple independently scrolling table panes. The event page is a single column of Before / Day of / After sections, max 960px; the day-of calendar may use the full main width. Keep forms single-column except paired date/time fields on desktop.
 
 ## Component and state contract
 
@@ -103,10 +103,10 @@ Native validation and accessible primitives are preferred over custom interactio
 
 ## Screen composition rules
 
-- Sidebar is workspace navigation; event tabs are local navigation. Never duplicate the same full navigation in two rails.
+- Sidebar is workspace navigation; the event page uses sections with an optional jump bar of links, not tabs. Never duplicate the same full navigation in two rails.
 - Event list is a working list, not a wall of event cards. Dates and ownership align for scanning.
-- Overview is a summary of real tasks/schedule and event facts. No invented health score, trend chart, progress ring, or hero greeting.
-- Tasks use rows and a detail panel. Run of show uses a chronological list, with time the first visual anchor. A schedule is not a Kanban board.
+- Home and the event page show real to-dos, schedule items, and event facts. No invented health score, trend chart, progress ring, or hero greeting.
+- To-dos and schedule items use sheet-style rows on desktop and a full-screen sheet for editing on mobile. The run of show is a time-ordered list with time as the first visual anchor, plus a one-day calendar grid on desktop where block height is duration. Buffers are dashed blocks; no other color coding by type. A schedule is not a Kanban board.
 - Attendance import is a page sequence with explicit review. Keep file-row counts separate from distinct attendee counts.
 - History is a searchable record, not a leaderboard. Display the email beside names to distinguish identities.
 - Never fill unused space with decoration. Whitespace is acceptable after a short list.

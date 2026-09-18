@@ -48,6 +48,7 @@ export type EventRecord = {
   startsAt: string
   endsAt: string
   timezone: string
+  teamBriefing: string
   leadMembershipId: string | null
   leadName: string | null
   leadFormer: boolean
@@ -92,6 +93,7 @@ export type SegmentRecord = {
   instructions: string
   removedAt: string | null
   version: number
+  sortOrder: number
   overlaps: boolean
   outOfRange: boolean
 }

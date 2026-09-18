@@ -7,11 +7,10 @@ import { ImportPage } from './features/attendance/ImportPage'
 import { PersonPage } from './features/attendance/PersonPage'
 import { ReceiptPage } from './features/attendance/ReceiptPage'
 import { EventFormPage } from './features/events/EventFormPage'
-import { EventLayout } from './features/events/EventLayout'
+import { EventLayout, EventSectionRedirect } from './features/events/EventLayout'
 import { EventListPage } from './features/events/EventListPage'
-import { EventOverviewPage } from './features/events/EventOverviewPage'
-import { RunOfShowPage } from './features/schedule/RunOfShowPage'
-import { EventTasksPage, WorkspaceTasksPage } from './features/tasks/TasksPage'
+import { EventPage } from './features/events/EventPage'
+import { WorkspaceTasksPage } from './features/tasks/TasksPage'
 import { AppHome } from './features/workspaces/AppHome'
 import { InvitePage } from './features/workspaces/InvitePage'
 import { NewWorkspacePage } from './features/workspaces/NewWorkspacePage'
@@ -27,6 +26,14 @@ function EditEventPage() {
 
 function DuplicateEventPage() {
   return <EventFormPage mode="duplicate" />
+}
+
+function BeforeRedirect() {
+  return <EventSectionRedirect section="before" />
+}
+
+function DayOfRedirect() {
+  return <EventSectionRedirect section="day-of" />
 }
 
 export const appChildren = [
@@ -46,9 +53,9 @@ export const appChildren = [
         path: 'events/:eventId',
         Component: EventLayout,
         children: [
-          { index: true, Component: EventOverviewPage },
-          { path: 'tasks', Component: EventTasksPage },
-          { path: 'run-of-show', Component: RunOfShowPage },
+          { index: true, Component: EventPage },
+          { path: 'tasks', Component: BeforeRedirect },
+          { path: 'run-of-show', Component: DayOfRedirect },
           { path: 'attendance', Component: EventAttendancePage },
           { path: 'attendance/import', Component: ImportPage },
           { path: 'attendance/imports/:batchId', Component: ReceiptPage },

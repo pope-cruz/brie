@@ -68,7 +68,7 @@ function TasksView({
     setParams(next, { replace: true })
   }
   function refreshTasks() {
-    return Promise.all(['tasks', 'removed-tasks', 'overview-tasks', 'event', 'events'].map((key) =>
+    return Promise.all(['tasks', 'removed-tasks', 'event', 'events'].map((key) =>
       queryClient.invalidateQueries({ queryKey: [key] })))
   }
 
@@ -115,12 +115,11 @@ function TasksView({
           <p className="app-lede">Work assigned across this workspace.</p>
         </>
       ) : (
-        <div className="app-header-row" style={{ marginTop: 16 }}>
-          <h2 className="app-section-title">Tasks</h2>
-          {manage ? (
-            <Button onClick={() => openPanel('new')}>Add task</Button>
-          ) : null}
-        </div>
+        manage ? (
+          <div className="app-header-row">
+            <Button onClick={() => openPanel('new')}>Add to-do</Button>
+          </div>
+        ) : null
       )}
       <div className="app-toolbar">
         <select ref={statusFilter} aria-label="Filter by task status" className="app-select" style={{ maxWidth: 160 }} value={status} onChange={(event) => setParam('status', event.target.value)}>

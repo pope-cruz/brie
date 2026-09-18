@@ -305,7 +305,7 @@ Defaults chosen on 2026-09-18 and written into sections 1–4. Change them here 
 1. **To-do status is two states.** A checkbox replaces Todo / In progress / Done. Existing In progress to-dos migrate to not done. Reason: a third state is a field most small teams never use.
 2. **People per item.** A schedule item takes any number of people, so Mine and the per-person calendar are complete. A to-do keeps one person, because a to-do with two owners has no owner. This needs a join table for schedule people replacing `owner_membership_id`.
 3. **Tables stay separate.** To-dos and schedule items share the page, entry pattern, and Mine filter, but remain separate tables in the MVP. Merge them only if the shared UI proves itself.
-4. **Order is time.** Drop the uncommitted `sort_order` column and reorder command from `0017_run_of_show_briefing.sql`; keep `team_briefing`.
+4. **Order is time.** There is no stored position or reorder command; `0018_drop_schedule_sort_order.sql` removes the ones 0017 added and keeps `team_briefing`.
 5. **Cascading times is opt-in per save**, never automatic.
 6. **Calendar drag-to-move and resize is later work.** Click to edit and click empty time to add cover the MVP.
 7. **PDF is generated in the browser** with a PDF library rather than `window.print()`, so every browser and phone gets the same file. Library choice is an implementation decision.

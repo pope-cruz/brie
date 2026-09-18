@@ -197,6 +197,8 @@ test('2. owner plans an event with a task and a run-of-show segment', async () =
   const pdf = await ownerPage.pdf({ format: 'Letter', printBackground: true })
   expect(pdf.byteLength).toBeGreaterThan(10_000)
   await ownerPage.emulateMedia({ media: 'screen' })
+  await expect(ownerPage.getByLabel('Show schedule for')).toHaveValue('everyone')
+  await ownerPage.locator('#day-of').screenshot({ path: 'test-results/release-evidence/owner-schedule-desktop.png' })
 })
 
 test('3. owner edits status and the header updates without a reload', async () => {
@@ -297,6 +299,18 @@ test('7. member reads the full run of show at 375px without horizontal scroll', 
   await expect(memberPage.getByText('Greet people at the desk.')).toBeVisible()
   await expect(memberPage.getByLabel('Activity for new item')).toHaveCount(0)
   await expect(memberPage.locator('.ros-row-menu')).toHaveCount(0)
+  expect(await horizontalOverflow(memberPage)).toBeLessThanOrEqual(0)
+
+  // Members start on Mine: their items plus Everyone items, never someone else's.
+  const who = memberPage.getByLabel('Show schedule for')
+  await expect(who).toHaveValue('mine')
+  await expect(memberPage.getByText('Room setup and AV check', { exact: true })).toHaveCount(0)
+  await memberPage.screenshot({ path: 'test-results/release-evidence/member-schedule-mine-375.png', fullPage: true })
+  await who.selectOption('everyone')
+  await expect(memberPage).toHaveURL(/[?&]who=everyone/)
+  await expect(memberPage.getByText('Room setup and AV check', { exact: true })).toBeVisible()
+  await memberPage.goto(eventUrl('/run-of-show'))
+  await expect(memberPage.getByLabel('Show schedule for')).toHaveValue('everyone')
   expect(await horizontalOverflow(memberPage)).toBeLessThanOrEqual(0)
 })
 

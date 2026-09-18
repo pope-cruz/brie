@@ -1,5 +1,5 @@
-import { useLayoutEffect, useRef, useState, type KeyboardEvent } from 'react'
-import { useOutletContext } from 'react-router-dom'
+import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent } from 'react'
+import { useLocation, useNavigate, useOutletContext } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Button, ConfirmDialog, EmptyState, ErrorRetry, SkeletonRows } from '../../components/ui'
 import { listSegments, listTeam, removeSegment, restoreSegment, saveSegment, saveTeamBriefing } from '../../data/api'
@@ -7,6 +7,7 @@ import type { WorkspaceSummary } from '../../data/api'
 import { toAppError } from '../../data/errors'
 import { canManageEvents, type EventRecord, type SegmentRecord } from '../../data/types'
 import { clearRequestKey, getRequestKey } from '../../lib/idempotency'
+import { filterSchedule, readStoredWho, resolveWho, scheduleMarks, storeWho, type Who } from '../../lib/scheduleView'
 import { clockToMinutes, formatClock, formatDuration, minutesToClock, parseDurationInput, parseTimeInput } from '../../lib/timeInput'
 import { addMs, eventLocalDate, formatInZone, resolveLocalDateTime, splitInZone, timeZoneLabel } from '../../lib/timezone'
 
@@ -107,9 +108,22 @@ function byTime(a: SegmentRecord, b: SegmentRecord) {
   return a.startsAt.localeCompare(b.startsAt) || a.endsAt.localeCompare(b.endsAt) || a.id.localeCompare(b.id)
 }
 
+/** The wall clock, advanced every 30 seconds so Now and Next move on their own. */
+function useNow() {
+  const [now, setNow] = useState(() => new Date())
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(new Date()), 30_000)
+    return () => window.clearInterval(timer)
+  }, [])
+  return now
+}
+
 export function RunOfShowPage() {
   const { workspace, event } = useOutletContext<{ workspace: WorkspaceSummary; event: EventRecord }>()
   const queryClient = useQueryClient()
+  const location = useLocation()
+  const navigate = useNavigate()
+  const now = useNow()
   const [editingId, setEditingId] = useState<string | null>(null)
   const [adder, setAdder] = useState<{ key: number; seed?: Partial<Draft>; afterIso?: string; focus: boolean }>({ key: 0, focus: false })
   const [deleting, setDeleting] = useState<SegmentRecord | null>(null)
@@ -123,12 +137,25 @@ export function RunOfShowPage() {
     refetchOnWindowFocus: true,
   })
   const team = useQuery({ queryKey: ['team', workspace.id], queryFn: () => listTeam(workspace.id) })
-  const visible = (segments.data ?? []).filter((segment) => !segment.removedAt).sort(byTime)
+  const all = (segments.data ?? []).filter((segment) => !segment.removedAt).sort(byTime)
   const removed = (segments.data ?? []).filter((segment) => segment.removedAt)
   const members = (team.data?.members ?? []).filter((member) => !member.removedAt)
+  const people = members.filter((member) => member.id !== workspace.membershipId)
+  const who = resolveWho(new URLSearchParams(location.search).get('who'), readStoredWho(workspace.id), workspace.role, people.map((member) => member.id))
+  const visible = filterSchedule(all, who, workspace.membershipId)
+  const marks = scheduleMarks(visible, event, now)
+  const whoName = who === 'everyone' ? null : who === 'mine' ? 'you' : members.find((member) => member.id === who)?.displayName ?? null
   const days = eventDays(event)
   const multiDay = days.length > 1
   const last = visible.at(-1)
+
+  function chooseWho(next: Who) {
+    storeWho(workspace.id, next)
+    const params = new URLSearchParams(location.search)
+    params.set('who', next)
+    // Keep the section hash so the page stays on Day of.
+    navigate({ search: `?${params}`, hash: location.hash }, { replace: true, preventScrollReset: true })
+  }
 
   function refresh() {
     return queryClient.invalidateQueries({ queryKey: ['segments'] })
@@ -170,11 +197,19 @@ export function RunOfShowPage() {
   return (
     <article className="ros-document">
       <div className="ros-toolbar ros-no-print">
+        <label className="ros-who">
+          <span aria-hidden="true">Show</span>
+          <select className="app-select" aria-label="Show schedule for" value={who} onChange={(change) => chooseWho(change.target.value)}>
+            <option value="everyone">Everyone</option>
+            <option value="mine">Mine</option>
+            {people.map((member) => <option key={member.id} value={member.id}>{member.displayName}</option>)}
+          </select>
+        </label>
         <Button variant="secondary" onClick={() => window.print()}>Print / Save as PDF</Button>
       </div>
       <header className="ros-document-header ros-print-only">
         <div>
-          <p className="ros-kicker">Run of show</p>
+          <p className="ros-kicker">Run of show{who === 'everyone' ? '' : ` · ${who === 'mine' ? workspace.displayName || 'Mine' : whoName ?? ''}`}</p>
           <p className="ros-title">{event.title}</p>
         </div>
         <dl className="ros-event-facts">
@@ -191,8 +226,12 @@ export function RunOfShowPage() {
       {segments.isLoading ? <SkeletonRows count={5} /> : null}
       {segments.isError ? <ErrorRetry message={toAppError(segments.error).message} onRetry={() => segments.refetch()} /> : null}
 
-      {segments.data && visible.length === 0 && !manage ? <EmptyState title="The schedule hasn’t been added yet." /> : null}
-      {segments.data && visible.length === 0 && manage ? (
+      {segments.data && all.length === 0 && !manage ? <EmptyState title="The schedule hasn’t been added yet." /> : null}
+      {segments.data && all.length > 0 && visible.length === 0 ? (
+        <EmptyState title={`Nothing on the schedule for ${whoName ?? 'this person'}`}
+          action={<Button variant="secondary" onClick={() => chooseWho('everyone')}>Show everyone</Button>} />
+      ) : null}
+      {segments.data && all.length === 0 && manage ? (
         <p className="ros-empty-copy ros-no-print">Build the schedule for event day. Include setup, program, and cleanup.</p>
       ) : null}
 
@@ -208,7 +247,7 @@ export function RunOfShowPage() {
                   onCancel={() => setEditingId(null)}
                   onSaved={async () => { setEditingId(null); setToast('Changes saved.'); await refresh() }} />
               ) : (
-                <ReadRow key={segment.id} segment={segment} event={event} members={members} manage={manage} showDates={multiDay}
+                <ReadRow key={segment.id} segment={segment} event={event} members={members} manage={manage} showDates={multiDay} mark={marks.get(segment.id)}
                   gapMinutes={index > 0 ? Math.round((new Date(segment.startsAt).getTime() - new Date(visible[index - 1].endsAt).getTime()) / 60_000) : 0}
                   onEdit={() => { setToast(null); setEditingId(segment.id) }}
                   onDuplicate={() => duplicate(segment)} onDelete={() => setDeleting(segment)} />
@@ -243,8 +282,9 @@ export function RunOfShowPage() {
   )
 }
 
-function ReadRow({ segment, event, members, manage, showDates, gapMinutes, onEdit, onDuplicate, onDelete }: {
+function ReadRow({ segment, event, members, manage, showDates, mark, gapMinutes, onEdit, onDuplicate, onDelete }: {
   segment: SegmentRecord
+  mark?: 'now' | 'next'
   event: EventRecord
   members: MemberOption[]
   manage: boolean
@@ -261,8 +301,9 @@ function ReadRow({ segment, event, members, manage, showDates, gapMinutes, onEdi
     menu.current?.removeAttribute('open')
     action()
   }
-  return <tr>
+  return <tr className={mark === 'now' ? 'ros-row-now' : undefined}>
     <td data-label="Time">
+      {mark ? <span className={`ros-mark ros-mark-${mark} ros-no-print`}>{mark === 'now' ? 'Now' : 'Next'}</span> : null}
       {time.date ? <span className="ros-row-date">{time.date}</span> : null}
       <span className="ros-readable-time">{time.range}</span>
       {gapMinutes > 0 ? <span className="ros-timing-note">{formatDuration(gapMinutes)} gap before</span> : null}

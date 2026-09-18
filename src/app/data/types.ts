@@ -93,7 +93,6 @@ export type SegmentRecord = {
   instructions: string
   removedAt: string | null
   version: number
-  sortOrder: number
   overlaps: boolean
   outOfRange: boolean
 }

@@ -161,17 +161,30 @@ test('1. owner signs in, rejects a wrong code, and creates exactly one workspace
 })
 
 test('2. owner plans an event with a task and a run-of-show segment', async () => {
-  await ownerPage.getByRole('link', { name: 'New event' }).first().click()
-  await ownerPage.getByLabel('Title').fill('Welcome night')
+  // Quick create from the event list: a popover asking title and times.
+  await ownerPage.goto(`/app/w/${state.workspaceId}/events`)
+  await ownerPage.getByRole('button', { name: 'New event' }).click()
+  const quick = ownerPage.locator('.event-quick-popover')
+  await expect(quick.getByText(/Times in/)).toBeVisible()
+  await expect(quick.getByLabel('Description')).toHaveCount(0)
+  await ownerPage.getByLabel('Title', { exact: true }).fill('Scratch')
+  await ownerPage.keyboard.press('Escape')
+  await expect(quick.getByText('Discard what you typed?')).toBeVisible()
+  await quick.getByRole('button', { name: 'Discard' }).click()
+  await expect(quick).toHaveCount(0)
+  await ownerPage.getByRole('button', { name: 'New event' }).click()
+  await ownerPage.getByLabel('Title', { exact: true }).fill('Welcome night')
   await fillRange(ownerPage, { date: '2026-10-20', time: '18:00' }, '17:00')
   await ownerPage.getByRole('button', { name: 'Create event' }).click()
   await expect(ownerPage.locator('[role="alert"], .app-error-text').first()).toBeVisible()
-  await expect(ownerPage.getByLabel('Title')).toHaveValue('Welcome night')
+  await expect(ownerPage.getByLabel('Title', { exact: true })).toHaveValue('Welcome night')
 
   await ownerPage.getByLabel('End time', { exact: true }).fill('20:00')
-  await ownerPage.getByRole('button', { name: 'Create event' }).click()
+  await ownerPage.screenshot({ path: 'test-results/release-evidence/quick-create-desktop.png' })
+  await ownerPage.getByLabel('Title', { exact: true }).press('Enter')
   await expect(ownerPage).toHaveURL(/\/events\/[0-9a-f-]{36}$/)
   state.eventId = ownerPage.url().match(/\/events\/([0-9a-f-]{36})$/)![1]
+  await expect(ownerPage.getByLabel('New to-do', { exact: true })).toBeFocused()
   await expect(ownerPage.getByRole('heading', { name: 'Welcome night' })).toBeVisible()
   await ownerPage.reload()
   await expect(ownerPage.getByRole('heading', { name: 'Welcome night' })).toBeVisible()
@@ -240,6 +253,8 @@ test('2. owner plans an event with a task and a run-of-show segment', async () =
 
 test('3. owner edits status and the header updates without a reload', async () => {
   await ownerPage.goto(eventUrl('/edit'))
+  await expect(ownerPage.getByRole('dialog', { name: 'Edit details' })).toBeVisible()
+  await ownerPage.screenshot({ path: 'test-results/release-evidence/details-panel-desktop.png' })
   await ownerPage.getByLabel('Status').selectOption('planned')
   await ownerPage.getByRole('button', { name: 'Save' }).click()
   await expect(ownerPage).toHaveURL(new RegExp(`${state.eventId}$`))
@@ -284,7 +299,7 @@ test('5. member joins on a phone, sees no privileged navigation, and is denied d
   await expect(memberPage.getByRole('button', { name: 'Menu' })).toBeFocused()
 
   await memberPage.goto(eventUrl())
-  await expect(memberPage.getByRole('link', { name: 'Edit details' })).toHaveCount(0)
+  await expect(memberPage.getByRole('button', { name: 'Edit details' })).toHaveCount(0)
   await expect(memberPage.getByRole('link', { name: 'New event' })).toHaveCount(0)
 
   // Authorization lives in the database, not in hidden buttons.
@@ -387,7 +402,7 @@ test('8. organizer joins, can plan and manage attendance, but cannot administer 
   await organizerPage.goto(`/app/w/${state.workspaceId}/settings`)
   await expect(organizerPage.getByRole('heading', { name: 'This page isn’t available' })).toBeVisible()
   await organizerPage.goto(eventUrl())
-  await expect(organizerPage.getByRole('link', { name: 'Edit details' })).toBeVisible()
+  await expect(organizerPage.getByRole('button', { name: 'Edit details' })).toBeVisible()
 })
 
 test('9. organizer imports overlapping batches; totals reconcile and reversion keeps shared evidence', async () => {
@@ -435,7 +450,7 @@ test('9. organizer imports overlapping batches; totals reconcile and reversion k
 test('10. duplicate makes a clean draft; cross-event history counts each event once', async () => {
   await organizerPage.goto(eventUrl())
   await organizerPage.getByRole('link', { name: 'Duplicate' }).click()
-  await expect(organizerPage.getByLabel('Title')).toHaveValue('Welcome night copy')
+  await expect(organizerPage.getByLabel('Title', { exact: true })).toHaveValue('Welcome night copy')
   await expect(organizerPage.getByLabel('Description')).toHaveCount(0)
   await organizerPage.getByLabel('Start date', { exact: true }).fill('2026-11-03')
   await organizerPage.getByRole('button', { name: 'Create copy' }).click()
@@ -487,17 +502,17 @@ test('11. simultaneous edits conflict instead of silently overwriting', async ()
   const second = await owner.newPage()
   await ownerPage.goto(eventUrl('/edit'))
   await second.goto(eventUrl('/edit'))
-  await expect(second.getByLabel('Title')).toHaveValue('Welcome night')
+  await expect(second.getByLabel('Title', { exact: true })).toHaveValue('Welcome night')
 
   await ownerPage.getByLabel('Location').fill('Student center')
   await ownerPage.getByRole('button', { name: 'Save' }).click()
   await expect(ownerPage).toHaveURL(new RegExp(`${state.eventId}$`))
 
-  await second.getByLabel('Title').fill('Welcome night (stale)')
+  await second.getByLabel('Title', { exact: true }).fill('Welcome night (stale)')
   await second.getByRole('button', { name: 'Save' }).click()
   await expect(second.getByText('This event changed. Reload the latest version.')).toBeVisible()
-  await expect(second).toHaveURL(/\/edit$/)
-  await expect(second.getByLabel('Title')).toHaveValue('Welcome night (stale)')
+  await expect(second).toHaveURL(/details=1/)
+  await expect(second.getByLabel('Title', { exact: true })).toHaveValue('Welcome night (stale)')
   await second.close()
 
   await ownerPage.reload()

@@ -159,13 +159,15 @@ test('2. owner plans an event with a task and a run-of-show segment', async () =
   await expect(ownerPage.getByText(/^Draft ·/)).toBeVisible()
 
   await ownerPage.goto(eventUrl('/tasks'))
-  await ownerPage.getByRole('button', { name: 'Add to-do' }).first().click()
-  const taskSheet = ownerPage.getByRole('dialog')
-  await taskSheet.getByLabel('Title').fill('Set up welcome desk')
-  await taskSheet.getByLabel('Notes').fill('Table by the main doors.')
-  await taskSheet.getByRole('button', { name: 'Save task' }).click()
-  await expect(ownerPage.getByRole('button', { name: 'Set up welcome desk' })).toBeVisible()
-  await expect(ownerPage.getByLabel('Status for Set up welcome desk')).toHaveValue('todo')
+  await ownerPage.getByLabel('New to-do', { exact: true }).fill('Set up welcome desk')
+  await ownerPage.getByLabel('New to-do', { exact: true }).press('Enter')
+  await expect(ownerPage.getByLabel('Title for Set up welcome desk')).toHaveValue('Set up welcome desk')
+  await expect(ownerPage.getByLabel('New to-do', { exact: true })).toBeFocused()
+  await ownerPage.getByRole('button', { name: 'Notes for Set up welcome desk' }).click()
+  await ownerPage.getByLabel('Notes text for Set up welcome desk').fill('Table by the main doors.')
+  await ownerPage.getByLabel('Notes text for Set up welcome desk').press('Control+Enter')
+  await expect(ownerPage.locator('#before').getByText('Saved')).toBeVisible()
+  await expect(ownerPage.getByRole('checkbox', { name: 'Done: Set up welcome desk' })).not.toBeChecked()
 
   await ownerPage.goto(eventUrl('/run-of-show'))
   await expect(ownerPage.getByLabel('Start for new item')).toHaveValue('6 PM')
@@ -273,15 +275,16 @@ test('5. member joins on a phone, sees no privileged navigation, and is denied d
 
 test('6. owner assigns the task; member completes it at 375px and it persists', async () => {
   await ownerPage.goto(eventUrl('/tasks'))
-  await ownerPage.getByRole('button', { name: 'Set up welcome desk' }).click()
-  const sheet = ownerPage.getByRole('dialog')
-  const assignee = sheet.getByLabel('Assignee')
+  const assignee = ownerPage.getByLabel('Person for Set up welcome desk')
+  // Unassigned, the owner, and the member who just joined.
+  await expect(assignee.locator('option')).toHaveCount(3)
   const memberOption = await assignee.locator('option').evaluateAll((options) =>
     (options as HTMLOptionElement[]).find((option) => option.value && !/Owner QA/.test(option.textContent || ''))?.value ?? '')
   expect(memberOption).not.toBe('')
   await assignee.selectOption(memberOption)
-  await sheet.getByRole('button', { name: 'Save task' }).click()
-  await expect(sheet).toBeHidden()
+  // Leaving the row saves it.
+  await ownerPage.getByLabel('New to-do', { exact: true }).click()
+  await expect(ownerPage.locator('#before').getByText('Saved')).toBeVisible()
 
   // Home is the member's to-do list; the old Tasks bookmark lands there.
   await memberPage.goto(`/app/w/${state.workspaceId}/tasks?assignee=me&status=open`)
@@ -297,7 +300,8 @@ test('6. owner assigns the task; member completes it at 375px and it persists', 
   await memberPage.reload()
   await expect(memberPage.getByText('Nothing assigned to you yet')).toBeVisible()
   await memberPage.goto(eventUrl('/tasks'))
-  await expect(memberPage.getByLabel('Status for Set up welcome desk')).toHaveValue('done')
+  await memberPage.locator('.todo-done > summary').click()
+  await expect(memberPage.getByRole('checkbox', { name: 'Done: Set up welcome desk' })).toBeChecked()
 
   await ownerPage.goto(eventUrl())
   await expect(ownerPage.getByText('1 of 1 done')).toBeVisible()
@@ -401,8 +405,26 @@ test('10. duplicate makes a clean draft; cross-event history counts each event o
   await expect(organizerPage.getByText('Attendance hasn’t been recorded')).toBeVisible()
 
   await organizerPage.goto(`/app/w/${state.workspaceId}/events/${state.copyEventId}/tasks`)
-  await expect(organizerPage.getByLabel('Status for Set up welcome desk')).toHaveValue('todo')
-  await expect(organizerPage.locator('.app-task-row', { hasText: 'Set up welcome desk' })).toContainText('Unassigned')
+  await expect(organizerPage.getByRole('checkbox', { name: 'Done: Set up welcome desk' })).not.toBeChecked()
+  await expect(organizerPage.getByLabel('Person for Set up welcome desk')).toHaveValue('')
+
+  // Ten to-dos with the keyboard only: type, Tab to the date, Enter, repeat.
+  const newTodo = organizerPage.getByLabel('New to-do', { exact: true })
+  await newTodo.focus()
+  for (let index = 1; index <= 10; index += 1) {
+    await organizerPage.keyboard.type(`Keyboard to-do ${index}`)
+    if (index === 1) {
+      await organizerPage.keyboard.press('Tab')
+      await organizerPage.keyboard.type('10/19')
+    }
+    await organizerPage.keyboard.press('Enter')
+    await expect(organizerPage.getByLabel(`Title for Keyboard to-do ${index}`)).toBeVisible()
+    await expect(newTodo).toBeFocused()
+  }
+  await organizerPage.screenshot({ path: 'test-results/release-evidence/organizer-before-desktop.png', fullPage: true })
+  await organizerPage.reload()
+  await expect(organizerPage.getByLabel('Title for Keyboard to-do 10')).toBeVisible()
+  await expect(organizerPage.getByLabel('Date for Keyboard to-do 10')).toHaveValue('Mon, Oct 19')
 
   await importCsv(organizerPage, state.copyEventId, 'attendance-b.csv')
   await organizerPage.goto(`/app/w/${state.workspaceId}/attendance`)
@@ -452,7 +474,8 @@ test('12. archive hides and freezes the event; restore brings the plan back', as
   await memberPage.goto(eventUrl())
   await expect(memberPage.getByText('This event is archived. Restore it to edit the plan.')).toBeVisible()
   await memberPage.goto(eventUrl('/tasks'))
-  await expect(memberPage.getByLabel('Status for Set up welcome desk')).toBeDisabled()
+  await memberPage.locator('.todo-done > summary').click()
+  await expect(memberPage.getByRole('checkbox', { name: 'Done: Set up welcome desk' })).toBeDisabled()
 
   await ownerPage.getByRole('button', { name: 'Archived' }).click()
   ownerPage.once('dialog', (dialog) => dialog.accept())
@@ -504,10 +527,11 @@ test('15. removing the member revokes access on their next request and keeps his
 
   await memberPage.goto(`/app/w/${state.workspaceId}/home`)
   await expect(memberPage.getByRole('heading', { name: 'This page isn’t available' })).toBeVisible()
-  await expect(memberPage.getByLabel('Status for Set up welcome desk')).toHaveCount(0)
+  await expect(memberPage.getByRole('checkbox', { name: 'Done: Set up welcome desk' })).toHaveCount(0)
 
   await ownerPage.goto(eventUrl('/tasks'))
-  await expect(ownerPage.getByText('Former member')).toBeVisible()
+  await ownerPage.locator('.todo-done > summary').click()
+  await expect(ownerPage.getByLabel('Person for Set up welcome desk').locator('option:checked')).toHaveText('Former member')
 })
 
 test('16. a dropped backend on reload shows a recoverable error, never a false onboarding screen', async () => {

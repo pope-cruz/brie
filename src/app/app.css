@@ -917,3 +917,59 @@
   .home-todo-meta { padding-left: 28px; }
   .home-check input { width: 22px; height: 22px; }
 }
+
+/* Before: sheet-style to-dos */
+.brie-app .todo-toolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; margin-bottom: 8px; }
+.brie-app .todo-who { display: inline-flex; padding: 2px; border: 1px solid var(--app-border); border-radius: 8px; background: var(--app-subtle); }
+.brie-app .todo-who button { min-height: 32px; padding: 4px 12px; border: 0; border-radius: 6px; background: none; color: var(--app-muted); font: inherit; font-size: 13px; cursor: pointer; }
+.brie-app .todo-who button[aria-pressed='true'] { background: var(--app-canvas); color: var(--app-ink); font-weight: 500; box-shadow: 0 0 0 1px var(--app-border); }
+.brie-app .todo-list { border-top: 1px solid var(--app-border); }
+.brie-app .todo-head,
+.brie-app .todo-cells { display: grid; grid-template-columns: 28px minmax(0, 1fr) 150px 170px 112px; align-items: start; gap: 8px; }
+.brie-app .todo-head { padding: 8px 10px; border-bottom: 1px solid var(--app-border); color: var(--app-muted); font-size: 12px; line-height: 18px; }
+.brie-app .todo-row { padding: 6px 10px; border-bottom: 1px solid var(--app-border); }
+.brie-app .todo-row-edit:focus-within,
+.brie-app .todo-add-row { background: var(--app-subtle); }
+.brie-app .todo-check { width: 18px; height: 18px; margin: 11px 0 0 4px; accent-color: var(--app-primary); }
+.brie-app span.todo-check { display: block; }
+.brie-app .todo-title-input,
+.brie-app .todo-date-input,
+.brie-app .todo-person-select,
+.brie-app .todo-notes-input { width: 100%; min-width: 0; min-height: 40px; padding: 7px 6px; border: 1px solid transparent; border-radius: 4px; background: transparent; color: var(--app-ink); font: inherit; line-height: 20px; }
+.brie-app .todo-title-input { font-weight: 500; }
+.brie-app .todo-date-input,
+.brie-app .todo-person-select { font-size: 13px; font-variant-numeric: tabular-nums; }
+.brie-app .todo-title-input:hover, .brie-app .todo-date-input:hover, .brie-app .todo-person-select:hover, .brie-app .todo-notes-input:hover,
+.brie-app .todo-add-row :is(.todo-title-input, .todo-date-input, .todo-person-select) { border-color: var(--app-border); background: var(--app-canvas); }
+.brie-app .todo-title-input:focus, .brie-app .todo-date-input:focus, .brie-app .todo-person-select:focus, .brie-app .todo-notes-input:focus { border-color: var(--app-control-border); background: var(--app-canvas); outline: none; }
+.brie-app .todo-notes-input { display: block; width: calc(100% - 36px); margin: 4px 0 4px 36px; resize: vertical; border-color: var(--app-border); background: var(--app-canvas); }
+.brie-app .todo-resolved, .brie-app .todo-overdue { display: block; padding: 0 6px; font-size: 12px; line-height: 18px; }
+.brie-app .todo-resolved { color: var(--app-muted); }
+.brie-app .todo-overdue { color: var(--app-danger); }
+.brie-app span.todo-overdue { display: inline; padding: 0; }
+.brie-app .todo-row-actions { display: flex; align-items: center; justify-content: flex-end; gap: 2px; min-height: 40px; }
+.brie-app .todo-notes-toggle { white-space: nowrap; min-height: 36px; padding: 4px 8px; border: 0; border-radius: 6px; background: none; color: var(--app-muted); font: inherit; font-size: 12px; cursor: pointer; }
+.brie-app .todo-notes-toggle:hover { background: var(--app-hover); color: var(--app-ink); }
+.brie-app .todo-notes-toggle[data-has-notes] { color: var(--app-ink); font-weight: 500; }
+.brie-app .todo-notes-toggle[data-has-notes]::after { content: ' •'; }
+.brie-app .todo-row-status:not(:empty) { padding: 2px 0 4px 36px; font-size: 12px; line-height: 18px; }
+.brie-app .todo-row-status .app-error-text { margin: 0; }
+.brie-app .todo-read { display: flex; align-items: flex-start; gap: 10px; min-height: 44px; }
+.brie-app .todo-read .todo-check { margin-top: 3px; margin-left: 0; flex: none; }
+.brie-app .todo-read-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; padding: 2px 0; }
+.brie-app .todo-title-button { padding: 0; border: 0; background: none; color: inherit; font: inherit; font-weight: 500; text-align: left; overflow-wrap: anywhere; cursor: pointer; }
+.brie-app .todo-title-button:hover { text-decoration: underline; text-underline-offset: 3px; }
+.brie-app .todo-title-text { font-weight: 500; overflow-wrap: anywhere; }
+.brie-app .todo-meta { color: var(--app-muted); font-size: 13px; line-height: 20px; }
+.brie-app .todo-notes-text { margin: 4px 0 0; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 21px; }
+.brie-app .todo-row[data-done] :is(.todo-title-input, .todo-title-button, .todo-title-text) { color: var(--app-muted); text-decoration: line-through; }
+.brie-app .todo-add-row .todo-row-actions .app-btn { min-height: 36px; }
+.brie-app .todo-done { margin-top: 16px; }
+.brie-app .todo-done summary { padding: 8px 0; cursor: pointer; font-weight: 500; }
+.brie-app .todo-empty { margin: 8px 0; color: var(--app-muted); }
+@media (max-width: 767px) {
+  .brie-app .todo-row { padding: 8px 0; }
+  .brie-app .todo-read .todo-check { width: 22px; height: 22px; margin-top: 1px; }
+  .brie-app .todo-row-status:not(:empty) { padding-left: 32px; }
+  .brie-app .todo-sheet { width: 100%; height: 100%; }
+}

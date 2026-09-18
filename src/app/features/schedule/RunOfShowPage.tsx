@@ -1,15 +1,17 @@
 import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent } from 'react'
 import { useLocation, useNavigate, useOutletContext } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { Popover, PopoverContent, PopoverTrigger } from '../../components/shadcn/popover'
 import { Button, ConfirmDialog, EmptyState, ErrorRetry, SkeletonRows } from '../../components/ui'
 import { listSegments, listTeam, removeSegment, restoreSegment, saveSegment, saveTeamBriefing } from '../../data/api'
 import type { WorkspaceSummary } from '../../data/api'
 import { toAppError } from '../../data/errors'
 import { canManageEvents, type EventRecord, type SegmentRecord } from '../../data/types'
 import { clearRequestKey, getRequestKey } from '../../lib/idempotency'
-import { filterSchedule, readStoredWho, resolveWho, scheduleMarks, storeWho, type Who } from '../../lib/scheduleView'
+import { buildRunOfShowDoc, downloadRunOfShowPdf, pdfFileName } from '../../lib/runOfShowPdf'
+import { byTime, dayLabel, filterSchedule, ownerLabel, readStoredWho, resolveWho, rowTimeLabel, scheduleMarks, storeWho, type Who } from '../../lib/scheduleView'
 import { clockToMinutes, formatClock, formatDuration, minutesToClock, parseDurationInput, parseTimeInput } from '../../lib/timeInput'
-import { addMs, eventLocalDate, formatInZone, resolveLocalDateTime, splitInZone, timeZoneLabel } from '../../lib/timezone'
+import { addMs, eventLocalDate, resolveLocalDateTime, splitInZone } from '../../lib/timezone'
 
 type MemberOption = { id: string; displayName: string }
 
@@ -44,9 +46,6 @@ function eventDays(event: EventRecord) {
   return days
 }
 
-function dayLabel(date: string) {
-  return new Intl.DateTimeFormat('en-US', { timeZone: 'UTC', weekday: 'short', month: 'short', day: 'numeric' }).format(new Date(`${date}T12:00:00Z`))
-}
 
 function draftFromSegment(segment: SegmentRecord, timezone: string): Draft {
   const start = splitInZone(segment.startsAt, timezone)
@@ -78,35 +77,10 @@ function blankDraft(event: EventRecord, afterIso?: string, seed?: Partial<Draft>
   }
 }
 
-function ownerLabel(segment: SegmentRecord, members: MemberOption[]) {
-  if (segment.ownerFormer) return 'Former member'
-  return members.find((member) => member.id === segment.ownerMembershipId)?.displayName || segment.ownerName || null
-}
 
-function eventDateLabel(event: EventRecord) {
-  const options = { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric', hour: undefined, minute: undefined } as const
-  const start = formatInZone(event.startsAt, event.timezone, options)
-  if (eventLocalDate(event.startsAt, event.timezone) === eventLocalDate(event.endsAt, event.timezone)) return start
-  return `${start} – ${formatInZone(event.endsAt, event.timezone, options)}`
-}
 
-function eventTimeLabel(event: EventRecord) {
-  const formatter = new Intl.DateTimeFormat('en-US', { timeZone: event.timezone, hour: 'numeric', minute: '2-digit' })
-  return `${formatter.format(new Date(event.startsAt))}–${formatter.format(new Date(event.endsAt))}`
-}
 
-/** "6:30 PM – 7 PM", with the date only when it is not the event's first day. */
-function rowTimeLabel(segment: SegmentRecord, event: EventRecord, showDates: boolean) {
-  const start = splitInZone(segment.startsAt, event.timezone)
-  const end = splitInZone(segment.endsAt, event.timezone)
-  const range = `${formatClock(clockToMinutes(start.time))} – ${formatClock(clockToMinutes(end.time))}`
-  const dated = showDates || start.date !== eventLocalDate(event.startsAt, event.timezone)
-  return { date: dated ? dayLabel(start.date) : null, range: end.date !== start.date ? `${range} next day` : range }
-}
 
-function byTime(a: SegmentRecord, b: SegmentRecord) {
-  return a.startsAt.localeCompare(b.startsAt) || a.endsAt.localeCompare(b.endsAt) || a.id.localeCompare(b.id)
-}
 
 /** The wall clock, advanced every 30 seconds so Now and Next move on their own. */
 function useNow() {
@@ -196,7 +170,7 @@ export function RunOfShowPage() {
 
   return (
     <article className="ros-document">
-      <div className="ros-toolbar ros-no-print">
+      <div className="ros-toolbar">
         <label className="ros-who">
           <span aria-hidden="true">Show</span>
           <select className="app-select" aria-label="Show schedule for" value={who} onChange={(change) => chooseWho(change.target.value)}>
@@ -205,23 +179,12 @@ export function RunOfShowPage() {
             {people.map((member) => <option key={member.id} value={member.id}>{member.displayName}</option>)}
           </select>
         </label>
-        <Button variant="secondary" onClick={() => window.print()}>Print / Save as PDF</Button>
+        <DownloadPdf workspace={workspace} event={event} all={all} members={members} current={who} showDates={multiDay} />
       </div>
-      <header className="ros-document-header ros-print-only">
-        <div>
-          <p className="ros-kicker">Run of show{who === 'everyone' ? '' : ` · ${who === 'mine' ? workspace.displayName || 'Mine' : whoName ?? ''}`}</p>
-          <p className="ros-title">{event.title}</p>
-        </div>
-        <dl className="ros-event-facts">
-          <div><dt>Date</dt><dd>{eventDateLabel(event)} · {eventTimeLabel(event)}</dd></div>
-          <div><dt>Venue</dt><dd>{event.location || 'Venue not set'}</dd></div>
-          <div><dt>Timezone</dt><dd>{event.timezone} · {timeZoneLabel(event.timezone, event.startsAt).split(' · ').at(-1)}</dd></div>
-        </dl>
-      </header>
 
       <TeamBriefing workspace={workspace} event={event} manage={manage} />
 
-      {toast ? <p className="app-banner ros-no-print" role="status">{toast}</p> : null}
+      {toast ? <p className="app-banner" role="status">{toast}</p> : null}
       {actionError ? <ErrorRetry message={actionError} onRetry={() => refresh()} /> : null}
       {segments.isLoading ? <SkeletonRows count={5} /> : null}
       {segments.isError ? <ErrorRetry message={toAppError(segments.error).message} onRetry={() => segments.refetch()} /> : null}
@@ -232,7 +195,7 @@ export function RunOfShowPage() {
           action={<Button variant="secondary" onClick={() => chooseWho('everyone')}>Show everyone</Button>} />
       ) : null}
       {segments.data && all.length === 0 && manage ? (
-        <p className="ros-empty-copy ros-no-print">Build the schedule for event day. Include setup, program, and cleanup.</p>
+        <p className="ros-empty-copy">Build the schedule for event day. Include setup, program, and cleanup.</p>
       ) : null}
 
       {segments.data && (visible.length > 0 || manage) ? (
@@ -259,12 +222,12 @@ export function RunOfShowPage() {
               ) : null}
             </tbody>
           </table>
-          {manage ? <p className="ros-add-hint ros-no-print">Type a start like <kbd>6:30p</kbd> and a length like <kbd>45m</kbd>, then press Enter.</p> : null}
+          {manage ? <p className="ros-add-hint">Type a start like <kbd>6:30p</kbd> and a length like <kbd>45m</kbd>, then press Enter.</p> : null}
         </div>
       ) : null}
 
       {manage && removed.length > 0 ? (
-        <details className="ros-removed ros-no-print">
+        <details className="ros-removed">
           <summary>Removed items ({removed.length})</summary>
           {removed.map((segment) => <div key={segment.id} className="ros-removed-row"><span>{segment.title}</span>
             <Button variant="secondary" onClick={async () => {
@@ -303,7 +266,7 @@ function ReadRow({ segment, event, members, manage, showDates, mark, gapMinutes,
   }
   return <tr className={mark === 'now' ? 'ros-row-now' : undefined}>
     <td data-label="Time">
-      {mark ? <span className={`ros-mark ros-mark-${mark} ros-no-print`}>{mark === 'now' ? 'Now' : 'Next'}</span> : null}
+      {mark ? <span className={`ros-mark ros-mark-${mark}`}>{mark === 'now' ? 'Now' : 'Next'}</span> : null}
       {time.date ? <span className="ros-row-date">{time.date}</span> : null}
       <span className="ros-readable-time">{time.range}</span>
       {gapMinutes > 0 ? <span className="ros-timing-note">{formatDuration(gapMinutes)} gap before</span> : null}
@@ -319,7 +282,7 @@ function ReadRow({ segment, event, members, manage, showDates, mark, gapMinutes,
       {segment.instructions ? <span className="ros-readable-notes">{segment.instructions}</span> : <span className="ros-unassigned">—</span>}
       {segment.overlaps ? <span className="ros-timing-note">Overlaps another item</span> : null}
     </td>
-    {manage ? <td className="ros-actions-cell ros-no-print">
+    {manage ? <td className="ros-actions-cell">
       <details ref={menu} className="ros-row-menu"><summary aria-label={`Actions for ${segment.title}`}>•••</summary><div>
         <button onClick={() => pick(onEdit)}>Edit</button>
         <button onClick={() => pick(onDuplicate)}>Duplicate</button>
@@ -416,7 +379,7 @@ function EditorRow({ mode, event, workspace, members, days, segment, initial, si
   }
 
   return <>
-    <tr className={`ros-editor-row ros-no-print${mode === 'add' ? ' ros-add-row' : ''}`} onKeyDown={onKeyDown}>
+    <tr className={`ros-editor-row${mode === 'add' ? ' ros-add-row' : ''}`} onKeyDown={onKeyDown}>
       <td data-label="Time">
         <div className="ros-when">
           {dayOptions.length > 1 ? (
@@ -465,12 +428,65 @@ function EditorRow({ mode, event, workspace, members, days, segment, initial, si
         </div>
       </td>
     </tr>
-    {error || overlap || outside ? <tr className="ros-feedback-row ros-no-print"><td className="ros-row-feedback" colSpan={5}>
+    {error || overlap || outside ? <tr className="ros-feedback-row"><td className="ros-row-feedback" colSpan={5}>
       {error ? <p className="app-error-text" role="alert">{error}</p> : null}
       {!error && overlap ? <span className="ros-timing-note">Overlaps another item. You can still save it.</span> : null}
       {!error && outside ? <span className="ros-timing-note">Outside event hours. Fine for setup and cleanup.</span> : null}
     </td></tr> : null}
   </>
+}
+
+/** Download PDF: Everyone or one person (default: the current filter), built in the browser. */
+function DownloadPdf({ workspace, event, all, members, current, showDates }: {
+  workspace: WorkspaceSummary
+  event: EventRecord
+  all: SegmentRecord[]
+  members: MemberOption[]
+  current: Who
+  showDates: boolean
+}) {
+  const [open, setOpen] = useState(false)
+  const [choice, setChoice] = useState<Who>(current)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const myName = members.find((member) => member.id === workspace.membershipId)?.displayName || workspace.displayName || 'you'
+  const people = members.filter((member) => member.id !== workspace.membershipId)
+
+  async function download() {
+    setBusy(true)
+    setError(null)
+    try {
+      const whoLabel = choice === 'everyone' ? 'Everyone' : choice === 'mine' ? `Mine: ${myName}` : people.find((member) => member.id === choice)?.displayName ?? 'Person'
+      const doc = buildRunOfShowDoc({
+        event, items: filterSchedule(all, choice, workspace.membershipId), members, whoLabel, showDates, generatedAt: new Date(),
+      })
+      await downloadRunOfShowPdf(doc, pdfFileName(event.title, whoLabel))
+      setOpen(false)
+    } catch (caught) {
+      setError(caught instanceof Error && caught.message ? `Couldn’t make the PDF: ${caught.message}` : 'Couldn’t make the PDF. Try again.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <Popover open={open} onOpenChange={(next) => { if (next) { setChoice(current); setError(null) } setOpen(next) }}>
+      <PopoverTrigger asChild><Button variant="secondary">Download PDF</Button></PopoverTrigger>
+      <PopoverContent align="end" className="ros-pdf-popover">
+        <label className="ros-pdf-field">
+          <span>Download for</span>
+          <select className="app-select" value={choice} disabled={busy} onChange={(change) => setChoice(change.target.value)}>
+            <option value="everyone">Everyone</option>
+            <option value="mine">Mine ({myName})</option>
+            {people.map((member) => <option key={member.id} value={member.id}>{member.displayName}</option>)}
+          </select>
+        </label>
+        <p className="app-meta">Made on this device. Nothing is uploaded.</p>
+        {error ? <p className="app-error-text" role="alert">{error}</p> : null}
+        <Button busy={busy} busyLabel="Making PDF…" onClick={download}>Download</Button>
+      </PopoverContent>
+    </Popover>
+  )
 }
 
 function TeamBriefing({ workspace, event, manage }: { workspace: WorkspaceSummary; event: EventRecord; manage: boolean }) {
@@ -494,14 +510,13 @@ function TeamBriefing({ workspace, event, manage }: { workspace: WorkspaceSummar
   return <section className="ros-briefing" aria-labelledby="team-briefing-title">
     <div className="ros-section-heading">
       <div><h2 id="team-briefing-title">Team briefing</h2><p>Arrival instructions, meeting points, and event-wide notes.</p></div>
-      {manage && dirty ? <div className="ros-inline-actions ros-no-print"><span>Unsaved changes</span><Button variant="quiet" onClick={() => { setValue(savedValue); setError(null) }}>Cancel</Button><Button busy={busy} busyLabel="Saving…" onClick={save}>Save briefing</Button></div> : null}
+      {manage && dirty ? <div className="ros-inline-actions"><span>Unsaved changes</span><Button variant="quiet" onClick={() => { setValue(savedValue); setError(null) }}>Cancel</Button><Button busy={busy} busyLabel="Saving…" onClick={save}>Save briefing</Button></div> : null}
     </div>
-    {manage ? <AutoTextarea className="ros-briefing-input ros-screen-field" value={value} maxLength={4000}
+    {manage ? <AutoTextarea className="ros-briefing-input" value={value} maxLength={4000}
       placeholder="Where should the team meet? What should everyone know before doors open?" aria-label="Team briefing"
       disabled={busy} onChange={(event) => setValue(event.target.value)} />
       : value ? <p className="ros-readable-notes">{value}</p> : <p className="ros-empty-copy">No team briefing added.</p>}
-    <p className="ros-print-value ros-readable-notes">{value || 'No team briefing added.'}</p>
-    {error ? <p className="app-error-text ros-no-print" role="alert">{error} <button className="ros-retry-link" onClick={save}>Retry</button></p> : null}
+    {error ? <p className="app-error-text" role="alert">{error} <button className="ros-retry-link" onClick={save}>Retry</button></p> : null}
   </section>
 }
 

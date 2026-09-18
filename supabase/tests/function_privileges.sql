@@ -30,7 +30,7 @@ select is(
         'list_overview_tasks', 'list_removed_tasks', 'list_segments', 'list_team',
         'list_workspace_tasks', 'lookup_import_receipt', 'peek_invitation',
         'prepare_attendance_import', 'preview_revert_import', 'remove_member', 'remove_segment',
-        'remove_task', 'reorder_segments', 'restore_event', 'restore_segment', 'restore_task',
+        'remove_task', 'restore_event', 'restore_segment', 'restore_task',
         'revert_attendance_import', 'revoke_invitation', 'save_segment', 'save_task', 'save_team_briefing',
         'save_workspace', 'set_task_status', 'transfer_ownership', 'update_event'
       ])

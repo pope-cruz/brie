@@ -14,12 +14,19 @@ const state = vi.hoisted(() => ({
   save: vi.fn(),
   remove: vi.fn(),
   segments: [] as Array<Record<string, unknown>>,
+  members: [] as Array<Record<string, unknown>>,
+  search: '',
+  navigate: vi.fn(),
 }))
 
-vi.mock('react-router-dom', () => ({ useOutletContext: () => ({ workspace: { id: 'workspace', role: state.role }, event: state.event }) }))
+vi.mock('react-router-dom', () => ({
+  useOutletContext: () => ({ workspace: { id: 'workspace', role: state.role, membershipId: 'me', displayName: 'Sam' }, event: state.event }),
+  useLocation: () => ({ search: state.search, hash: '#day-of' }),
+  useNavigate: () => state.navigate,
+}))
 vi.mock('@tanstack/react-query', () => ({
   useQueryClient: () => ({ invalidateQueries: vi.fn() }),
-  useQuery: ({ queryKey }: { queryKey: string[] }) => ({ data: queryKey[0] === 'team' ? { members: [] } : state.segments, refetch: vi.fn() }),
+  useQuery: ({ queryKey }: { queryKey: string[] }) => ({ data: queryKey[0] === 'team' ? { members: state.members } : state.segments, refetch: vi.fn() }),
 }))
 vi.mock('../../src/app/data/api', () => ({
   listSegments: vi.fn(), listTeam: vi.fn(), removeSegment: (...args: unknown[]) => state.remove(...args), restoreSegment: vi.fn(), saveTeamBriefing: vi.fn(),
@@ -34,7 +41,7 @@ function segment(overrides: Record<string, unknown>) {
     id: 'segment', workspaceId: 'workspace', eventId: 'event', title: 'Doors open',
     startsAt: '2026-09-17T23:30:00Z', endsAt: '2026-09-18T00:00:00Z', ownerMembershipId: null,
     ownerName: null, ownerFormer: false, instructions: 'Welcome guests.', removedAt: null,
-    version: 3, sortOrder: 1000, overlaps: false, outOfRange: false, ...overrides,
+    version: 3, overlaps: false, outOfRange: false, ...overrides,
   }
 }
 
@@ -61,6 +68,10 @@ beforeEach(async () => {
   Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true })
   state.role = 'owner'
   state.segments = []
+  state.members = [{ id: 'me', displayName: 'Sam', removedAt: null }, { id: 'ana', displayName: 'Ana', removedAt: null }]
+  state.search = ''
+  state.navigate.mockReset().mockImplementation((to: { search: string }) => { state.search = to.search })
+  localStorage.clear()
   state.remove.mockReset().mockResolvedValue(undefined)
   state.save.mockReset().mockImplementation(async (input) => segment({
     id: 'saved', title: input.title, startsAt: input.startsAt, endsAt: input.endsAt,
@@ -156,8 +167,8 @@ describe('run of show add row', () => {
 describe('run of show rows', () => {
   it('orders by time, not by saved position', async () => {
     state.segments = [
-      segment({ id: 'late', title: 'Doors open', startsAt: '2026-09-18T00:00:00Z', endsAt: '2026-09-18T00:30:00Z', sortOrder: 1000 }),
-      segment({ id: 'early', title: 'Room setup', startsAt: '2026-09-17T22:00:00Z', endsAt: '2026-09-17T23:00:00Z', sortOrder: 2000 }),
+      segment({ id: 'late', title: 'Doors open', startsAt: '2026-09-18T00:00:00Z', endsAt: '2026-09-18T00:30:00Z' }),
+      segment({ id: 'early', title: 'Room setup', startsAt: '2026-09-17T22:00:00Z', endsAt: '2026-09-17T23:00:00Z' }),
     ]
     await render()
     expect([...host.querySelectorAll('.ros-row-title')].map((item) => item.textContent)).toEqual(['Edit Room setup', 'Edit Doors open'])
@@ -206,5 +217,64 @@ describe('run of show rows', () => {
     expect(host.textContent).toContain('Remove “Doors open”?')
     await act(async () => { button('Remove item')!.click() })
     expect(state.remove).toHaveBeenCalledWith('workspace', 'segment', 3)
+  })
+})
+
+describe('run of show who filter', () => {
+  const items = () => [
+    segment({ id: 'doors', title: 'Doors open', ownerMembershipId: null }),
+    segment({ id: 'mine', title: 'Check-in desk', ownerMembershipId: 'me', startsAt: '2026-09-18T00:00:00Z', endsAt: '2026-09-18T00:15:00Z' }),
+    segment({ id: 'ana', title: 'Panel intro', ownerMembershipId: 'ana', startsAt: '2026-09-18T00:15:00Z', endsAt: '2026-09-18T00:30:00Z' }),
+  ]
+  const titles = () => [...host.querySelectorAll('tbody tr:not(.ros-editor-row)')].map((row) => row.querySelector('td:nth-child(2)')?.textContent)
+
+  it('defaults organizers to Everyone and members to Mine', async () => {
+    state.segments = items()
+    await render()
+    expect(field<HTMLSelectElement>('Show schedule for').value).toBe('everyone')
+    expect(titles()).toEqual(['Edit Doors open', 'Edit Check-in desk', 'Edit Panel intro'])
+    await act(async () => root.unmount())
+    root = createRoot(host)
+    state.role = 'member'
+    await render()
+    expect(field<HTMLSelectElement>('Show schedule for').value).toBe('mine')
+    expect(titles()).toEqual(['Doors open', 'Check-in desk'])
+  })
+
+  it('filters to a person, keeps the choice in the URL and remembers it for the workspace', async () => {
+    state.segments = items()
+    await render()
+    const select = field<HTMLSelectElement>('Show schedule for')
+    await act(async () => { select.value = 'ana'; select.dispatchEvent(new Event('change', { bubbles: true })) })
+    expect(state.navigate).toHaveBeenCalledWith({ search: '?who=ana', hash: '#day-of' }, expect.objectContaining({ replace: true }))
+    expect(localStorage.getItem('brie:schedule-who:workspace')).toBe('ana')
+    await render()
+    expect(titles()).toEqual(['Edit Doors open', 'Edit Panel intro'])
+  })
+
+  it('offers Show everyone when nothing is yours', async () => {
+    state.role = 'member'
+    state.segments = [segment({ id: 'ana', title: 'Panel intro', ownerMembershipId: 'ana' })]
+    await render()
+    expect(host.textContent).toContain('Nothing on the schedule for you')
+    await act(async () => { button('Show everyone')!.click() })
+    await render()
+    expect(titles()).toEqual(['Panel intro'])
+  })
+})
+
+describe('run of show now and next', () => {
+  afterEach(() => { vi.useRealTimers() })
+
+  it('labels the running item Now and the following one Next', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date('2026-09-17T23:40:00Z'))
+    state.segments = [
+      segment({ id: 'doors', title: 'Doors open' }),
+      segment({ id: 'panel', title: 'Panel', startsAt: '2026-09-18T00:00:00Z', endsAt: '2026-09-18T00:30:00Z' }),
+    ]
+    await render()
+    const marks = [...host.querySelectorAll('.ros-mark')].map((mark) => mark.textContent)
+    expect(marks).toEqual(['Now', 'Next'])
   })
 })

@@ -9,7 +9,8 @@ Slices R1–R7 use the existing database and RPCs. Anything that needs a migrati
 | Slice | State | Evidence |
 | --- | --- | --- |
 | R1 One event page | Done 2026-09-18 | Unit tests (`event-phase`, `event-page`); release browser suite 15/16 — test 13 fails on local Supabase clock skew (“JWT issued at future”), unrelated to R1; desktop and 375px screenshots reviewed |
-| R5 Day of list | Editing done 2026-09-18; Now/Next and Everyone/Mine filter still to do | Read-only rows, click to edit in place, Start + Length entry with typed shortcuts (`timeInput.ts`), always-present add row, time order (Move up/down removed). Unit tests (`time-input`, `schedule`); release suite 15/16 (same clock-skew test 13); desktop and 375px screenshots reviewed |
+| R5 Day of list | Done 2026-09-18 | Editing: read-only rows, click to edit in place, Start + Length entry with typed shortcuts (`timeInput.ts`), always-present add row, time order. Now/Next labels and Everyone/Mine/person filter (`scheduleView.ts`; URL `?who=`, remembered per workspace, members default to Mine). Unit tests (`time-input`, `schedule`, `schedule-view`); release suite 16/16 including the member Mine/Everyone check at 375px; desktop and 375px screenshots reviewed. Now/Next checked by unit tests only, since the demo event is not today |
+| N6 Drop `sort_order` | Done 2026-09-18 | `0018_drop_schedule_sort_order.sql` drops the column and `reorder_segments` (0017 had already merged); list and duplicate order by start, end, creation. 125 pgTAP checks and the from-scratch reliability replay pass |
 
 ## Slices on existing data
 
@@ -78,4 +79,4 @@ Start only after MVP.md section 5 is confirmed.
 - **N3 — Shift later items.** One atomic RPC that moves an item and every later item by the same amount; "Also shift later items" on save and after event start changes.
 - **N4 — Home schedule.** Query for the signed-in person's schedule items (plus Everyone items) in events over the next 7 days; add "Your schedule" to Home.
 - **N5 — Paste schedule rows.** Batch-create RPC with one idempotency key so a pasted schedule is all-or-nothing.
-- **N6 — Drop `sort_order`.** Remove the column and reorder command from the uncommitted `0017_run_of_show_briefing.sql` before it is committed; keep `team_briefing`.
+- **N6 — Drop `sort_order`.** Done; see Status.

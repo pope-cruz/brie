@@ -86,7 +86,7 @@ export function EventAttendancePage() {
       {view === 'people'
         ? people.data?.rows.map((person) => (
             <div key={person.id} style={{ padding: '12px 0', borderBottom: '1px solid var(--app-border)' }}>
-              <Link to={`/app/w/${workspace.id}/attendance/${person.id}`}>
+              <Link to={`/app/w/${workspace.id}/people/${person.id}`}>
                 {person.name || 'Name not provided'}
               </Link>
               <p className="app-meta">{person.email}</p>

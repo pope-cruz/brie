@@ -42,7 +42,7 @@ export function PersonPage() {
 
   return (
     <div className="app-page">
-      <Link to={`/app/w/${workspace.id}/attendance?${params.toString()}`}>Attendance history</Link>
+      <Link to={`/app/w/${workspace.id}/people?${params.toString()}`}>People</Link>
       <h1 className="app-h1">{detail.data.name || 'Name not provided'}</h1>
       <p className="app-meta">{detail.data.email}</p>
       <p>

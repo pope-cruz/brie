@@ -897,3 +897,23 @@
   .brie-app .ros-readable-notes { line-height: 1.4; white-space: pre-wrap; overflow: visible; }
   .brie-app .ros-timing-note { color: #6b4612; font-size: 8pt; }
 }
+
+/* Home */
+.home-section { margin-top: 32px; }
+.home-section > .app-section-title { margin-bottom: 8px; }
+.home-group { margin-top: 16px; }
+.home-group-title { margin: 0 0 4px; font-size: 14px; line-height: 20px; font-weight: 500; }
+.home-list { margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--app-border); }
+.home-todo, .home-event { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 16px; min-height: 44px; padding: 8px 0; border-bottom: 1px solid var(--app-border); }
+.home-check { display: flex; align-items: flex-start; gap: 10px; flex: 1 1 240px; min-width: 0; cursor: pointer; }
+.home-check input { flex: none; width: 18px; height: 18px; margin: 1px 0 0; accent-color: var(--app-primary); }
+.home-todo-title { overflow-wrap: anywhere; }
+.home-todo[data-done] .home-todo-title { color: var(--app-muted); text-decoration: line-through; }
+.home-todo-meta { color: var(--app-muted); font-size: 13px; line-height: 20px; }
+.home-overdue { color: var(--app-danger); }
+.home-event > a { flex: 1 1 240px; min-width: 0; overflow-wrap: anywhere; }
+.home-row-error { flex-basis: 100%; margin: 0; }
+@media (max-width: 767px) {
+  .home-todo-meta { padding-left: 28px; }
+  .home-check input { width: 22px; height: 22px; }
+}

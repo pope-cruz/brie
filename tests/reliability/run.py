@@ -137,6 +137,29 @@ def main():
         if args.before and migration.name >= args.before:
             break
         sql(migration.read_text())
+        if migration.name == '0018_drop_schedule_sort_order.sql' and not args.before:
+            # Seed a legacy three-state task and single-owner segment before
+            # migrations 0019/0020, then verify their backfill below.
+            sql("""insert into auth.users(id,email) values ('f2000000-0000-4000-8000-000000000001','legacy-owner@example.test');
+                insert into public.workspaces(id,name,timezone) values ('f2000000-0000-4000-8000-0000000000aa','Legacy migration fixture','UTC');
+                insert into public.memberships(id,workspace_id,user_id,role,email_normalized) values
+                ('f2000000-0000-4000-8000-0000000000b1','f2000000-0000-4000-8000-0000000000aa',
+                 'f2000000-0000-4000-8000-000000000001','owner','legacy-owner@example.test');
+                insert into public.events(id,workspace_id,title,starts_at,ends_at,timezone,created_by) values
+                ('f2000000-0000-4000-8000-0000000000e1','f2000000-0000-4000-8000-0000000000aa',
+                 'Legacy event','2026-09-20 18:00Z','2026-09-20 20:00Z','UTC','f2000000-0000-4000-8000-000000000001');
+                insert into public.tasks(id,workspace_id,event_id,title,status,created_by) values
+                ('f2000000-0000-4000-8000-0000000000c1','f2000000-0000-4000-8000-0000000000aa',
+                 'f2000000-0000-4000-8000-0000000000e1','Started work','in_progress','f2000000-0000-4000-8000-000000000001');
+                insert into public.schedule_segments(id,workspace_id,event_id,title,starts_at,ends_at,owner_membership_id) values
+                ('f2000000-0000-4000-8000-0000000000d1','f2000000-0000-4000-8000-0000000000aa',
+                 'f2000000-0000-4000-8000-0000000000e1','Old owner','2026-09-20 18:00Z','2026-09-20 18:30Z',
+                 'f2000000-0000-4000-8000-0000000000b1');""")
+    if not args.before:
+        ok(sql("select status from public.tasks where id='f2000000-0000-4000-8000-0000000000c1'") == 'todo',
+           'legacy In progress tasks migrate to Todo')
+        ok(sql("select membership_id from public.schedule_segment_people where segment_id='f2000000-0000-4000-8000-0000000000d1'") == 'f2000000-0000-4000-8000-0000000000b1',
+           'legacy single-owner assignment migrates to schedule people')
     sql('create extension pgtap with schema extensions;')
     for test in sorted((ROOT / 'supabase/tests').glob('*.sql')):
         result = sql('set search_path=public,extensions; ' + test.read_text())
@@ -188,7 +211,7 @@ def main():
     owner_id = sql(f"select id from public.memberships where workspace_id='{W}' and user_id='{OWNER}'")
     task = rpc(f"public.save_task('{W}','{e}',null,'Assigned task','','{member_id}',null,'todo',null,'assigned-task-key')")
     overlap(auth(f"select public.set_task_status('{W}','{task['id']}','done',1)", MEM),
-            auth(f"select public.set_task_status('{W}','{task['id']}','in_progress',1)", MEM), 'CONFLICT')
+            auth(f"select public.set_task_status('{W}','{task['id']}','todo',1)", MEM), 'CONFLICT')
     ok(sql(f"select status from public.tasks where id='{task['id']}'") == 'done', 'simultaneous task status saves retain the winning version')
     # Demotion must take effect before a waiting organizer command authorizes itself.
     p = preview(e, ['demoted'], ORG)
@@ -207,6 +230,63 @@ def main():
             auth(f"select public.transfer_ownership('{W}','{member_id}',1,1)"), 'FORBIDDEN')
     ok(sql(f"select count(*) from public.memberships where workspace_id='{W}' and role='owner' and removed_at is null") == '1', 'concurrent ownership transfers leave exactly one owner')
     rpc(f"public.transfer_ownership('{W}','{owner_id}',4,2)", ORG)
+
+    # N1–N5: two-state tasks, multi-person items, atomic shifts and paste,
+    # and the member-scoped Home schedule read model.
+    denied_status = docker('psql', '-XqAt', '-v', 'ON_ERROR_STOP=1', '-U', 'postgres', '-d', DB,
+                           data=f"update public.tasks set status='in_progress' where id='{task['id']}';", check=False)
+    ok(denied_status.returncode != 0 and 'tasks_two_state_status' in denied_status.stderr,
+       'retired In progress status is rejected at the table boundary')
+    plan_event = event()
+    first = rpc(f"public.save_segment_people('{W}','{plan_event}',null,'Welcome',"
+                f"'2026-09-20 18:00Z','2026-09-20 18:30Z',"
+                f"array['{organizer_id}','{member_id}']::uuid[],'',true,1,'people-first-key')")
+    ok({person['id'] for person in first['people']} == {organizer_id, member_id},
+       'one schedule item retains several teammates')
+    following = rpc(f"public.save_segment_people('{W}','{plan_event}',null,'Panel',"
+                    "'2026-09-20 19:00Z','2026-09-20 19:30Z','{}'::uuid[],'',true,1,'people-next-key')")
+    overlapping = rpc(f"public.save_segment_people('{W}','{plan_event}',null,'Overlapping cue',"
+                      "'2026-09-20 18:15Z','2026-09-20 18:25Z','{}'::uuid[],'',true,1,'people-overlap-key')")
+    shifted = rpc(f"public.save_segment_and_shift('{W}','{plan_event}','{first['id']}','Welcome',"
+                  f"'2026-09-20 18:00Z','2026-09-20 18:45Z',array['{organizer_id}','{member_id}']::uuid[],"
+                  "'',true,1,'shift-people-key')")
+    ok(shifted['version'] == 2 and sql(f"select starts_at from public.schedule_segments where id='{following['id']}'") == '2026-09-20 19:15:00+00',
+       'shifting an item moves later items atomically by the end-time change')
+    ok(sql(f"select starts_at from public.schedule_segments where id='{overlapping['id']}'") == '2026-09-20 18:30:00+00',
+       'a later overlapping item moves with the rest of the schedule')
+    pasted_rows = json.dumps([
+        {'title': 'Photos', 'startsAt': '2026-09-20T19:30:00Z', 'endsAt': '2026-09-20T19:45:00Z', 'personIds': [], 'instructions': ''},
+        {'title': 'Cleanup', 'startsAt': '2026-09-20T19:45:00Z', 'endsAt': '2026-09-20T20:00:00Z', 'personIds': [member_id], 'instructions': 'Pack up'},
+    ])
+    paste_call = f"public.paste_schedule('{W}','{plan_event}','{pasted_rows}'::jsonb,true,'paste-people-key')"
+    pasted = rpc(paste_call)
+    ok(len(pasted) == 2 and rpc(paste_call) == pasted and
+       sql(f"select count(*) from public.schedule_segments where event_id='{plan_event}'") == '5',
+       'schedule paste creates all rows once and retries return the same result')
+    bad_rows = json.dumps([
+        {'title': 'Valid', 'startsAt': '2026-09-20T18:00:00Z', 'endsAt': '2026-09-20T18:15:00Z', 'personIds': [], 'instructions': ''},
+        {'title': '', 'startsAt': '2026-09-20T18:15:00Z', 'endsAt': '2026-09-20T18:30:00Z', 'personIds': [], 'instructions': ''},
+    ])
+    failed_paste = docker('psql', '-XqAt', '-v', 'ON_ERROR_STOP=1', '-U', 'postgres', '-d', DB,
+                          data=auth(f"select public.paste_schedule('{W}','{plan_event}','{bad_rows}'::jsonb,true,'paste-bad-key')"), check=False)
+    ok(failed_paste.returncode != 0 and 'VALIDATION' in failed_paste.stderr and
+       sql(f"select count(*) from public.schedule_segments where event_id='{plan_event}'") == '5',
+       'a bad pasted row rolls the entire batch back')
+    member_write = docker('psql', '-XqAt', '-v', 'ON_ERROR_STOP=1', '-U', 'postgres', '-d', DB,
+                          data=auth(f"select public.paste_schedule('{W}','{plan_event}','{pasted_rows}'::jsonb,true,'member-paste-key')", MEM), check=False)
+    ok(member_write.returncode != 0 and 'FORBIDDEN' in member_write.stderr,
+       'members cannot paste schedule rows through the RPC')
+    near = rpc(f"public.create_event('{W}','Near event','','',now() + interval '1 hour',"
+               "now() + interval '4 hours','UTC',null,'near-event-key')")['id']
+    rpc(f"public.save_segment_people('{W}','{near}',null,'All hands',now() + interval '2 hours',"
+        "now() + interval '2 hours 15 minutes','{}'::uuid[],'',true,1,'home-all-key')")
+    rpc(f"public.save_segment_people('{W}','{near}',null,'Member item',now() + interval '2 hours 30 minutes',"
+        f"now() + interval '2 hours 45 minutes',array['{member_id}']::uuid[],'',true,1,'home-member-key')")
+    rpc(f"public.save_segment_people('{W}','{near}',null,'Organizer item',now() + interval '3 hours',"
+        f"now() + interval '3 hours 15 minutes',array['{organizer_id}']::uuid[],'',true,1,'home-organizer-key')")
+    home_titles = {row['title'] for row in rpc(f"public.list_home_schedule('{W}')", MEM)}
+    ok('All hands' in home_titles and 'Member item' in home_titles and 'Organizer item' not in home_titles,
+       'Home schedule includes Everyone and member items without revealing teammate-only items')
 
     # Interrupt after the second contribution has actually been inserted.
     e4 = event()

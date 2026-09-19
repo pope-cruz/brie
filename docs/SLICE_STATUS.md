@@ -130,3 +130,9 @@ Still open for release acceptance, in order:
 2. Full separate-instance Supabase restore including email-code sign-in, and HTTP/capacity measurements through the intended host.
 3. Configure production SMTP and redirect URLs on the real origin, then verify both the code and link returns.
 4. Maintainer license decision and asset/dependency audit (checklist in OPERATIONS.md).
+
+## N1–N5 product follow-up — 2026-09-19
+
+Implemented migrations 0019–0024 and the matching app changes: two-state to-dos; several people per schedule item; opt-in atomic shifts on item and event-start edits; Home schedule; and previewed, atomic schedule paste. N6 had already shipped in 0018. The local stack was backed up to `/private/tmp/brie-before-n-slices-20260919.dump` before applying these migrations. No production migration or deployment was performed.
+
+Verification: 206 unit/component tests pass; lint and production build pass with existing warnings. A fresh migration replay plus pgTAP and 58 isolated reliability assertions pass, including legacy-data backfill, assignment privacy, shift behavior, paste retries/rollback, and Home member scoping. The 17-step local multi-account release browser suite passes, including a new paste/shared-person/shift/Home flow; all 18 public-surface browser checks pass. Production deployment and its separate release checks remain open.

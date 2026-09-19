@@ -51,11 +51,17 @@ describe('scheduleMarks', () => {
 })
 
 describe('filterSchedule', () => {
-  const rows = [{ id: 'a', ownerMembershipId: null }, { id: 'b', ownerMembershipId: 'me' }, { id: 'c', ownerMembershipId: 'ana' }]
+  const rows = [{ id: 'a', people: [] }, { id: 'b', people: [{ id: 'me' }] }, { id: 'c', people: [{ id: 'ana' }] }]
   it('keeps Everyone items for Mine and a named person', () => {
     expect(filterSchedule(rows, 'everyone', 'me').map((row) => row.id)).toEqual(['a', 'b', 'c'])
     expect(filterSchedule(rows, 'mine', 'me').map((row) => row.id)).toEqual(['a', 'b'])
     expect(filterSchedule(rows, 'ana', 'me').map((row) => row.id)).toEqual(['a', 'c'])
+  })
+
+  it('includes an item for each of its assigned people', () => {
+    const shared = [{ id: 'shared', people: [{ id: 'me' }, { id: 'ana' }] }]
+    expect(filterSchedule(shared, 'mine', 'me')).toHaveLength(1)
+    expect(filterSchedule(shared, 'ana', 'me')).toHaveLength(1)
   })
 })
 

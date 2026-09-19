@@ -1,18 +1,29 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { ErrorRetry, Pagination, SkeletonRows } from '../../components/ui'
-import { listEvents, listWorkspaceTasks, setTaskStatus } from '../../data/api'
+import { listEvents, listHomeSchedule, listWorkspaceTasks, setTaskStatus } from '../../data/api'
 import { toAppError } from '../../data/errors'
-import { canManageEvents, type TaskRecord, type TaskStatus } from '../../data/types'
+import { canManageEvents, type HomeScheduleRecord, type TaskRecord, type TaskStatus } from '../../data/types'
 import { groupByEvent } from '../../lib/groupByEvent'
 import { formatTimeRange } from '../../lib/timezone'
+import { rowTimeLabel, scheduleMarks } from '../../lib/scheduleView'
 import { useCurrentWorkspace } from './workspaceContext'
 
 type RowState = { status: TaskStatus; version: number; busy: boolean; error: string | null }
 
 function dueLabel(date: string) {
   return new Intl.DateTimeFormat('en-US', { timeZone: 'UTC', weekday: 'short', month: 'short', day: 'numeric' }).format(new Date(`${date}T12:00:00Z`))
+}
+
+function groupSchedule(rows: HomeScheduleRecord[]) {
+  const groups = new Map<string, { eventId: string; eventTitle: string; items: HomeScheduleRecord[] }>()
+  for (const row of rows) {
+    const group = groups.get(row.eventId) ?? { eventId: row.eventId, eventTitle: row.eventTitle, items: [] }
+    group.items.push(row)
+    groups.set(row.eventId, group)
+  }
+  return [...groups.values()]
 }
 
 export function HomePage() {
@@ -23,6 +34,11 @@ export function HomePage() {
   // Checked rows stay in place (and can be unchecked) until the next visit refreshes the list.
   const [rows, setRows] = useState<Record<string, RowState>>({})
   const [notice, setNotice] = useState<string | null>(null)
+  const [now, setNow] = useState(() => new Date())
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(new Date()), 30_000)
+    return () => window.clearInterval(timer)
+  }, [])
   const organizer = canManageEvents(workspace.role)
 
   const tasks = useQuery({
@@ -33,6 +49,11 @@ export function HomePage() {
     queryKey: ['events', workspace.id, 'upcoming', '', 1],
     queryFn: () => listEvents(workspace.id, 'upcoming', '', 1),
     enabled: organizer,
+  })
+  const schedule = useQuery({
+    queryKey: ['home-schedule', workspace.id],
+    queryFn: () => listHomeSchedule(workspace.id),
+    refetchOnWindowFocus: true,
   })
 
   async function toggle(task: TaskRecord, done: boolean) {
@@ -95,7 +116,6 @@ export function HomePage() {
                     <span className="home-todo-meta">
                       {task.overdue && status !== 'done' ? <span className="home-overdue">Overdue · </span> : null}
                       {task.dueDate ? `Due ${dueLabel(task.dueDate)}` : null}
-                      {status === 'in_progress' ? `${task.dueDate ? ' · ' : ''}In progress` : null}
                     </span>
                     {state?.error ? (
                       <p className="app-error-text home-row-error" role="alert">
@@ -113,6 +133,30 @@ export function HomePage() {
           <Pagination page={tasks.data.page} total={tasks.data.total}
             onPage={(next) => { const merged = new URLSearchParams(params); merged.set('page', String(next)); setParams(merged) }} />
         ) : null}
+      </section>
+
+      <section className="home-section" aria-labelledby="home-schedule">
+        <h2 id="home-schedule" className="app-section-title">Your schedule</h2>
+        {schedule.isLoading ? <SkeletonRows count={3} /> : null}
+        {schedule.isError ? <ErrorRetry message={toAppError(schedule.error).message} onRetry={() => schedule.refetch()} /> : null}
+        {schedule.data?.length === 0 ? <p className="app-meta">Nothing on your schedule in the next seven days.</p> : null}
+        {groupSchedule(schedule.data ?? []).map((group) => {
+          const first = group.items[0]
+          const marks = scheduleMarks(group.items, {
+            startsAt: first.eventStartsAt, endsAt: first.eventEndsAt, timezone: first.eventTimezone,
+          }, now)
+          return <div key={group.eventId} className="home-group">
+            <h3 className="home-group-title"><Link to={`/app/w/${workspace.id}/events/${group.eventId}#day-of`} state={{ from: 'home' }}>{group.eventTitle}</Link></h3>
+            <ul className="home-list">{group.items.map((item) => {
+              const time = rowTimeLabel(item, { startsAt: item.eventStartsAt, timezone: item.eventTimezone }, true)
+              const mark = marks.get(item.id)
+              return <li key={item.id} className="home-event">
+                <Link to={`/app/w/${workspace.id}/events/${group.eventId}#day-of`} state={{ from: 'home' }}>{item.title}</Link>
+                <span className="home-todo-meta app-tabular">{mark === 'now' ? 'Now · ' : mark === 'next' ? 'Next · ' : ''}{time.date} · {time.range}</span>
+              </li>
+            })}</ul>
+          </div>
+        })}
       </section>
 
       {organizer ? (

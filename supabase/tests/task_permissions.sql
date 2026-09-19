@@ -39,7 +39,7 @@ select throws_ok($$select public.set_task_status('c2000000-0000-4000-8000-000000
 
 -- Organizer.
 select set_config('request.jwt.claim.sub', 'c2000000-0000-4000-8000-000000000002', true);
-select is(public.set_task_status('c2000000-0000-4000-8000-0000000000aa', 'c2000000-0000-4000-8000-0000000000c2', 'in_progress', 1)->>'status', 'in_progress', 'Organizer can change any task status');
+select is(public.set_task_status('c2000000-0000-4000-8000-0000000000aa', 'c2000000-0000-4000-8000-0000000000c2', 'todo', 1)->>'status', 'todo', 'Organizer can change any task status');
 select is(public.save_task('c2000000-0000-4000-8000-0000000000aa', 'c2000000-0000-4000-8000-0000000000e1', 'c2000000-0000-4000-8000-0000000000c3', 'Set up tables', '', 'c2000000-0000-4000-8000-0000000000b4', null, 'todo', 1, null)->>'assigneeMembershipId', 'c2000000-0000-4000-8000-0000000000b4', 'Organizer can assign a task');
 select throws_ok($$select public.save_task('c2000000-0000-4000-8000-0000000000aa', 'c2000000-0000-4000-8000-0000000000e1', 'c2000000-0000-4000-8000-0000000000c3', 'Other writer', '', null, null, 'todo', 1, null)$$, 'P0001', 'CONFLICT', 'A second save from the same version conflicts');
 select throws_ok($$select public.save_task('c2000000-0000-4000-8000-0000000000aa', 'c2000000-0000-4000-8000-0000000000e1', 'c2000000-0000-4000-8000-0000000000c3', 'Set up tables', '', 'c2000000-0000-4000-8000-0000000000b5', null, 'todo', 2, null)$$, 'P0001', 'VALIDATION', 'Tasks cannot be assigned to a removed member');

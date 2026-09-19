@@ -49,7 +49,7 @@ Allow about 30–45 minutes. Use fictional accounts `owner@example.test`, `organ
 Both suites use Playwright and start the Vite dev server themselves (`playwright.config.ts`). Install the browser once with `npx playwright install chromium`.
 
 - `npm run test:e2e:public` runs without the database: landing and sign-in at all five DESIGN.md viewports, 200% zoom, reduced motion, keyboard-only sign-in, focus and contrast, and unauthenticated routing.
-- `npm run test:e2e:release` automates sections 1–5 above with fresh fictional accounts (`brie-e2e-…@example.test`) so saved local work is never touched. It reads sign-in codes from Mailpit's API and skips itself when the local stack is not running. Each address can request one code per minute, so re-sign-in steps wait; a full run takes several minutes.
+- `npm run test:e2e:release` automates sections 1–5 above, plus paste/shared-person/shift/Home scheduling, with fresh fictional accounts (`brie-e2e-…@example.test`) so saved local work is never touched. It reads sign-in codes from Mailpit's API and skips itself when the local stack is not running. Each address can request one code per minute, so re-sign-in steps wait; a full run takes several minutes.
 - Failures leave traces and screenshots under `test-results/`. Open one with `npx playwright show-trace <trace.zip>`.
 
 ## Next implementation priorities

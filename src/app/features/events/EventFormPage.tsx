@@ -155,6 +155,7 @@ export function EventForm({
   const [status, setStatus] = useState<EventStatus>(defaultStatus)
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [busy, setBusy] = useState(false)
+  const [shiftSchedule, setShiftSchedule] = useState(false)
   const [changingZone, setChangingZone] = useState(mode !== 'new')
   const dirty = title !== defaultTitle || description !== defaultDescription || location !== defaultLocation
     || timezone !== timezoneDefault || startDate !== defaultStartDate || startTime !== defaultStartTime
@@ -268,8 +269,10 @@ export function EventForm({
           leadMembershipId: lead || null,
           status,
           expectedVersion: version,
+          shiftSchedule,
         })
         rememberSaved(updated)
+        if (shiftSchedule) void queryClient.invalidateQueries({ queryKey: ['segments', workspaceId, sourceId] })
         if (onSaved) onSaved(updated)
         else navigate(`/app/w/${workspaceId}/events/${updated.id}`)
       }
@@ -335,8 +338,9 @@ export function EventForm({
             </select>
           </Field>
         ) : null}
-        {mode === 'edit' ? (
-          <p className="app-meta">Changing the start or zone does not move existing schedule times. Review Run of show after saving.</p>
+        {mode === 'edit' && (startDate !== defaultStartDate || startTime !== defaultStartTime || timezone !== timezoneDefault) ? (
+          <label className="app-field"><span><input type="checkbox" checked={shiftSchedule}
+            onChange={(change) => setShiftSchedule(change.target.checked)} /> Also shift schedule items with the new event start</span></label>
         ) : null}
         {errors.form && rangeErrors ? <p className="app-error-text">{errors.form}</p> : null}
         <div className="app-toolbar">

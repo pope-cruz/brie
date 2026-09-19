@@ -70,7 +70,10 @@ async function addScheduleItem(page: Page, input: { title: string; start: string
   await page.getByLabel('Activity for new item').fill(input.title)
   await page.getByLabel('Start for new item').fill(input.start)
   await page.getByLabel('Length for new item').fill(`${minutes(input.end) - minutes(input.start)}m`)
-  if (input.assigned) await page.getByLabel('Owner for new item').selectOption({ label: 'Owner QA' })
+  if (input.assigned) {
+    await page.getByLabel('People for new item').click()
+    await page.locator('.ros-people-picker').getByRole('checkbox', { name: 'Owner QA' }).check()
+  }
   await page.getByLabel('Notes for new item').fill(input.notes)
   await page.getByLabel('Activity for new item').press('Enter')
   await expect(page.getByRole('button', { name: `Edit ${input.title}`, exact: true })).toBeVisible()
@@ -601,4 +604,51 @@ test('16. a dropped backend on reload shows a recoverable error, never a false o
   await owner.unroute(cut)
   await ownerPage.getByRole('button', { name: 'Retry' }).click()
   await expect(ownerPage).toHaveURL(new RegExp(`/app/w/${state.workspaceId}/home`), { timeout: 20_000 })
+})
+
+test('17. pasted and shared schedule items shift together and appear on Home', async () => {
+  const parts = new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit' })
+    .formatToParts(new Date(Date.now() + 24 * 60 * 60_000))
+  const tomorrow = `${parts.find((part) => part.type === 'year')!.value}-${parts.find((part) => part.type === 'month')!.value}-${parts.find((part) => part.type === 'day')!.value}`
+  await ownerPage.goto(`/app/w/${state.workspaceId}/events`)
+  await ownerPage.getByRole('button', { name: 'New event' }).click()
+  await ownerPage.getByLabel('Title', { exact: true }).fill('Schedule rehearsal')
+  await fillRange(ownerPage, { date: tomorrow, time: '10:00' }, '13:00')
+  await ownerPage.getByRole('button', { name: 'Create event' }).click()
+  await expect(ownerPage).toHaveURL(/\/events\/[0-9a-f-]{36}$/)
+  const rehearsal = ownerPage.url().match(/\/events\/([0-9a-f-]{36})$/)![1]
+  const rehearsalUrl = `/app/w/${state.workspaceId}/events/${rehearsal}`
+  await ownerPage.goto(`${rehearsalUrl}/run-of-show`)
+  await ownerPage.getByRole('button', { name: 'Paste rows' }).click()
+  await ownerPage.locator('.ros-paste-sheet textarea').fill('10:30a\tSetup\tOwner QA\tBring signs\n11:30a\tDoors\t\tOpen entrance')
+  await expect(ownerPage.getByText('Preview · 2 items')).toBeVisible()
+  await ownerPage.getByRole('button', { name: 'Add 2 items' }).click()
+  await expect(ownerPage.getByRole('button', { name: 'Edit Setup' })).toBeVisible()
+  await expect(ownerPage.getByRole('button', { name: 'Edit Doors' })).toBeVisible()
+
+  await ownerPage.getByRole('button', { name: 'Edit Setup' }).click()
+  await ownerPage.getByLabel('Length for Setup').fill('45m')
+  await ownerPage.getByRole('checkbox', { name: 'Also shift later items' }).check()
+  await ownerPage.getByRole('button', { name: 'Save', exact: true }).click()
+  await expect(ownerPage.locator('.ros-schedule-table tr', { has: ownerPage.getByRole('button', { name: 'Edit Doors' }) })).toContainText('11:45 AM – 12:15 PM')
+
+  await ownerPage.getByRole('button', { name: 'Edit Setup' }).click()
+  await ownerPage.getByLabel('People for Setup').click()
+  const editor = ownerPage.locator('.ros-editor-row', { has: ownerPage.getByLabel('Activity for Setup') })
+  const choices = editor.locator('.ros-people-picker input[type="checkbox"]')
+  await expect(choices).toHaveCount(2)
+  await editor.locator('.ros-people-picker input[type="checkbox"]:not(:checked)').first().check()
+  await ownerPage.getByRole('button', { name: 'Save', exact: true }).click()
+
+  await ownerPage.goto(`${rehearsalUrl}/edit`)
+  await ownerPage.getByLabel('Start time', { exact: true }).fill('10:30')
+  await ownerPage.getByRole('checkbox', { name: 'Also shift schedule items with the new event start' }).check()
+  await ownerPage.getByRole('button', { name: 'Save', exact: true }).click()
+  await ownerPage.goto(`/app/w/${state.workspaceId}/home`)
+  const schedule = ownerPage.locator('[aria-labelledby="home-schedule"]')
+  await expect(schedule).toContainText('Schedule rehearsal')
+  await expect(schedule).toContainText('Setup')
+  await expect(schedule).toContainText('11 AM – 11:45 AM')
+  await organizerPage.goto(`/app/w/${state.workspaceId}/home`)
+  await expect(organizerPage.locator('[aria-labelledby="home-schedule"]')).toContainText('Setup')
 })

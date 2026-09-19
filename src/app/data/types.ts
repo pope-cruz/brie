@@ -1,6 +1,6 @@
 export type MemberRole = 'owner' | 'organizer' | 'member'
 export type EventStatus = 'draft' | 'planned' | 'completed' | 'canceled'
-export type TaskStatus = 'todo' | 'in_progress' | 'done'
+export type TaskStatus = 'todo' | 'done'
 export type ImportBatchStatus = 'active' | 'reverted'
 
 export type Profile = {
@@ -87,14 +87,19 @@ export type SegmentRecord = {
   title: string
   startsAt: string
   endsAt: string
-  ownerMembershipId: string | null
-  ownerName: string | null
-  ownerFormer: boolean
+  people: Array<{ id: string; name: string; former: boolean }>
   instructions: string
   removedAt: string | null
   version: number
   overlaps: boolean
   outOfRange: boolean
+}
+
+export type HomeScheduleRecord = SegmentRecord & {
+  eventTitle: string
+  eventStartsAt: string
+  eventEndsAt: string
+  eventTimezone: string
 }
 
 export type AttendancePerson = {
@@ -191,6 +196,5 @@ export function statusLabel(status: EventStatus): string {
 
 export function taskStatusLabel(status: TaskStatus): string {
   if (status === 'todo') return 'Todo'
-  if (status === 'in_progress') return 'In progress'
   return 'Done'
 }

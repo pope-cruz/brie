@@ -2,6 +2,7 @@ import { rpc } from './client'
 import type {
   EventRecord,
   EventStatus,
+  HomeScheduleRecord,
   ImportPreview,
   ImportReceipt,
   Invitation,
@@ -137,8 +138,9 @@ export async function updateEvent(input: {
   leadMembershipId: string | null
   status: EventStatus
   expectedVersion: number
+  shiftSchedule?: boolean
 }) {
-  return rpc<EventRecord>('update_event', {
+  return rpc<EventRecord>(input.shiftSchedule ? 'update_event_and_shift' : 'update_event', {
     p_workspace_id: input.workspaceId,
     p_event_id: input.eventId,
     p_title: input.title,
@@ -291,20 +293,21 @@ export async function saveSegment(input: {
   title: string
   startsAt: string
   endsAt: string
-  ownerMembershipId: string | null
+  personIds: string[]
   instructions: string
   ackWarnings: boolean
   expectedVersion: number
   requestKey: string
+  shiftLater?: boolean
 }) {
-  return rpc<SegmentRecord>('save_segment', {
+  return rpc<SegmentRecord>(input.shiftLater ? 'save_segment_and_shift' : 'save_segment_people', {
     p_workspace_id: input.workspaceId,
     p_event_id: input.eventId,
     p_segment_id: input.segmentId,
     p_title: input.title,
     p_starts_at: input.startsAt,
     p_ends_at: input.endsAt,
-    p_owner_membership_id: input.ownerMembershipId,
+    p_person_ids: input.personIds,
     p_instructions: input.instructions,
     p_ack_warnings: input.ackWarnings,
     p_expected_version: input.expectedVersion,
@@ -317,6 +320,26 @@ export async function listSegments(workspaceId: string, eventId: string, include
     p_workspace_id: workspaceId,
     p_event_id: eventId,
     p_include_removed: includeRemoved,
+  })
+}
+
+export async function listHomeSchedule(workspaceId: string) {
+  return rpc<HomeScheduleRecord[]>('list_home_schedule', { p_workspace_id: workspaceId })
+}
+
+export async function pasteSchedule(input: {
+  workspaceId: string
+  eventId: string
+  rows: Array<{ title: string; startsAt: string; endsAt: string; personIds: string[]; instructions: string }>
+  ackWarnings: boolean
+  requestKey: string
+}) {
+  return rpc<SegmentRecord[]>('paste_schedule', {
+    p_workspace_id: input.workspaceId,
+    p_event_id: input.eventId,
+    p_rows: input.rows,
+    p_ack_warnings: input.ackWarnings,
+    p_request_key: input.requestKey,
   })
 }
 

@@ -73,11 +73,11 @@ export function layoutCalendar(items: SegmentRecord[], options: {
   const days = [...new Set([...options.days, ...positioned.map((item) => item.day)])].sort()
 
   const owners = options.byPerson
-    ? options.people.filter((person) => positioned.some((item) => item.segment.ownerMembershipId === person.id))
+    ? options.people.filter((person) => positioned.some((item) => item.segment.people.some((member) => member.id === person.id)))
     : []
   // Items for people who aren't listed (a former member) still need a column.
   const others = options.byPerson
-    ? [...new Set(positioned.map((item) => item.segment.ownerMembershipId).filter((id): id is string => Boolean(id) && !owners.some((person) => person.id === id)))]
+    ? [...new Set(positioned.flatMap((item) => item.segment.people.map((person) => person.id)).filter((id) => !owners.some((person) => person.id === id)))]
     : []
   const personColumns: Array<{ id: string | null; label: string }> = options.byPerson && owners.length + others.length > 0
     ? [...owners.map((person) => ({ id: person.id, label: person.displayName })), ...others.map((id) => ({ id, label: 'Former member' }))]
@@ -86,7 +86,7 @@ export function layoutCalendar(items: SegmentRecord[], options: {
   const columns: CalendarColumn[] = []
   for (const day of days) {
     for (const person of personColumns) {
-      const mine = positioned.filter((item) => item.day === day && (person.id === null || !item.segment.ownerMembershipId || item.segment.ownerMembershipId === person.id))
+      const mine = positioned.filter((item) => item.day === day && (person.id === null || item.segment.people.length === 0 || item.segment.people.some((member) => member.id === person.id)))
       columns.push({
         key: `${day}:${person.id ?? 'everyone'}`,
         day,

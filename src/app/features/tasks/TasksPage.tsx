@@ -202,7 +202,7 @@ export function EventTasksPage() {
   )
 }
 
-/** The done checkbox, shared by every row. In progress shows unchecked and stays as is until checked. */
+/** The done checkbox, shared by every row. */
 function useCheck(ctx: Ctx, task: TaskRecord, version: number, onSaved: (task: TaskRecord) => void, onVersion: (version: number) => void) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -391,7 +391,7 @@ function ReadRow({ ctx, task, startOpen, archived, onOpen, onSaved, onRefresh }:
   const [notesOpen, setNotesOpen] = useState(startOpen)
   const check = useCheck(ctx, task, task.version, onSaved, () => undefined)
   const notesId = `todo-notes-${task.id}`
-  const meta = [personLabel(task), task.dueDate ? formatDueDate(task.dueDate, ctx.today) : null, task.status === 'in_progress' ? 'In progress' : null].filter(Boolean).join(' · ')
+  const meta = [personLabel(task), task.dueDate ? formatDueDate(task.dueDate, ctx.today) : null].filter(Boolean).join(' · ')
   return (
     <div id={`todo-${task.id}`} role="listitem" className="todo-row" data-done={task.status === 'done' ? '' : undefined}>
       <div className="todo-read">

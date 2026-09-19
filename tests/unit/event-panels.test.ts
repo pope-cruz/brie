@@ -137,6 +137,16 @@ describe('quick create', () => {
 })
 
 describe('details panel', () => {
+  it('offers an explicit schedule shift after the event start changes', async () => {
+    await mount(createElement(DetailsPanel, { workspace, event, onClose: vi.fn() }))
+    await type(byLabel('Start time'), '19:00')
+    const shift = [...document.querySelectorAll('label')].find((label) => label.textContent?.includes('Also shift schedule items'))?.querySelector('input') as HTMLInputElement
+    expect(shift?.checked).toBe(false)
+    await click(shift)
+    await click(button('Save'))
+    expect(api.updateEvent).toHaveBeenCalledWith(expect.objectContaining({ shiftSchedule: true }))
+  })
+
   it('edits every field against the version that was opened', async () => {
     const onClose = vi.fn()
     await mount(createElement(DetailsPanel, { workspace, event, onClose }))

@@ -4,16 +4,17 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Popover, PopoverContent, PopoverTrigger } from '../../components/shadcn/popover'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '../../components/shadcn/sheet'
 import { Button, ConfirmDialog, EmptyState, ErrorRetry, SkeletonRows } from '../../components/ui'
-import { listSegments, listTeam, removeSegment, restoreSegment, saveSegment, saveTeamBriefing } from '../../data/api'
+import { listSegments, listTeam, pasteSchedule, removeSegment, restoreSegment, saveSegment, saveTeamBriefing } from '../../data/api'
 import type { WorkspaceSummary } from '../../data/api'
 import { toAppError } from '../../data/errors'
 import { canManageEvents, type EventRecord, type SegmentRecord } from '../../data/types'
 import { clearRequestKey, getRequestKey } from '../../lib/idempotency'
 import { buildRunOfShowDoc, downloadRunOfShowPdf, pdfFileName } from '../../lib/runOfShowPdf'
-import { byTime, dayLabel, filterSchedule, ownerLabel, readStoredWho, resolveWho, rowTimeLabel, scheduleMarks, storeWho, type Who } from '../../lib/scheduleView'
+import { byTime, dayLabel, filterSchedule, peopleLabel, readStoredWho, resolveWho, rowTimeLabel, scheduleMarks, storeWho, type Who } from '../../lib/scheduleView'
 import { clockToMinutes, formatClock, formatDuration, minutesToClock, parseDurationInput, parseTimeInput } from '../../lib/timeInput'
 import { addMs, eventLocalDate, resolveLocalDateTime, splitInZone } from '../../lib/timezone'
 import { layoutCalendar } from '../../lib/calendarLayout'
+import { parseSchedulePaste } from '../../lib/schedulePaste'
 import { useNarrow } from '../../lib/useNarrow'
 import { CalendarView, type EmptySlot } from './CalendarView'
 
@@ -26,7 +27,7 @@ type Draft = {
   length: string
   offset: string
   title: string
-  ownerMembershipId: string
+  personIds: string[]
   notes: string
 }
 
@@ -60,7 +61,7 @@ function draftFromSegment(segment: SegmentRecord, timezone: string): Draft {
     length: formatDuration(minutes),
     offset: start.offset,
     title: segment.title,
-    ownerMembershipId: segment.ownerMembershipId || '',
+    personIds: segment.people.map((person) => person.id),
     notes: segment.instructions,
   }
 }
@@ -75,7 +76,7 @@ function blankDraft(event: EventRecord, afterIso?: string, seed?: Partial<Draft>
     length: formatDuration(DEFAULT_LENGTH),
     offset: '',
     title: '',
-    ownerMembershipId: '',
+    personIds: [],
     notes: '',
     ...seed,
   }
@@ -109,6 +110,7 @@ export function RunOfShowPage() {
   const [actionError, setActionError] = useState<string | null>(null)
   const [toast, setToast] = useState<string | null>(null)
   const [panel, setPanel] = useState<{ key: number; segment?: SegmentRecord; initial?: Draft } | null>(null)
+  const [pasteOpen, setPasteOpen] = useState(false)
   const narrow = useNarrow()
   const manage = canManageEvents(workspace.role) && !event.archivedAt
   const segments = useQuery({
@@ -154,7 +156,7 @@ export function RunOfShowPage() {
     setToast(null)
     setPanel((current) => ({
       key: (current?.key ?? 0) + 1,
-      initial: blankDraft(event, undefined, { day, start: formatClock(slot.minute % (24 * 60)), ownerMembershipId: slot.personId ?? '' }),
+      initial: blankDraft(event, undefined, { day, start: formatClock(slot.minute % (24 * 60)), personIds: slot.personId ? [slot.personId] : [] }),
     }))
   }
 
@@ -184,7 +186,7 @@ export function RunOfShowPage() {
     setAdder((current) => ({
       key: current.key + 1,
       afterIso: segment.endsAt,
-      seed: { title: segment.title, length: draft.length, ownerMembershipId: draft.ownerMembershipId, notes: draft.notes },
+      seed: { title: segment.title, length: draft.length, personIds: draft.personIds, notes: draft.notes },
       focus: true,
     }))
   }
@@ -219,6 +221,7 @@ export function RunOfShowPage() {
           </label>
         ) : null}
         <DownloadPdf workspace={workspace} event={event} all={all} members={members} current={who} showDates={multiDay} />
+        {manage ? <Button variant="secondary" onClick={() => setPasteOpen(true)}>Paste rows</Button> : null}
       </div>
 
       <TeamBriefing workspace={workspace} event={event} manage={manage} />
@@ -247,7 +250,7 @@ export function RunOfShowPage() {
           ) : null}
           <CalendarView
             layout={layoutCalendar(visible, { timezone: event.timezone, days, byPerson, people: members })}
-            showDayHeads={multiDay} marks={marks} ownerName={(segment) => ownerLabel(segment, members)}
+            showDayHeads={multiDay} marks={marks} ownerName={(segment) => peopleLabel(segment, members)}
             onOpen={(segment) => { setToast(null); setPanel((current) => ({ key: (current?.key ?? 0) + 1, segment })) }}
             onAddAt={manage ? openNewAt : undefined} />
         </div>
@@ -257,7 +260,7 @@ export function RunOfShowPage() {
         <div className="ros-table-wrap">
           <table className="ros-schedule-table">
             <colgroup><col className="ros-col-time" /><col className="ros-col-activity" /><col className="ros-col-owner" /><col className="ros-col-notes" />{manage ? <col className="ros-col-actions" /> : null}</colgroup>
-            <thead><tr><th>Time</th><th>Activity</th><th>Owner</th><th>Notes / cues</th>{manage ? <th className="ros-actions-heading"><span className="sr-only">Actions</span></th> : null}</tr></thead>
+            <thead><tr><th>Time</th><th>Activity</th><th>People</th><th>Notes / cues</th>{manage ? <th className="ros-actions-heading"><span className="sr-only">Actions</span></th> : null}</tr></thead>
             <tbody>
               {visible.map((segment, index) => editingId === segment.id ? (
                 <EditorRow key={segment.id} mode="edit" event={event} workspace={workspace} members={members} days={days}
@@ -302,6 +305,9 @@ export function RunOfShowPage() {
           onRemove={(segment) => { setPanel(null); setDeleting(segment) }} />
       ) : null}
 
+      {pasteOpen ? <PasteSchedule event={event} workspace={workspace} members={members} existing={all}
+        onClose={() => setPasteOpen(false)} onSaved={async (count) => { setPasteOpen(false); setToast(`Added ${count} schedule items.`); await refresh() }} /> : null}
+
       {deleting ? <ConfirmDialog title={`Remove “${deleting.title}”?`} body="It will leave the schedule, but you can restore it from Removed items."
         actionLabel="Remove item" danger pending={deleteBusy} onCancel={() => setDeleting(null)} onConfirm={deleteItem} /> : null}
     </article>
@@ -322,7 +328,7 @@ function ReadRow({ segment, event, members, manage, showDates, mark, gapMinutes,
 }) {
   const menu = useRef<HTMLDetailsElement>(null)
   const time = rowTimeLabel(segment, event, showDates)
-  const owner = ownerLabel(segment, members)
+  const owner = peopleLabel(segment, members)
   function pick(action: () => void) {
     menu.current?.removeAttribute('open')
     action()
@@ -340,7 +346,7 @@ function ReadRow({ segment, event, members, manage, showDates, mark, gapMinutes,
         ? <button type="button" className="ros-row-title" onClick={onEdit}><span className="sr-only">Edit </span>{segment.title}</button>
         : <strong className="ros-readable-activity">{segment.title}</strong>}
     </td>
-    <td data-label="Owner"><span className={owner ? undefined : 'ros-unassigned'}>{owner ?? 'Everyone'}</span></td>
+    <td data-label="People"><span className={owner ? undefined : 'ros-unassigned'}>{owner ?? 'Everyone'}</span></td>
     <td data-label="Notes / cues">
       {segment.instructions ? <span className="ros-readable-notes">{segment.instructions}</span> : <span className="ros-unassigned">—</span>}
       {segment.overlaps ? <span className="ros-timing-note">Overlaps another item</span> : null}
@@ -371,6 +377,7 @@ function useSegmentEditor({ mode, event, workspace, days, segment, initial, sibl
   const [draft, setDraft] = useState(initial)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [shiftLater, setShiftLater] = useState(false)
   const label = mode === 'add' ? 'new item' : segment!.title
   // A bare "6" means whichever of 6 AM or 6 PM is nearer the row's starting point.
   const [reference] = useState(() => parseTimeInput(initial.start) ?? localMinutes(event.startsAt, event.timezone))
@@ -382,6 +389,8 @@ function useSegmentEditor({ mode, event, workspace, days, segment, initial, sibl
   const resolution = startMinutes === null ? null : resolveLocalDateTime(draft.day, minutesToClock(startMinutes), event.timezone, draft.offset || undefined)
   const startIso = resolution?.ok ? resolution.iso : null
   const endIso = startIso && lengthMinutes ? addMs(startIso, lengthMinutes * 60_000) : null
+  const timeChanged = Boolean(segment && startIso && endIso &&
+    (Date.parse(startIso) !== Date.parse(segment.startsAt) || Date.parse(endIso) !== Date.parse(segment.endsAt)))
   const endsNextDay = endIso ? splitInZone(endIso, event.timezone).date !== draft.day : false
   // An untouched add row is a suggestion, not a plan; warn only once someone starts typing.
   const warn = mode === 'edit' || dirty
@@ -412,8 +421,9 @@ function useSegmentEditor({ mode, event, workspace, days, segment, initial, sibl
     try {
       const requestKey = `save_segment:${event.id}:${segment?.id ?? 'new'}`
       const saved = await saveSegment({ workspaceId: workspace.id, eventId: event.id, segmentId: segment?.id ?? null,
-        title: draft.title.trim(), startsAt: startIso, endsAt: endIso, ownerMembershipId: draft.ownerMembershipId || null,
-        instructions: draft.notes, ackWarnings: true, expectedVersion: segment?.version ?? 1, requestKey: getRequestKey(requestKey) })
+        title: draft.title.trim(), startsAt: startIso, endsAt: endIso, personIds: draft.personIds,
+        instructions: draft.notes, ackWarnings: true, expectedVersion: segment?.version ?? 1,
+        shiftLater: timeChanged && shiftLater, requestKey: getRequestKey(requestKey) })
       clearRequestKey(requestKey)
       await onSaved(saved)
     } catch (caught) {
@@ -422,7 +432,7 @@ function useSegmentEditor({ mode, event, workspace, days, segment, initial, sibl
     }
   }
 
-  return { draft, update, busy, error, dirty, label, startMinutes, lengthMinutes, resolution, endIso, endsNextDay, overlap, outside, dayOptions, save }
+  return { draft, update, busy, error, dirty, label, startMinutes, lengthMinutes, resolution, endIso, endsNextDay, overlap, outside, dayOptions, timeChanged, shiftLater, setShiftLater, save }
 }
 
 function EditorRow({ mode, event, workspace, members, days, segment, initial, siblings, focus, onCancel, onSaved }: EditorInput & {
@@ -431,7 +441,7 @@ function EditorRow({ mode, event, workspace, members, days, segment, initial, si
   onCancel: () => void
 }) {
   const editor = useSegmentEditor({ mode, event, workspace, days, segment, initial, siblings, onSaved })
-  const { draft, update, busy, error, dirty, label, startMinutes, lengthMinutes, resolution, endIso, endsNextDay, overlap, outside, dayOptions, save } = editor
+  const { draft, update, busy, error, dirty, label, startMinutes, lengthMinutes, resolution, endIso, endsNextDay, overlap, outside, dayOptions, timeChanged, shiftLater, setShiftLater, save } = editor
   const titleRef = useRef<HTMLInputElement>(null)
 
   useLayoutEffect(() => {
@@ -446,7 +456,8 @@ function EditorRow({ mode, event, workspace, members, days, segment, initial, si
   function onKeyDown(keyEvent: KeyboardEvent<HTMLTableRowElement>) {
     const target = keyEvent.target as HTMLElement
     if (keyEvent.key === 'Escape') { keyEvent.preventDefault(); cancel(); return }
-    if (keyEvent.key !== 'Enter' || target instanceof HTMLButtonElement) return
+    if (keyEvent.key !== 'Enter' || target instanceof HTMLButtonElement || target instanceof HTMLSelectElement
+      || target.closest('summary') || (target instanceof HTMLInputElement && target.type === 'checkbox')) return
     if (target instanceof HTMLTextAreaElement && !(keyEvent.metaKey || keyEvent.ctrlKey)) return
     keyEvent.preventDefault()
     void save()
@@ -483,14 +494,9 @@ function EditorRow({ mode, event, workspace, members, days, segment, initial, si
           placeholder={mode === 'add' ? 'Add an activity' : 'Activity'} disabled={busy} autoComplete="off"
           onChange={(change) => update({ title: change.target.value })} />
       </td>
-      <td data-label="Owner">
-        <select className={`ros-cell-select${draft.ownerMembershipId ? '' : ' ros-unassigned'}`} aria-label={`Owner for ${label}`}
-          value={draft.ownerMembershipId} disabled={busy} onChange={(change) => update({ ownerMembershipId: change.target.value })}>
-          <option value="">Everyone</option>
-          {segment?.ownerFormer && draft.ownerMembershipId === segment.ownerMembershipId ? <option value={draft.ownerMembershipId}>Former member</option> : null}
-          {members.map((member) => <option key={member.id} value={member.id}>{member.displayName}</option>)}
-        </select>
-      </td>
+      <td data-label="People"><PeoplePicker label={`People for ${label}`} selected={draft.personIds}
+        members={members} former={segment?.people.filter((person) => person.former) ?? []} disabled={busy}
+        onChange={(personIds) => update({ personIds })} /></td>
       <td data-label="Notes / cues">
         <AutoTextarea className="ros-cell-textarea" aria-label={`Notes for ${label}`} value={draft.notes} maxLength={4000}
           placeholder="Notes and cues" disabled={busy} onChange={(change) => update({ notes: change.target.value })} />
@@ -502,7 +508,8 @@ function EditorRow({ mode, event, workspace, members, days, segment, initial, si
         </div>
       </td>
     </tr>
-    {error || overlap || outside ? <tr className="ros-feedback-row"><td className="ros-row-feedback" colSpan={5}>
+    {error || overlap || outside || timeChanged ? <tr className="ros-feedback-row"><td className="ros-row-feedback" colSpan={5}>
+      {timeChanged ? <label><input type="checkbox" checked={shiftLater} disabled={busy} onChange={(change) => setShiftLater(change.target.checked)} /> Also shift later items</label> : null}
       {error ? <p className="app-error-text" role="alert">{error}</p> : null}
       {!error && overlap ? <span className="ros-timing-note">Overlaps another item. You can still save it.</span> : null}
       {!error && outside ? <span className="ros-timing-note">Outside event hours. Fine for setup and cleanup.</span> : null}
@@ -596,7 +603,7 @@ function ItemReader({ event, segment, members, onClose }: { event: EventRecord; 
       <SheetDescription>{time.date} · {time.range}</SheetDescription>
     </SheetHeader>
     <div className="app-panel-body">
-      <p className="app-meta">{ownerLabel(segment, members) ?? 'Everyone'}</p>
+      <p className="app-meta">{peopleLabel(segment, members) ?? 'Everyone'}</p>
       <p className="ros-readable-notes">{segment.instructions || 'No notes.'}</p>
     </div>
   </>
@@ -608,7 +615,7 @@ function ItemEditor({ event, workspace, members, days, segment, initial, sibling
   onRemove: (segment: SegmentRecord) => void
 }) {
   const mode = segment ? 'edit' : 'add'
-  const { draft, update, busy, error, dirty, label, startMinutes, resolution, endIso, endsNextDay, overlap, outside, dayOptions, save } =
+  const { draft, update, busy, error, dirty, label, startMinutes, resolution, endIso, endsNextDay, overlap, outside, dayOptions, timeChanged, shiftLater, setShiftLater, save } =
     useSegmentEditor({ mode, event, workspace, days, segment, initial, siblings, onSaved })
   const [discard, setDiscard] = useState(false)
   const close = () => (dirty ? setDiscard(true) : onClose())
@@ -644,14 +651,12 @@ function ItemEditor({ event, workspace, members, days, segment, initial, sibling
       <label className="app-field"><span className="app-label">Activity</span>
         <input className="app-input" aria-label={`Activity for ${label}`} value={draft.title} maxLength={120} disabled={busy} autoFocus={!segment}
           onChange={(change) => update({ title: change.target.value })} /></label>
-      <label className="app-field"><span className="app-label">Person</span>
-        <select className="app-select" aria-label={`Owner for ${label}`} value={draft.ownerMembershipId} disabled={busy} onChange={(change) => update({ ownerMembershipId: change.target.value })}>
-          <option value="">Everyone</option>
-          {segment?.ownerFormer && draft.ownerMembershipId === segment.ownerMembershipId ? <option value={draft.ownerMembershipId}>Former member</option> : null}
-          {members.map((member) => <option key={member.id} value={member.id}>{member.displayName}</option>)}
-        </select></label>
+      <PeoplePicker label={`People for ${label}`} selected={draft.personIds}
+        members={members} former={segment?.people.filter((person) => person.former) ?? []} disabled={busy}
+        onChange={(personIds) => update({ personIds })} />
       <label className="app-field"><span className="app-label">Notes</span>
         <textarea className="app-textarea" aria-label={`Notes for ${label}`} value={draft.notes} maxLength={4000} disabled={busy} onChange={(change) => update({ notes: change.target.value })} /></label>
+      {timeChanged ? <label className="app-field"><span><input type="checkbox" checked={shiftLater} disabled={busy} onChange={(change) => setShiftLater(change.target.checked)} /> Also shift later items</span></label> : null}
       {error ? <p className="app-error-text" role="alert">{error}</p> : null}
       {!error && overlap ? <p className="ros-timing-note">Overlaps another item. You can still save it.</p> : null}
       {!error && outside ? <p className="ros-timing-note">Outside event hours. Fine for setup and cleanup.</p> : null}
@@ -716,4 +721,90 @@ function AutoTextarea({ className = '', ...props }: React.TextareaHTMLAttributes
     return () => window.removeEventListener('resize', resize)
   }, [props.value])
   return <textarea ref={ref} rows={1} className={className} {...props} />
+}
+
+function PeoplePicker({ label, selected, members, former, disabled, onChange }: {
+  label: string
+  selected: string[]
+  members: MemberOption[]
+  former: Array<{ id: string; name: string }>
+  disabled: boolean
+  onChange: (ids: string[]) => void
+}) {
+  const options = [
+    ...members.map((member) => ({ id: member.id, name: member.displayName })),
+    ...former.filter((person) => !members.some((member) => member.id === person.id)).map((person) => ({ id: person.id, name: `${person.name} (former member)` })),
+  ]
+  const names = selected.map((id) => options.find((person) => person.id === id)?.name ?? 'Former member')
+  return <details className="ros-people-picker">
+    <summary aria-label={label}>{names.length ? names.join(', ') : 'Everyone'}</summary>
+    <fieldset disabled={disabled}>
+      <legend className="sr-only">{label}</legend>
+      {options.map((person) => <label key={person.id}>
+        <input type="checkbox" checked={selected.includes(person.id)}
+          onChange={(change) => onChange(change.target.checked ? [...selected, person.id] : selected.filter((id) => id !== person.id))} />
+        {person.name}
+      </label>)}
+      {options.length === 0 ? <span className="app-meta">No teammates yet. Everyone will see this item.</span> : null}
+    </fieldset>
+  </details>
+}
+
+function PasteSchedule({ event, workspace, members, existing, onClose, onSaved }: {
+  event: EventRecord
+  workspace: WorkspaceSummary
+  members: MemberOption[]
+  existing: SegmentRecord[]
+  onClose: () => void
+  onSaved: (count: number) => void | Promise<void>
+}) {
+  const [text, setText] = useState('')
+  const [ackWarnings, setAckWarnings] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const preview = parseSchedulePaste(text, event, members, existing)
+  const invalid = preview.rows.some((row) => row.errors.length > 0)
+  const warned = preview.rows.some((row) => row.warnings.length > 0)
+
+  async function addAll() {
+    if (preview.error || !preview.rows.length || invalid || (warned && !ackWarnings)) return
+    setBusy(true); setError(null)
+    const scope = `paste_schedule:${event.id}`
+    try {
+      const saved = await pasteSchedule({ workspaceId: workspace.id, eventId: event.id,
+        rows: preview.rows.map((row) => ({ title: row.title, startsAt: row.startsAt!, endsAt: row.endsAt!, personIds: row.personIds, instructions: row.instructions })),
+        ackWarnings, requestKey: getRequestKey(scope) })
+      clearRequestKey(scope)
+      await onSaved(saved.length)
+    } catch (caught) { setError(toAppError(caught).message) }
+    finally { setBusy(false) }
+  }
+
+  return <Sheet open onOpenChange={(open) => { if (!open && !busy) onClose() }}>
+    <SheetContent className="app-task-sheet ros-paste-sheet" showCloseButton={false}>
+      <SheetHeader>
+        <div className="app-header-row"><SheetTitle>Paste schedule rows</SheetTitle><Button variant="quiet" disabled={busy} onClick={onClose}>Close</Button></div>
+        <SheetDescription>Use tab or comma separated columns: time, title, people, notes. Separate several people with semicolons. Add “+ 45m” after a time for a different length; otherwise each item is 30 minutes.</SheetDescription>
+      </SheetHeader>
+      <div className="app-panel-body">
+        <label className="app-field"><span className="app-label">Rows</span>
+          <textarea className="app-textarea" rows={7} value={text} disabled={busy} placeholder={'6:30p\tDoors open\tSam; Ana\tGreet guests'}
+            onChange={(change) => { setText(change.target.value); setAckWarnings(false); setError(null) }} /></label>
+        {preview.error ? <p className="app-error-text" role="alert">{preview.error}</p> : null}
+        {preview.rows.length ? <div className="ros-paste-preview"><h3>Preview · {preview.rows.length} items</h3>
+          <ol>{preview.rows.map((row) => <li key={row.rowNumber}>
+            <strong>{row.time || 'No time'} · {row.title || 'No title'}</strong>
+            <span>{row.peopleText || 'Everyone'}{row.instructions ? ` · ${row.instructions}` : ''}</span>
+            {row.errors.map((message) => <span className="app-error-text" key={message}>{message}</span>)}
+            {row.warnings.map((message) => <span className="ros-timing-note" key={message}>{message}</span>)}
+          </li>)}</ol>
+        </div> : null}
+        {warned ? <label className="app-field"><span><input type="checkbox" checked={ackWarnings} disabled={busy}
+          onChange={(change) => setAckWarnings(change.target.checked)} /> I reviewed the overlap and outside-hours warnings</span></label> : null}
+        {error ? <p className="app-error-text" role="alert">{error}</p> : null}
+      </div>
+      <div className="app-panel-footer"><Button variant="secondary" disabled={busy} onClick={onClose}>Cancel</Button>
+        <Button busy={busy} busyLabel="Adding…" disabled={!preview.rows.length || invalid || Boolean(preview.error) || (warned && !ackWarnings)} onClick={addAll}>Add {preview.rows.length || ''} items</Button></div>
+    </SheetContent>
+  </Sheet>
 }

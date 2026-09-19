@@ -6,7 +6,7 @@ const zone = 'America/New_York'
 function item(id: string, start: string, end: string, owner: string | null = null) {
   return {
     id, workspaceId: 'w', eventId: 'e', title: id, startsAt: `2026-10-${start}:00Z`, endsAt: `2026-10-${end}:00Z`,
-    ownerMembershipId: owner, ownerName: null, ownerFormer: false, instructions: '', removedAt: null, version: 1, overlaps: false, outOfRange: false,
+    people: owner ? [{ id: owner, name: owner, former: owner === 'gone' }] : [], instructions: '', removedAt: null, version: 1, overlaps: false, outOfRange: false,
   }
 }
 const people = [{ id: 'sam', displayName: 'Sam' }, { id: 'ana', displayName: 'Ana' }, { id: 'bo', displayName: 'Bo' }]
@@ -45,6 +45,15 @@ describe('layoutCalendar', () => {
     expect(layout.columns.map((column) => column.label)).toEqual(['Everyone'])
   })
 
+  it('places a shared item in both assigned columns', () => {
+    const shared = { ...item('shared', '20T22:00', '20T22:30'), people: [
+      { id: 'sam', name: 'Sam', former: false }, { id: 'ana', name: 'Ana', former: false },
+    ] }
+    const layout = layoutCalendar([shared], { timezone: zone, days: ['2026-10-20'], byPerson: true, people })
+    expect(layout.columns.map((column) => [column.label, column.blocks.map((block) => block.segment.id)]))
+      .toEqual([['Sam', ['shared']], ['Ana', ['shared']]])
+  })
+
   it('gives a former member their own column', () => {
     const layout = layoutCalendar([item('desk', '20T22:00', '20T23:00', 'gone')], { timezone: zone, days: ['2026-10-20'], byPerson: true, people })
     expect(layout.columns.map((column) => column.label)).toEqual(['Former member'])
@@ -73,7 +82,7 @@ describe('layoutCalendar', () => {
   it('lays out 200 items quickly', () => {
     const many = Array.from({ length: 200 }, (_, index) => {
       const start = new Date(Date.parse('2026-10-20T14:00:00Z') + index * 5 * 60_000)
-      return { ...item(`i${index}`, '20T00:00', '20T00:00'), startsAt: start.toISOString(), endsAt: new Date(start.getTime() + 20 * 60_000).toISOString(), ownerMembershipId: people[index % 3].id }
+      return { ...item(`i${index}`, '20T00:00', '20T00:00', people[index % 3].id), startsAt: start.toISOString(), endsAt: new Date(start.getTime() + 20 * 60_000).toISOString() }
     })
     const began = performance.now()
     const layout = layoutCalendar(many, { timezone: zone, days: ['2026-10-20'], byPerson: true, people })

@@ -2,7 +2,7 @@
 
 Implements the 2026-09-18 direction in [PRODUCT.md](../PRODUCT.md#product-shape) and [MVP.md](../MVP.md) sections 4A–4F. The execution contract in [IMPLEMENTATION.md](IMPLEMENTATION.md) still applies: one slice at a time, each a working user outcome with empty/loading/error/mobile states, verified before the next.
 
-Slices R1–R7 use the existing database and RPCs. Anything that needs a migration is collected under "Needs data changes" and is not started until those decisions in MVP.md section 5 are confirmed.
+Slices R1–R7 use the original database and RPCs. The data changes N1–N6 follow the decisions in MVP.md section 5.
 
 ## Status
 
@@ -16,6 +16,11 @@ Slices R1–R7 use the existing database and RPCs. Anything that needs a migrati
 | R7 Download PDF | Done 2026-09-18 | Download PDF (every role) asks Everyone, Mine, or a person, defaulting to the current filter, and builds the file in the browser with pdfmake (MIT; Roboto covers accented Latin, Greek, Cyrillic), loaded only on first use. Title, date, venue, zone, briefing, then the same rows as the list (shared label helpers in `scheduleView.ts`), a header on later pages, and the footer “Welcome night · Mine: Sam · page 2 of 3 · generated …”. Items stay on one page unless their notes are longer than a page. `window.print()` and the print stylesheet are removed. Unit tests (`run-of-show-pdf`, including a 40-item layout that checks every item lands on one page); release suite checks both downloads send nothing to the backend; PDFs reviewed as images. Not yet opened on Safari or iOS |
 | R5 Day of list | Done 2026-09-18 | Editing: read-only rows, click to edit in place, Start + Length entry with typed shortcuts (`timeInput.ts`), always-present add row, time order. Now/Next labels and Everyone/Mine/person filter (`scheduleView.ts`; URL `?who=`, remembered per workspace, members default to Mine). Unit tests (`time-input`, `schedule`, `schedule-view`); release suite 16/16 including the member Mine/Everyone check at 375px; desktop and 375px screenshots reviewed. Now/Next checked by unit tests only, since the demo event is not today |
 | N6 Drop `sort_order` | Done 2026-09-18 | `0018_drop_schedule_sort_order.sql` drops the column and `reorder_segments` (0017 had already merged); list and duplicate order by start, end, creation. 125 pgTAP checks and the from-scratch reliability replay pass |
+| N1 Two-state to-dos | Done 2026-09-19 | `0019_two_state_tasks.sql` converts In progress to Todo and rejects the retired value at the table boundary. The client presents only Todo/Done. |
+| N2 Several people per item | Done 2026-09-19 | `0020_schedule_people.sql` migrates the former owner to a private join table, validates each person in the new save command, and returns all people in schedule reads. List, Mine, calendar columns, and PDF show shared assignments. |
+| N3 Shift later items | Done 2026-09-19 | `0021_shift_schedule.sql` adds atomic, opt-in commands to shift later items by an edited item's end-time change and to shift the full schedule by an event start change. `0024_shift_following_items.sql` includes later overlapping items in time order. Both editors offer an unchecked choice. |
+| N4 Home schedule | Done 2026-09-19 | `0022_home_schedule.sql` returns Everyone and the caller's items from unclosed events in the next seven days. Home groups them by event and shows Now/Next from the event-zone clock. |
+| N5 Paste schedule rows | Done 2026-09-19 | `0023_paste_schedule.sql` saves up to 200 validated rows in one idempotent transaction. The sheet previews tab/CSV rows, people matches, overlaps, and outside-hours warnings before confirmation. Fresh migration replay, 58 reliability assertions, 206 app tests, and 17 release browser steps passed across N1–N5. |
 
 ## Slices on existing data
 
@@ -77,11 +82,11 @@ Slices R1–R7 use the existing database and RPCs. Anything that needs a migrati
 
 ## Needs data changes
 
-Start only after MVP.md section 5 is confirmed.
+The decisions in MVP.md section 5 are confirmed. N1–N5 were implemented in migrations 0019–0024; N6 was completed in 0018.
 
-- **N1 — Two-state to-dos.** Migrate In progress to Todo; simplify status commands and filters.
-- **N2 — Several people per schedule item.** Join table replacing `owner_membership_id`, RPC changes, privilege tests; then R5/R6/R7 switch from one person to many.
-- **N3 — Shift later items.** One atomic RPC that moves an item and every later item by the same amount; "Also shift later items" on save and after event start changes.
-- **N4 — Home schedule.** Query for the signed-in person's schedule items (plus Everyone items) in events over the next 7 days; add "Your schedule" to Home.
-- **N5 — Paste schedule rows.** Batch-create RPC with one idempotency key so a pasted schedule is all-or-nothing.
+- **N1 — Two-state to-dos.** Existing In progress rows become Todo; the retired enum label remains only for compatibility with existing RPC signatures and is rejected by a table constraint.
+- **N2 — Several people per schedule item.** `schedule_segment_people` replaces `owner_membership_id`; an empty set means Everyone.
+- **N3 — Shift later items.** The checkbox is opt-in on each item-time or event-start save.
+- **N4 — Home schedule.** Member-scoped schedule for the next seven days.
+- **N5 — Paste schedule rows.** Preview and atomic save with one batch request key.
 - **N6 — Drop `sort_order`.** Done; see Status.

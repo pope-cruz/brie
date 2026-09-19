@@ -12,6 +12,7 @@ const state = vi.hoisted(() => ({
     startsAt: '2026-09-17T23:30:00Z', endsAt: '2026-09-18T00:30:00Z', timezone: 'America/New_York', archivedAt: null,
   },
   save: vi.fn(),
+  paste: vi.fn(),
   remove: vi.fn(),
   segments: [] as Array<Record<string, unknown>>,
   members: [] as Array<Record<string, unknown>>,
@@ -31,18 +32,20 @@ vi.mock('@tanstack/react-query', () => ({
 vi.mock('../../src/app/data/api', () => ({
   listSegments: vi.fn(), listTeam: vi.fn(), removeSegment: (...args: unknown[]) => state.remove(...args), restoreSegment: vi.fn(), saveTeamBriefing: vi.fn(),
   saveSegment: (...args: unknown[]) => state.save(...args),
+  pasteSchedule: (...args: unknown[]) => state.paste(...args),
 }))
 
 let host: HTMLDivElement
 let root: Root
 
 function segment(overrides: Record<string, unknown>) {
-  return {
+  const item = {
     id: 'segment', workspaceId: 'workspace', eventId: 'event', title: 'Doors open',
     startsAt: '2026-09-17T23:30:00Z', endsAt: '2026-09-18T00:00:00Z', ownerMembershipId: null,
     ownerName: null, ownerFormer: false, instructions: 'Welcome guests.', removedAt: null,
     version: 3, overlaps: false, outOfRange: false, ...overrides,
   }
+  return { ...item, people: overrides.people ?? (item.ownerMembershipId ? [{ id: item.ownerMembershipId, name: item.ownerName ?? String(item.ownerMembershipId), former: item.ownerFormer }] : []) }
 }
 
 const field = <T extends HTMLElement = HTMLInputElement>(label: string) => host.querySelector<T>(`[aria-label="${label}"]`)!
@@ -75,8 +78,9 @@ beforeEach(async () => {
   state.remove.mockReset().mockResolvedValue(undefined)
   state.save.mockReset().mockImplementation(async (input) => segment({
     id: 'saved', title: input.title, startsAt: input.startsAt, endsAt: input.endsAt,
-    ownerMembershipId: input.ownerMembershipId, instructions: input.instructions, version: 1,
+    people: input.personIds.map((id: string) => ({ id, name: id, former: false })), instructions: input.instructions, version: 1,
   }))
+  state.paste.mockReset().mockResolvedValue([segment({ id: 'pasted' })])
   host = document.createElement('div')
   host.className = 'brie-app'
   document.body.append(host)
@@ -263,6 +267,52 @@ describe('run of show who filter', () => {
   })
 })
 
+describe('schedule people and paste', () => {
+  it('saves more than one person on an item', async () => {
+    state.segments = [segment({ id: 'desk', title: 'Desk', people: [{ id: 'me', name: 'Sam', former: false }] })]
+    await render()
+    await act(async () => { button('Edit Desk')!.click() })
+    const picker = field<HTMLElement>('People for Desk').closest('details')!
+    expect(picker.textContent).toContain('Sam')
+    const ana = [...picker.querySelectorAll('label')].find((label) => label.textContent === 'Ana')!.querySelector('input')!
+    await act(async () => { ana.click() })
+    await act(async () => { button('Save')!.click() })
+    expect(state.save).toHaveBeenCalledWith(expect.objectContaining({ personIds: ['me', 'ana'] }))
+  })
+
+  it('lets keyboard users open the people picker without saving the row', async () => {
+    state.segments = [segment({ id: 'desk', title: 'Desk' })]
+    await render()
+    await act(async () => { button('Edit Desk')!.click() })
+    await press(field<HTMLElement>('People for Desk'), 'Enter')
+    expect(state.save).not.toHaveBeenCalled()
+  })
+
+  it('shifts later items only when explicitly selected', async () => {
+    state.segments = [segment({ id: 'desk', title: 'Desk' })]
+    await render()
+    await act(async () => { button('Edit Desk')!.click() })
+    await type(field('Length for Desk'), '45m')
+    const shift = [...host.querySelectorAll('label')].find((label) => label.textContent?.includes('Also shift later items'))!.querySelector('input')!
+    expect(shift.checked).toBe(false)
+    await act(async () => { shift.click() })
+    await act(async () => { button('Save')!.click() })
+    expect(state.save).toHaveBeenCalledWith(expect.objectContaining({ shiftLater: true }))
+  })
+
+  it('previews pasted rows before calling the atomic batch command', async () => {
+    await render()
+    await act(async () => { button('Paste rows')!.click() })
+    const textarea = document.querySelector<HTMLTextAreaElement>('.ros-paste-sheet textarea')!
+    await type(textarea, '7:30p\tWelcome\tAna\tOpen the doors')
+    expect(document.body.textContent).toContain('Preview · 1 items')
+    await act(async () => { [...document.querySelectorAll('button')].find((item) => item.textContent === 'Add 1 items')!.click() })
+    expect(state.paste).toHaveBeenCalledWith(expect.objectContaining({
+      rows: [expect.objectContaining({ title: 'Welcome', personIds: ['ana'], startsAt: '2026-09-17T23:30:00.000Z' })],
+    }))
+  })
+})
+
 describe('run of show now and next', () => {
   afterEach(() => { vi.useRealTimers() })
 
@@ -315,7 +365,7 @@ describe('run of show calendar', () => {
     const activity = document.querySelector<HTMLInputElement>('[aria-label="Activity for Panel"]')!
     await type(activity, 'Panel Q&A')
     await act(async () => { [...document.querySelectorAll('button')].find((item) => item.textContent === 'Save')!.click() })
-    expect(state.save).toHaveBeenCalledWith(expect.objectContaining({ segmentId: 'panel', title: 'Panel Q&A', expectedVersion: 2, ownerMembershipId: 'ana' }))
+    expect(state.save).toHaveBeenCalledWith(expect.objectContaining({ segmentId: 'panel', title: 'Panel Q&A', expectedVersion: 2, personIds: ['ana'] }))
   })
 
   it('offers a new item at the clicked time', async () => {

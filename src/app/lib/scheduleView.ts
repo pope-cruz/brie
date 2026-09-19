@@ -36,11 +36,11 @@ export function scheduleMarks(
   return marks
 }
 
-/** Mine and a named person both include Everyone items (no owner). */
-export function filterSchedule<T extends Pick<SegmentRecord, 'ownerMembershipId'>>(items: T[], who: Who, myMembershipId: string) {
+/** Mine and a named person both include Everyone items (no people). */
+export function filterSchedule<T extends Pick<SegmentRecord, 'people'>>(items: T[], who: Who, myMembershipId: string) {
   if (who === 'everyone') return items
   const person = who === 'mine' ? myMembershipId : who
-  return items.filter((item) => !item.ownerMembershipId || item.ownerMembershipId === person)
+  return items.filter((item) => item.people.length === 0 || item.people.some((member) => member.id === person))
 }
 
 export function defaultWho(role: MemberRole): Who {
@@ -72,10 +72,12 @@ export function dayLabel(date: string) {
   return new Intl.DateTimeFormat('en-US', { timeZone: 'UTC', weekday: 'short', month: 'short', day: 'numeric' }).format(new Date(`${date}T12:00:00Z`))
 }
 
-/** The person on an item, or null for Everyone. */
-export function ownerLabel(segment: SegmentRecord, members: MemberName[]) {
-  if (segment.ownerFormer) return 'Former member'
-  return members.find((member) => member.id === segment.ownerMembershipId)?.displayName || segment.ownerName || null
+/** The people on an item, or null for Everyone. */
+export function peopleLabel(segment: SegmentRecord, members: MemberName[]) {
+  if (segment.people.length === 0) return null
+  return segment.people.map((person) => person.former
+    ? 'Former member'
+    : members.find((member) => member.id === person.id)?.displayName || person.name).join(', ')
 }
 
 export function eventDateLabel(event: Pick<EventRecord, 'startsAt' | 'endsAt' | 'timezone'>) {

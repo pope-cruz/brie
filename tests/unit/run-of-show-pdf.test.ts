@@ -28,11 +28,12 @@ const event = {
 const members = [{ id: 'me', displayName: 'Sam' }, { id: 'ana', displayName: 'Ana' }]
 function item(index: number, overrides: Record<string, unknown> = {}) {
   const start = new Date(Date.parse(event.startsAt) + index * 15 * 60_000)
-  return {
+  const row = {
     id: `s${index}`, workspaceId: 'w', eventId: 'e', title: `Item ${index}`, startsAt: start.toISOString(),
     endsAt: new Date(start.getTime() + 15 * 60_000).toISOString(), ownerMembershipId: null, ownerName: null, ownerFormer: false,
     instructions: '', removedAt: null, version: 1, overlaps: false, outOfRange: false, ...overrides,
   }
+  return { ...row, people: overrides.people ?? (row.ownerMembershipId ? [{ id: row.ownerMembershipId, name: row.ownerName ?? String(row.ownerMembershipId), former: row.ownerFormer }] : []) }
 }
 const input = (overrides: Partial<RunOfShowPdfInput> = {}): RunOfShowPdfInput => ({
   event, items: [], members, whoLabel: 'Everyone', showDates: false, generatedAt: new Date('2026-10-18T20:05:00Z'), ...overrides,

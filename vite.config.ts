@@ -7,6 +7,7 @@ import tailwindcss from '@tailwindcss/vite'
 export default defineConfig({
   resolve: { alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) } },
   plugins: [react(), tailwindcss()],
+  optimizeDeps: { include: ['pdfmake/build/pdfmake', 'pdfmake/build/vfs_fonts'] },
   server: {
     host: '127.0.0.1',
     port: Number(process.env.PORT) || 5199,

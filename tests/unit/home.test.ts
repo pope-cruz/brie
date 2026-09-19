@@ -10,7 +10,7 @@ import { groupByEvent } from '../../src/app/lib/groupByEvent'
 import { appChildren } from '../../src/app/appRoutes'
 
 const state = vi.hoisted(() => ({ role: 'member' }))
-const api = vi.hoisted(() => ({ listWorkspaceTasks: vi.fn(), listEvents: vi.fn(), setTaskStatus: vi.fn() }))
+const api = vi.hoisted(() => ({ listWorkspaceTasks: vi.fn(), listHomeSchedule: vi.fn(), listEvents: vi.fn(), setTaskStatus: vi.fn() }))
 vi.mock('../../src/app/data/api', () => api)
 vi.mock('../../src/app/features/workspaces/workspaceContext', () => ({ useCurrentWorkspace: () => ({ id: 'workspace', membershipId: 'me', role: state.role }) }))
 
@@ -39,6 +39,7 @@ beforeEach(() => {
   Object.values(api).forEach((fn) => fn.mockReset())
   api.listWorkspaceTasks.mockResolvedValue({ rows: [task()], total: 1, page: 1 })
   api.listEvents.mockResolvedValue({ rows: [], total: 0, page: 1 })
+  api.listHomeSchedule.mockResolvedValue([])
   api.setTaskStatus.mockImplementation(async (_w, _id, status, version) => task({ status, version: version + 1 }))
   client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity } } })
   host = document.createElement('div'); host.className = 'brie-app'; document.body.append(host); root = createRoot(host)
@@ -93,6 +94,19 @@ describe('Home', () => {
     await mount()
     expect(api.listEvents).toHaveBeenCalledWith('workspace', 'upcoming', '', 1)
     expect([...host.querySelectorAll('.home-event a')].map((el) => el.textContent)).toEqual(['Event 0', 'Event 1', 'Event 2', 'Event 3', 'Event 4'])
+  })
+
+  it('shows the caller’s upcoming schedule grouped by event', async () => {
+    api.listHomeSchedule.mockResolvedValue([{
+      id: 'doors', eventId: 'welcome', eventTitle: 'Welcome night', eventStartsAt: '2026-10-20T22:00:00Z',
+      eventEndsAt: '2026-10-21T02:00:00Z', eventTimezone: 'America/New_York',
+      startsAt: '2026-10-20T22:30:00Z', endsAt: '2026-10-20T23:00:00Z', title: 'Doors open', people: [],
+    }])
+    await mount()
+    expect(api.listHomeSchedule).toHaveBeenCalledWith('workspace')
+    expect(host.querySelector('#home-schedule')?.textContent).toBe('Your schedule')
+    expect(host.textContent).toContain('Doors open')
+    expect(host.querySelector('a[href="/app/w/workspace/events/welcome#day-of"]')).not.toBeNull()
   })
 })
 

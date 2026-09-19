@@ -1,6 +1,6 @@
 import type { Content, TDocumentDefinitions } from 'pdfmake/interfaces'
 import type { EventRecord, SegmentRecord } from '../data/types'
-import { eventDateLabel, eventTimeLabel, ownerLabel, rowTimeLabel } from './scheduleView'
+import { eventDateLabel, eventTimeLabel, peopleLabel, rowTimeLabel } from './scheduleView'
 import { timeZoneLabel } from './timezone'
 
 type MemberName = { id: string; displayName: string }
@@ -43,7 +43,7 @@ export function buildRunOfShowDoc(input: RunOfShowPdfInput): TDocumentDefinition
         rule(),
         ...items.map((item) => {
           const time = rowTimeLabel(item, event, showDates)
-          const owner = ownerLabel(item, members)
+          const owner = peopleLabel(item, members)
           // `id` works on any node at runtime (tests use it to find each item); the types only allow it on some.
           return {
             id: `item-${item.id}`,

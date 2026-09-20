@@ -12,14 +12,7 @@ These are operator responsibilities. Reversion and archive are not privacy erasu
 
 ## Production sign-in email and redirects
 
-Brie signs people in with a six-digit email code, so production needs a real SMTP sender and an exact redirect allowlist. In `supabase/config.toml` (self-host) or the hosted Auth settings, set:
-
-- `site_url` to `https://<your-origin>/app`.
-- Redirect allowlist entries for `https://<your-origin>`, `https://<your-origin>/app`, `https://<your-origin>/app/sign-in` and `https://<your-origin>/app/sign-in?**`. The `?**` entry is required because the emailed link returns to the original route (invitations, filtered task pages). Never allow the landing page `/` alone; the session is stored under `/app`.
-- `[auth.email.smtp]` with `host`, `port`, `user`, `pass` (read from an environment variable, never committed), `admin_email` and `sender_name`. Keep the `magic_link` and `confirmation` templates pointing at `supabase/templates/magic_link.html` so the code stays in the message body.
-- Keep `otp_length = 6`, `max_frequency = "1m0s"` and `otp_expiry` at or below one hour. The app's resend countdown assumes the one-minute limit.
-
-After changing auth settings, restart Auth (`supabase stop` / `supabase start` locally) and verify both paths on the real origin: paste a code from a real inbox, and open the emailed link. Both must land inside `/app` with the session stored and return to the route that started the sign-in.
+Follow the managed Supabase setup in [DEPLOYMENT.md](DEPLOYMENT.md#3-configure-auth-and-sign-in-email). Hosted Auth settings and email templates are entered in the Supabase dashboard; `supabase db push` applies database migrations only. A self-hosted Supabase installation needs its own Auth environment configuration and SMTP transport using the [official self-hosting instructions](https://supabase.com/docs/guides/self-hosting). In either case, verify six-digit code and email-link sign-in on the exact deployed HTTPS origin, including a return to an invitation route.
 
 ## Migrations and upgrades
 

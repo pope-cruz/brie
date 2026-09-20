@@ -31,7 +31,7 @@ beforeEach(async () => {
   host = document.createElement('div'); document.body.append(host); root = createRoot(host)
   await act(async () => { root.render(createElement(MemoryRouter, { initialEntries: ['/app/sign-in?return=%2Fapp%2Finvite%2Fexample'] }, createElement(SignInPage))) })
 })
-afterEach(async () => { await act(async () => root.unmount()); host.remove(); vi.useRealTimers() })
+afterEach(async () => { await act(async () => root.unmount()); host.remove(); window.history.replaceState(null, '', '/'); vi.useRealTimers() })
 
 describe('email-code sign-in', () => {
   it('preserves the invite destination, normalizes email, and focuses the code field', async () => {
@@ -42,7 +42,7 @@ describe('email-code sign-in', () => {
     expect(document.activeElement).toBe(host.querySelector('input'))
     expect(button('Resend in 60s').disabled).toBe(true)
     await act(async () => { vi.advanceTimersByTime(60_000) })
-    await act(async () => button('Resend code').click())
+    await act(async () => button('Resend email').click())
     expect(auth.signInWithOtp).toHaveBeenCalledTimes(2)
     expect(button('Resend in 60s').disabled).toBe(true)
   })
@@ -67,5 +67,12 @@ describe('email-code sign-in', () => {
     await act(async () => resolve({ error: { code: 'unexpected_failure' } }))
     expect(button('Send code').disabled).toBe(false)
     expect(host.querySelector('[role="alert"]')?.textContent).toContain('Couldn’t send')
+  })
+  it('explains an expired email link instead of silently returning to the sign-in form', async () => {
+    await act(async () => root.unmount())
+    root = createRoot(host)
+    window.history.replaceState(null, '', '/app/sign-in#error=access_denied&error_code=otp_expired')
+    await act(async () => { root.render(createElement(MemoryRouter, { initialEntries: ['/app/sign-in'] }, createElement(SignInPage))) })
+    expect(host.querySelector('[role="alert"]')?.textContent).toContain('already used')
   })
 })

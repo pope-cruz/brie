@@ -18,6 +18,12 @@ function authMessage(error: unknown, verifying: boolean) {
     : 'Couldn’t send your code. Check your email and connection, then try again.'
 }
 
+function initialLinkError(): string | null {
+  const fragment = new URLSearchParams(window.location.hash.slice(1))
+  if (!fragment.has('error') && !fragment.has('error_code')) return null
+  return 'That sign-in link has expired or was already used. Request a new email.'
+}
+
 export function SignInPage() {
   const { user, loading } = useSession()
   const [params] = useSearchParams()
@@ -25,7 +31,7 @@ export function SignInPage() {
   const [email, setEmail] = useState('')
   const [code, setCode] = useState('')
   const [sent, setSent] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(initialLinkError)
   const [busy, setBusy] = useState<'send' | 'verify' | null>(null)
   const [resendAt, setResendAt] = useState(0)
   const [now, setNow] = useState(Date.now)
@@ -118,13 +124,13 @@ export function SignInPage() {
   return (
     <div className="app-entry"><div className="app-entry-card">
       <Link to="/" className="app-wordmark">brie</Link>
-      <h1 className="app-h1">{sent ? 'Enter your code' : 'Sign in'}</h1>
+      <h1 className="app-h1">{sent ? 'Check your email' : 'Sign in'}</h1>
       <p className="app-lede" role="status">
-        {sent ? `We sent a 6-digit code to ${email}. Use the most recent code.` : 'Use your email. We’ll send a one-time code.'}
+        {sent ? `We sent a sign-in email to ${email}. Open its link, or enter the 6-digit code if it includes one.` : 'Use your email. We’ll send a sign-in email.'}
       </p>
       {sent ? (
         <form onSubmit={verify}>
-          <Field label="Code" error={error ?? undefined} hint="Check your spam folder if the email hasn’t arrived.">
+          <Field label="Code" error={error ?? undefined} hint="If the email contains a link instead, open it. Check spam if nothing arrives.">
             <input ref={codeRef} className="app-input" inputMode="numeric" autoComplete="one-time-code"
               value={code} onChange={(event) => setCode(event.target.value.replace(/\D/g, '').slice(0, 6))}
               pattern="[0-9]{6}" required readOnly={Boolean(busy)} />
@@ -133,7 +139,7 @@ export function SignInPage() {
           <div className="app-toolbar">
             <Button type="button" variant="secondary" busy={busy === 'send'} busyLabel="Sending…"
               disabled={Boolean(busy) || remaining > 0} onClick={sendCode}>
-              {remaining > 0 ? `Resend in ${remaining}s` : 'Resend code'}
+              {remaining > 0 ? `Resend in ${remaining}s` : 'Resend email'}
             </Button>
             <Button type="button" variant="quiet" disabled={Boolean(busy)} onClick={() => {
               setSent(false); setCode(''); setError(null)

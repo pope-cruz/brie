@@ -1,6 +1,6 @@
 -- Invitation rules: who can invite, invited-email match, expiry, revocation, and replay.
 begin;
-select plan(22);
+select plan(27);
 
 insert into auth.users (id, email) values
  ('b1000000-0000-4000-8000-000000000001', 'inv-owner@example.test'),
@@ -46,14 +46,23 @@ select set_config('request.jwt.claim.sub', 'b1000000-0000-4000-8000-000000000003
 select is(public.accept_invitation(current_setting('test.token'))->>'role', 'member', 'Invited account joins with the invited role');
 select is(public.get_workspace('b1000000-0000-4000-8000-0000000000aa')->>'role', 'member', 'New member can open the workspace');
 select is(public.accept_invitation(current_setting('test.token'))->>'alreadyMember', 'true', 'Reopening the link as the same member changes nothing');
-select throws_ok($$select public.peek_invitation(current_setting('test.token'))$$, 'P0001', 'UNAVAILABLE', 'An accepted link no longer previews');
+select is(public.peek_invitation(current_setting('test.token'))->>'alreadyMember', 'true', 'Accepted link guides its current member home');
+select is(public.peek_invitation(current_setting('test.token'))->>'workspaceId', 'b1000000-0000-4000-8000-0000000000aa', 'Only the current member gets the destination');
+set local role anon;
+select set_config('request.jwt.claim.sub', '', true);
+select throws_ok($$select public.peek_invitation(current_setting('test.token'))$$, 'P0001', 'UNAVAILABLE', 'Accepted link reveals nothing to signed-out visitors');
+set local role authenticated;
+select set_config('request.jwt.claim.sub', 'b1000000-0000-4000-8000-000000000004', true);
+select throws_ok($$select public.peek_invitation(current_setting('test.token'))$$, 'P0001', 'UNAVAILABLE', 'Accepted link reveals nothing to another account');
 
 -- Removal does not let the old link be replayed.
 reset role;
 update public.memberships set removed_at = now(), version = version + 1
 where user_id = 'b1000000-0000-4000-8000-000000000003';
 set local role authenticated;
+select set_config('request.jwt.claim.sub', 'b1000000-0000-4000-8000-000000000003', true);
 select throws_ok($$select public.accept_invitation(current_setting('test.token'))$$, 'P0001', 'UNAVAILABLE', 'A used link cannot restore access after removal');
+select throws_ok($$select public.peek_invitation(current_setting('test.token'))$$, 'P0001', 'UNAVAILABLE', 'Removed member cannot use the accepted link to return');
 
 -- Expired links fail.
 select set_config('request.jwt.claim.sub', 'b1000000-0000-4000-8000-000000000001', true);
@@ -62,6 +71,8 @@ reset role;
 update public.invitations set expires_at = now() - interval '1 minute'
 where email_normalized = 'late-invitee@example.test' and revoked_at is null;
 set local role authenticated;
+select set_config('request.jwt.claim.sub', 'b1000000-0000-4000-8000-000000000001', true);
+select is(public.list_team('b1000000-0000-4000-8000-0000000000aa')->'invitations'->0->>'expired', 'true', 'Owner sees that the older invitation expired');
 select set_config('request.jwt.claim.sub', 'b1000000-0000-4000-8000-000000000005', true);
 select throws_ok($$select public.accept_invitation(current_setting('test.late_token'))$$, 'P0001', 'UNAVAILABLE', 'An expired link cannot be accepted');
 select throws_ok($$select public.get_workspace('b1000000-0000-4000-8000-0000000000aa')$$, 'P0001', 'UNAVAILABLE', 'An expired link grants no access');

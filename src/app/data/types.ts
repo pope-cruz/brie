@@ -39,6 +39,10 @@ export type Invitation = {
   token?: string
 }
 
+export type TeamInvitation = Pick<Invitation, 'id' | 'email' | 'role' | 'expiresAt'> & {
+  expired: boolean
+}
+
 export type EventRecord = {
   id: string
   workspaceId: string

@@ -49,13 +49,14 @@ Allow about 30–45 minutes. Use fictional accounts `owner@example.test`, `organ
 Both suites use Playwright and start the Vite dev server themselves (`playwright.config.ts`). Install the browser once with `npx playwright install chromium`.
 
 - `npm run test:e2e:public` runs without the database: landing and sign-in at all five DESIGN.md viewports, 200% zoom, reduced motion, keyboard-only sign-in, focus and contrast, and unauthenticated routing.
-- `npm run test:e2e:release` automates sections 1–5 above, plus paste/shared-person/shift/Home scheduling, with fresh fictional accounts (`brie-e2e-…@example.test`) so saved local work is never touched. It reads sign-in codes from Mailpit's API and skips itself when the local stack is not running. Each address can request one code per minute, so re-sign-in steps wait; a full run takes several minutes.
+- `npm run test:e2e:release` automates sections 1–5 above, plus invitation recovery, ownership transfer, open-tab role changes, and paste/shared-person/shift/Home scheduling. It uses fresh fictional accounts (`brie-e2e-…@example.test`) so saved local work is never touched. It reads sign-in codes from Mailpit's API and skips itself locally when the stack is not running; CI fails instead of skipping. Each address can request one code per minute, so re-sign-in steps wait; a full run takes several minutes.
+- CI runs both browser suites against a full local Supabase stack on each pull request and main-branch push.
 - Failures leave traces and screenshots under `test-results/`. Open one with `npx playwright show-trace <trace.zip>`.
 
 ## Next implementation priorities
 
 1. Database permission tests cover invitation mismatch/expiry/replay/revocation, member task-only permissions, removed memberships, cross-workspace IDs, attendance privacy, overlapping imports, stale and expired previews, receipt recovery, and version conflicts (`supabase/tests/*.sql`, run in CI). `npm run test:reliability` additionally exercises genuinely overlapping sessions, mid-commit connection termination, late transaction failure, 5,000-row imports, and a disposable database restore. See [DATA_RELIABILITY.md](DATA_RELIABILITY.md) for measured evidence and limits.
-2. Automate the multi-account browser demonstration above and complete all five design viewports, focus/dialog behavior, and landing baseline comparison.
+2. Browser suites now cover the multi-account demonstration, public viewports, invitation recovery, and ownership transition. Complete targeted mobile, keyboard, and 200% zoom checks on Team and event work screens before release.
 3. Before release, verify a full separate-stack setup/restore including owner email-code sign-in, production SMTP and redirect configuration, and capacity through the intended host's HTTP path. Migration replay, database-only restoration and local 5,000-row timing now pass in disposable databases. Complete the license decision. No deployment has been performed.
 
 ## Scheduling controls (shadcn)

@@ -123,7 +123,10 @@ async function setupContexts(browser: Browser) {
 test.describe.configure({ mode: 'serial' })
 
 test.beforeAll(async ({ browser }) => {
-  test.skip(!(await mailpitReachable()), 'Local Supabase stack (Mailpit on 54324) is not running; see docs/SETUP.md.')
+  if (!(await mailpitReachable())) {
+    if (process.env.CI) throw new Error('The local Supabase stack is required for the release browser suite.')
+    test.skip(true, 'Local Supabase stack (Mailpit on 54324) is not running; see docs/SETUP.md.')
+  }
   await setupContexts(browser)
 })
 
@@ -135,7 +138,7 @@ test('1. owner signs in, rejects a wrong code, and creates exactly one workspace
   await ownerPage.goto('/app/sign-in')
   await ownerPage.getByLabel('Email').fill(WRONG_CODE_EMAIL)
   await ownerPage.getByRole('button', { name: 'Send code' }).click()
-  await expect(ownerPage.getByRole('heading', { name: 'Enter your code' })).toBeVisible()
+  await expect(ownerPage.getByRole('heading', { name: 'Check your email' })).toBeVisible()
   await ownerPage.getByLabel('Code').fill('000000')
   await ownerPage.getByRole('button', { name: 'Verify' }).click()
   await expect(ownerPage.getByRole('alert')).toContainText(/invalid or has expired|Couldn’t verify/)
@@ -280,6 +283,15 @@ test('4. owner creates organizer and member invitations', async () => {
     .not.toBe(state.organizerLink)
   state.memberLink = await ownerPage.getByLabel('Invitation link').inputValue()
   await expect(ownerPage.locator('.app-team-row', { hasText: MEMBER })).toBeVisible()
+
+  const firstOrganizerLink = state.organizerLink
+  await ownerPage.locator('.app-team-row', { hasText: ORGANIZER }).getByRole('button', { name: 'Create new link' }).click()
+  await expect(ownerPage.getByText('The earlier link no longer works.')).toBeVisible()
+  state.organizerLink = await ownerPage.getByLabel('Invitation link').inputValue()
+  expect(state.organizerLink).not.toBe(firstOrganizerLink)
+  await organizerPage.goto(new URL(firstOrganizerLink).pathname)
+  await expect(organizerPage.getByText('This invitation isn’t available.')).toBeVisible()
+  await expect(organizerPage.getByText('Ask the workspace owner for a new link')).toBeVisible()
 })
 
 test('5. member joins on a phone, sees no privileged navigation, and is denied direct privileged calls', async () => {
@@ -394,6 +406,10 @@ test('8. organizer joins, can plan and manage attendance, but cannot administer 
   await signIn(organizerPage, ORGANIZER, new URL(state.organizerLink).pathname)
   await organizerPage.getByRole('button', { name: 'Accept invitation' }).click()
   await expect(organizerPage).toHaveURL(new RegExp(`/app/w/${state.workspaceId}/home`))
+  await organizerPage.goto(new URL(state.organizerLink).pathname)
+  await expect(organizerPage.getByText('You already belong to')).toBeVisible()
+  await organizerPage.getByRole('button', { name: 'Continue' }).click()
+  await expect(organizerPage).toHaveURL(new RegExp(`/app/w/${state.workspaceId}/home`))
   await expect(organizerPage.getByRole('link', { name: 'Welcome night', exact: true })).toBeVisible()
   const nav = organizerPage.getByRole('navigation', { name: 'Workspace' })
   await expect(nav.getByRole('link', { name: 'People' })).toBeVisible()
@@ -401,7 +417,7 @@ test('8. organizer joins, can plan and manage attendance, but cannot administer 
   await organizerPage.getByRole('link', { name: 'Welcome night', exact: true }).click()
   await organizerPage.locator('.app-event-breadcrumb').getByRole('link', { name: 'Home' }).click()
   await expect(organizerPage).toHaveURL(new RegExp(`/app/w/${state.workspaceId}/home`))
-  await expect(nav.getByRole('link', { name: 'Settings' })).toHaveCount(0)
+  await expect(organizerPage.locator('.app-sidebar').getByRole('link', { name: 'Settings' })).toHaveCount(0)
   await organizerPage.goto(`/app/w/${state.workspaceId}/settings`)
   await expect(organizerPage.getByRole('heading', { name: 'This page isn’t available' })).toBeVisible()
   await organizerPage.goto(eventUrl())
@@ -651,4 +667,35 @@ test('17. pasted and shared schedule items shift together and appear on Home', a
   await expect(schedule).toContainText('11 AM – 11:45 AM')
   await organizerPage.goto(`/app/w/${state.workspaceId}/home`)
   await expect(organizerPage.locator('[aria-labelledby="home-schedule"]')).toContainText('Setup')
+})
+
+test('18. ownership transfer and role changes refresh both open accounts', async () => {
+  test.setTimeout(120_000)
+  await ownerPage.goto(`/app/w/${state.workspaceId}/settings?tab=team`)
+  const organizerRow = ownerPage.locator('.app-team-row', { hasText: ORGANIZER })
+  await organizerRow.getByRole('button', { name: 'Make owner' }).click()
+  const transfer = ownerPage.getByRole('dialog')
+  await expect(transfer).toContainText('You will become an organizer')
+  await transfer.getByRole('button', { name: 'Transfer ownership' }).click()
+  await expect(ownerPage).toHaveURL(new RegExp(`/app/w/${state.workspaceId}/home`))
+  await expect(ownerPage.locator('.app-sidebar').getByRole('link', { name: 'Settings' })).toHaveCount(0)
+
+  await organizerPage.bringToFront()
+  await expect(organizerPage.locator('.app-sidebar').getByRole('link', { name: 'Settings' })).toBeVisible({ timeout: 20_000 })
+  await organizerPage.goto(`/app/w/${state.workspaceId}/settings?tab=team`)
+  await expect(organizerPage.getByRole('heading', { name: 'Settings' })).toBeVisible()
+
+  await ownerPage.goto(eventUrl())
+  await expect(ownerPage.getByRole('button', { name: 'Edit details' })).toBeVisible()
+  await organizerPage.getByLabel('Role for Owner QA').selectOption('member')
+  await expect(organizerPage.locator('.app-team-row', { hasText: OWNER })).toContainText('Member')
+  await ownerPage.bringToFront()
+  await expect(ownerPage.getByRole('button', { name: 'Edit details' })).toHaveCount(0, { timeout: 20_000 })
+  await expect(ownerPage.getByRole('navigation', { name: 'Workspace' }).getByRole('link', { name: 'People' })).toHaveCount(0)
+
+  await organizerPage.locator('.app-team-row', { hasText: OWNER }).getByRole('button', { name: 'Remove' }).click()
+  await organizerPage.getByRole('dialog').getByRole('button', { name: 'Remove teammate' }).click()
+  await ownerPage.bringToFront()
+  await expect(ownerPage).toHaveURL(/\/app\/new-workspace/, { timeout: 25_000 })
+  await expect(ownerPage.getByText('Welcome night')).toHaveCount(0)
 })

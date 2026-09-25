@@ -1,8 +1,8 @@
 import { Sheet, SheetContent, SheetTitle } from './components/shadcn/sheet'
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, Navigate, NavLink, Outlet, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { getWorkspace, listMyWorkspaces } from './data/api'
+import { getWorkspace, listMyWorkspaces, type WorkspaceSummary } from './data/api'
 import { toAppError } from './data/errors'
 import { canAdminWorkspace, canSeeAttendance } from './data/types'
 import { useSession } from './features/auth/SessionProvider'
@@ -26,17 +26,45 @@ export function AppShell() {
   const queryClient = useQueryClient()
   const [menuOpen, setMenuOpen] = useState(false)
   const menuTrigger = useRef<HTMLElement | null>(null)
+  const lastMembership = useRef<{ workspaceId: string; role: string } | null>(null)
   const workspace = useQuery({
     queryKey: ['workspace', workspaceId],
     queryFn: () => getWorkspace(workspaceId),
     enabled: Boolean(user && workspaceId),
     retry: false,
+    refetchInterval: 15_000,
+    refetchOnWindowFocus: 'always',
   })
   const workspaces = useQuery({
     queryKey: ['workspaces'],
     queryFn: listMyWorkspaces,
     enabled: Boolean(user),
   })
+
+  useEffect(() => {
+    if (!workspace.data || workspace.isError) return
+    const previous = lastMembership.current
+    if (previous?.workspaceId === workspaceId && previous.role !== workspace.data.role) {
+      queryClient.removeQueries({ predicate: (query) => query.queryKey[0] !== 'workspace' && query.queryKey.includes(workspaceId) })
+      if ((!canAdminWorkspace(workspace.data.role) && location.pathname.endsWith('/settings'))
+        || (!canSeeAttendance(workspace.data.role) && location.pathname.includes('/people'))) {
+        navigate(workspacePath(workspaceId), { replace: true })
+      }
+    }
+    lastMembership.current = { workspaceId, role: workspace.data.role }
+  }, [workspace.data, workspace.isError, workspaceId, queryClient, location.pathname, navigate])
+
+  useEffect(() => {
+    if (!workspace.isError || lastMembership.current?.workspaceId !== workspaceId) return
+    const error = toAppError(workspace.error)
+    if (error.code !== 'UNAVAILABLE' || error.message !== 'This page isn’t available.') return
+    lastMembership.current = null
+    queryClient.removeQueries({ predicate: (query) => query.queryKey.includes(workspaceId) })
+    queryClient.setQueryData<WorkspaceSummary[]>(['workspaces'], (rows) => rows?.filter((row) => row.id !== workspaceId))
+    void queryClient.invalidateQueries({ queryKey: ['workspaces'] })
+    if (localStorage.getItem('brie:last-workspace') === workspaceId) localStorage.removeItem('brie:last-workspace')
+    navigate('/app', { replace: true })
+  }, [workspace.isError, workspace.error, workspaceId, queryClient, navigate])
 
   if (loading) {
     return (
@@ -55,7 +83,7 @@ export function AppShell() {
         <p className="app-lede">{toAppError(workspace.error).message}</p>
         <ErrorRetry message="Reload workspace or choose another one." onRetry={() => workspace.refetch()} />
         <Button variant="secondary" onClick={() => navigate('/app')}>
-          Go to events
+          Go to workspaces
         </Button>
       </div>
     )

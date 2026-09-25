@@ -12,6 +12,7 @@ import type {
   SegmentRecord,
   TaskRecord,
   TaskStatus,
+  TeamInvitation,
   Workspace,
 } from './types'
 
@@ -57,7 +58,7 @@ export async function revokeInvitation(invitationId: string) {
 }
 
 export async function peekInvitation(token: string) {
-  return rpc<{ workspaceName: string; role: MemberRole; emailMasked: string; expiresAt: string }>(
+  return rpc<{ workspaceName: string; role: MemberRole; emailMasked: string; expiresAt: string; alreadyMember: boolean; workspaceId: string | null }>(
     'peek_invitation',
     { p_token: token },
   )
@@ -70,7 +71,7 @@ export async function acceptInvitation(token: string) {
 }
 
 export async function listTeam(workspaceId: string) {
-  return rpc<{ members: Membership[]; invitations: Invitation[] }>('list_team', {
+  return rpc<{ members: Membership[]; invitations: TeamInvitation[] }>('list_team', {
     p_workspace_id: workspaceId,
   })
 }

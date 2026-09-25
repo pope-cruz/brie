@@ -20,7 +20,7 @@ export async function signIn(page: Page, email: string, returnTo = '/app') {
   const since = Date.now()
   await page.getByRole('button', { name: 'Send code' }).click()
   lastCodeAt.set(email, since)
-  await expect(page.getByRole('heading', { name: 'Enter your code' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Check your email' })).toBeVisible()
 
   const code = await waitForSignInCode(email, since)
   await page.getByLabel('Code').fill(code)

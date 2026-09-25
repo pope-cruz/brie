@@ -46,18 +46,35 @@ export function InvitePage() {
         <h1 className="app-h1">Join a workspace</h1>
         {peek.isLoading ? <p className="app-lede">Checking this invitation…</p> : null}
         {peek.isError ? (
-          <ErrorRetry
-            message={toAppError(peek.error).message}
-            onRetry={() => peek.refetch()}
-          />
+          <>
+            <ErrorRetry
+              message={toAppError(peek.error).message}
+              onRetry={() => peek.refetch()}
+            />
+            <p className="app-lede">Ask the workspace owner for a new link if you haven’t joined yet.</p>
+            <Button variant="secondary" onClick={() => navigate(user ? '/app' : '/app/sign-in', { replace: true })}>
+              {user ? 'Your workspaces' : 'Sign in to see your workspaces'}
+            </Button>
+          </>
         ) : null}
         {peek.data ? (
           <>
-            <p className="app-lede">
-              You’re invited to {peek.data.workspaceName} as {roleLabel(peek.data.role)}. Invitation
-              sent to {peek.data.emailMasked}.
-            </p>
-            {loading ? <p role="status">Checking your account…</p> : !user ? (
+            {peek.data.alreadyMember ? (
+              <>
+                <p className="app-lede">You already belong to {peek.data.workspaceName} as {roleLabel(peek.data.role)}.</p>
+                <Button onClick={() => {
+                  if (!peek.data.workspaceId) return
+                  rememberWorkspace(peek.data.workspaceId)
+                  navigate(workspacePath(peek.data.workspaceId), { replace: true })
+                }}>Continue</Button>
+              </>
+            ) : (
+              <p className="app-lede">
+                You’re invited to {peek.data.workspaceName} as {roleLabel(peek.data.role)}. Invitation
+                sent to {peek.data.emailMasked}.
+              </p>
+            )}
+            {!peek.data.alreadyMember && (loading ? <p role="status">Checking your account…</p> : !user ? (
               <Button onClick={() => navigate(`/app/sign-in?return=${encodeURIComponent(`/app/invite/${token}`)}`)}>
                 Sign in to accept
               </Button>
@@ -83,7 +100,7 @@ export function InvitePage() {
                   }}>Sign in with another email</Button>
                 </div>
               </>
-            )}
+            ))}
           </>
         ) : null}
       </div>

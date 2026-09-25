@@ -118,7 +118,7 @@ test.describe('sign-in surface', () => {
     // with an actionable inline error and the address is kept for retry.
     await expect
       .poll(async () => {
-        if (await page.getByRole('heading', { name: 'Enter your code' }).isVisible()) return 'code'
+        if (await page.getByRole('heading', { name: 'Check your email' }).isVisible()) return 'code'
         if (await page.getByText('Couldn’t send your code').isVisible()) return 'error'
         return 'pending'
       }, { timeout: 15_000 })

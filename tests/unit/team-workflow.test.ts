@@ -48,11 +48,29 @@ describe('team invitation feedback', () => {
     api.createInvitation.mockResolvedValue({ token: 'test-token', email: 'sam@example.test' })
     await mount()
     expect(host.textContent).toContain('Brie does not send an invitation email')
+    expect((field('Role') as HTMLSelectElement).value).toBe('organizer')
     await change(field('Email'), 'sam@example.test'); await click('Create link')
     expect((field('Invitation link') as HTMLInputElement).value).toContain('/app/invite/test-token')
     await click('Copy invitation link')
     expect(host.textContent).toContain('copy it manually')
     expect(host.textContent).toContain('They must sign in with that email')
+  })
+  it('replaces a lost pending link and shows the new link for the same organizer', async () => {
+    state.role = 'owner'
+    api.listTeam.mockResolvedValue({ members: [], invitations: [{ id: 'invite-1', email: 'organizer@example.test', role: 'organizer', expiresAt: '2026-10-01T00:00:00Z' }] })
+    api.createInvitation.mockResolvedValue({ token: 'replacement-token', email: 'organizer@example.test' })
+    await mount()
+    await click('Create new link')
+    expect(api.createInvitation).toHaveBeenCalledWith('workspace', 'organizer@example.test', 'organizer')
+    expect((field('Invitation link') as HTMLInputElement).value).toContain('/app/invite/replacement-token')
+    expect(host.textContent).toContain('The earlier link no longer works')
+  })
+  it('labels an expired invitation and still offers a new link', async () => {
+    state.role = 'owner'
+    api.listTeam.mockResolvedValue({ members: [], invitations: [{ id: 'invite-1', email: 'organizer@example.test', role: 'organizer', expiresAt: '2026-09-01T00:00:00Z', expired: true }] })
+    await mount()
+    expect(host.textContent).toContain('organizer@example.test · Organizer · Expired')
+    expect(button('Create new link')).toBeTruthy()
   })
   it('reports a failed role change instead of failing silently', async () => {
     state.role = 'owner'; api.changeMemberRole.mockRejectedValue(new Error('Role change failed.'))
@@ -65,7 +83,7 @@ describe('team invitation feedback', () => {
     state.role = 'owner'; api.listTeam.mockRejectedValue(new Error('offline'))
     await mount()
     expect(host.textContent).toContain('Couldn’t load the team')
-    expect(host.textContent).not.toContain('No pending invitations.')
+    expect(host.textContent).not.toContain('No invitations waiting for a response.')
   })
   it('explains removal and supports cancel before making a change', async () => {
     state.role = 'owner'; await mount(); await click('Remove')

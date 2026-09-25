@@ -29,7 +29,7 @@ export function SettingsPage() {
   const [name, setName] = useState(workspace.name)
   const [timezone, setTimezone] = useState(workspace.timezone)
   const [inviteEmail, setInviteEmail] = useState('')
-  const [inviteRole, setInviteRole] = useState<Exclude<MemberRole, 'owner'>>('member')
+  const [inviteRole, setInviteRole] = useState<Exclude<MemberRole, 'owner'>>('organizer')
   const [inviteLink, setInviteLink] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -38,6 +38,27 @@ export function SettingsPage() {
   const [notice, setNotice] = useState('')
   const [removeId, setRemoveId] = useState<string | null>(null)
   const [transferId, setTransferId] = useState<string | null>(null)
+
+  async function makeInvitation(email: string, role: Exclude<MemberRole, 'owner'>, replacing = false) {
+    if (busy) return
+    setBusy(true)
+    setError(null)
+    setNotice('')
+    setInviteLink(null)
+    setCopyStatus('')
+    try {
+      const invite = await createInvitation(workspace.id, email, role)
+      setInviteLink(`${window.location.origin}/app/invite/${invite.token}`)
+      setInviteRecipient(invite.email)
+      setInviteEmail('')
+      if (replacing) setNotice('New invitation link created. The earlier link no longer works.')
+      await queryClient.invalidateQueries({ queryKey: ['team', workspace.id] })
+    } catch (caught) {
+      setError(toAppError(caught).message)
+    } finally {
+      setBusy(false)
+    }
+  }
 
   async function teamAction(action: () => Promise<unknown>, success: string) {
     if (busy) return false
@@ -113,31 +134,17 @@ export function SettingsPage() {
             className="app-page-narrow"
             onSubmit={async (event) => {
               event.preventDefault()
-              setBusy(true)
-              setError(null)
-              try {
-                const invite = await createInvitation(workspace.id, inviteEmail, inviteRole)
-                const url = `${window.location.origin}/app/invite/${invite.token}`
-                setInviteLink(url)
-                setInviteRecipient(invite.email)
-                setCopyStatus('')
-                setInviteEmail('')
-                queryClient.invalidateQueries({ queryKey: ['team', workspace.id] })
-              } catch (caught) {
-                setError(toAppError(caught).message)
-              } finally {
-                setBusy(false)
-              }
+              await makeInvitation(inviteEmail, inviteRole)
             }}
           >
             <Field label="Email">
-              <input className="app-input" type="email" value={inviteEmail} onChange={(event) => setInviteEmail(event.target.value)} required />
+              <input className="app-input" type="email" value={inviteEmail} onChange={(event) => { setInviteEmail(event.target.value); setInviteLink(null) }} required />
             </Field>
             <Field label="Role" hint={inviteRole === 'organizer' ? 'Organizers manage events, tasks, schedules, and attendance. Only the owner manages the team.' : 'Members read event plans and update their own assigned tasks. They cannot see attendee details.'}>
               <select
                 className="app-select"
                 value={inviteRole}
-                onChange={(event) => setInviteRole(event.target.value as Exclude<MemberRole, 'owner'>)}
+                onChange={(event) => { setInviteRole(event.target.value as Exclude<MemberRole, 'owner'>); setInviteLink(null) }}
               >
                 <option value="organizer">Organizer</option>
                 <option value="member">Member</option>
@@ -208,21 +215,26 @@ export function SettingsPage() {
               </div>
             ))}
           <h2 className="app-section-title" style={{ marginTop: 32 }}>
-            Pending invitations
+            Invitations
           </h2>
-          {team.data && invitations.length === 0 ? <p className="app-meta">No pending invitations.</p> : null}
+          {team.data && invitations.length === 0 ? <p className="app-meta">No invitations waiting for a response.</p> : null}
           {invitations.map((invite) => (
             <div key={invite.id} className="app-toolbar app-team-row">
               <span>
-                {invite.email} · {roleLabel(invite.role)} · expires {new Date(invite.expiresAt).toLocaleDateString()}
+                {invite.email} · {roleLabel(invite.role)} · {invite.expired ? 'Expired' : `expires ${new Date(invite.expiresAt).toLocaleDateString()}`}
               </span>
-              <Button
-                variant="quiet"
-                disabled={busy}
-                onClick={() => teamAction(() => revokeInvitation(invite.id), `Invitation for ${invite.email} revoked.`)}
-              >
-                Revoke
-              </Button>
+              <div className="app-toolbar">
+                <Button variant="secondary" disabled={busy} onClick={() => makeInvitation(invite.email, invite.role, true)}>
+                  Create new link
+                </Button>
+                <Button
+                  variant="quiet"
+                  disabled={busy}
+                  onClick={() => teamAction(() => revokeInvitation(invite.id), `Invitation for ${invite.email} revoked.`)}
+                >
+                  Revoke
+                </Button>
+              </div>
             </div>
           ))}
           {error ? <p className="app-error-text" role="alert">{error}</p> : null}

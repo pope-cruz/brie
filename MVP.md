@@ -270,7 +270,7 @@ No tabs, preview widgets, or KPI tiles. A compact sticky jump bar (Before · Day
 
 **Hierarchy/layout:** separate compact application entry surface, max 400px, small Brie wordmark, single heading. Sign-in asks email → six-digit email code. Onboarding asks workspace name (80 chars), zone, user display name if missing (80). Invite page identifies workspace and offered role only after validating the token safely; show the invite email masked until matching authenticated identity is established.
 
-**Actions:** Send code, Verify, resend after cooldown, change email, create workspace, Accept invitation or Decline. Invitation creation is owner-only and creates a copyable email-bound link; Brie sends no invitation email in MVP. Email delivery is required for sign-in. Existing member accepting again receives “You already belong to this workspace” and Continue. An invitation cannot replace a current member’s role. Wrong-account acceptance offers Sign in with invited email.
+**Actions:** Send code, Verify, resend after cooldown, change email, create workspace, Accept invitation or Decline. Invitation creation is owner-only, emails the email-bound link to the invitee, and also shows it to copy. Email delivery is required for sign-in. Existing member accepting again receives “You already belong to this workspace” and Continue. An invitation cannot replace a current member’s role. Wrong-account acceptance offers Sign in with invited email.
 
 **Empty:** first sign-in has only the email field and short instruction; no fake testimonials or marketing panel. No membership after sign-in routes to Create workspace, with note to use an invitation link if joining a team.
 

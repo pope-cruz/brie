@@ -5,7 +5,6 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Button, ConfirmDialog, ErrorRetry, Field, SkeletonRows } from '../../components/ui'
 import {
   changeMemberRole,
-  createInvitation,
   listTeam,
   removeMember,
   revokeInvitation,
@@ -15,6 +14,7 @@ import {
 import { toAppError } from '../../data/errors'
 import { canAdminWorkspace, roleLabel, type MemberRole } from '../../data/types'
 import { useCurrentWorkspace } from './workspaceContext'
+import { InviteFields, InviteLink, useInvitation } from './InviteForm'
 
 export function SettingsPage() {
   const workspace = useCurrentWorkspace()
@@ -28,37 +28,12 @@ export function SettingsPage() {
   })
   const [name, setName] = useState(workspace.name)
   const [timezone, setTimezone] = useState(workspace.timezone)
-  const [inviteEmail, setInviteEmail] = useState('')
-  const [inviteRole, setInviteRole] = useState<Exclude<MemberRole, 'owner'>>('organizer')
-  const [inviteLink, setInviteLink] = useState<string | null>(null)
+  const invitation = useInvitation(workspace.id)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
-  const [copyStatus, setCopyStatus] = useState('')
-  const [inviteRecipient, setInviteRecipient] = useState('')
   const [notice, setNotice] = useState('')
   const [removeId, setRemoveId] = useState<string | null>(null)
   const [transferId, setTransferId] = useState<string | null>(null)
-
-  async function makeInvitation(email: string, role: Exclude<MemberRole, 'owner'>, replacing = false) {
-    if (busy) return
-    setBusy(true)
-    setError(null)
-    setNotice('')
-    setInviteLink(null)
-    setCopyStatus('')
-    try {
-      const invite = await createInvitation(workspace.id, email, role)
-      setInviteLink(`${window.location.origin}/app/invite/${invite.token}`)
-      setInviteRecipient(invite.email)
-      setInviteEmail('')
-      if (replacing) setNotice('New invitation link created. The earlier link no longer works.')
-      await queryClient.invalidateQueries({ queryKey: ['team', workspace.id] })
-    } catch (caught) {
-      setError(toAppError(caught).message)
-    } finally {
-      setBusy(false)
-    }
-  }
 
   async function teamAction(action: () => Promise<unknown>, success: string) {
     if (busy) return false
@@ -129,43 +104,12 @@ export function SettingsPage() {
       ) : (
         <div>
           <h2 className="app-section-title">Invite teammate</h2>
-          <p className="app-lede">Create a link, then share it with your teammate. Brie does not send an invitation email.</p>
-          <form
-            className="app-page-narrow"
-            onSubmit={async (event) => {
-              event.preventDefault()
-              await makeInvitation(inviteEmail, inviteRole)
-            }}
-          >
-            <Field label="Email">
-              <input className="app-input" type="email" value={inviteEmail} onChange={(event) => { setInviteEmail(event.target.value); setInviteLink(null) }} required />
-            </Field>
-            <Field label="Role" hint={inviteRole === 'organizer' ? 'Organizers manage events, tasks, schedules, and attendance. Only the owner manages the team.' : 'Members read event plans and update their own assigned tasks. They cannot see attendee details.'}>
-              <select
-                className="app-select"
-                value={inviteRole}
-                onChange={(event) => { setInviteRole(event.target.value as Exclude<MemberRole, 'owner'>); setInviteLink(null) }}
-              >
-                <option value="organizer">Organizer</option>
-                <option value="member">Member</option>
-              </select>
-            </Field>
-            <Button type="submit" busy={busy}>
-              Create link
-            </Button>
-          </form>
-          {inviteLink ? (
-            <div className="app-page-narrow" style={{ marginTop: 16 }}>
-              <Field label="Invitation link" hint={`Share this link with ${inviteRecipient}. They must sign in with that email to join.`}>
-                <input className="app-input" readOnly value={inviteLink} onFocus={(event) => event.target.select()} />
-              </Field>
-              <Button variant="secondary" onClick={async () => {
-                try { await navigator.clipboard.writeText(inviteLink); setCopyStatus('Link copied. Ready to share with your teammate.') }
-                catch { setCopyStatus('Couldn’t copy automatically. Select the link above and copy it manually.') }
-              }}>Copy invitation link</Button>
-              <p role="status" className="app-meta">{copyStatus}</p>
-            </div>
-          ) : null}
+          <p className="app-lede">Brie emails your teammate a link to join. You can also copy the link and share it yourself.</p>
+          <div className="app-page-narrow">
+            <InviteFields invitation={invitation} />
+            {invitation.error ? <p className="app-error-text" role="alert">{invitation.error}</p> : null}
+            {invitation.result ? <InviteLink key={invitation.result.link} result={invitation.result} /> : null}
+          </div>
           {team.isLoading ? <SkeletonRows count={3} /> : null}
           {team.isError ? <ErrorRetry message="Couldn’t load the team. Retry to see current members and invitations." onRetry={() => team.refetch()} /> : null}
           <h2 className="app-section-title" style={{ marginTop: 32 }}>
@@ -224,8 +168,8 @@ export function SettingsPage() {
                 {invite.email} · {roleLabel(invite.role)} · {invite.expired ? 'Expired' : `expires ${new Date(invite.expiresAt).toLocaleDateString()}`}
               </span>
               <div className="app-toolbar">
-                <Button variant="secondary" disabled={busy} onClick={() => makeInvitation(invite.email, invite.role, true)}>
-                  Create new link
+                <Button variant="secondary" disabled={busy || invitation.busy} onClick={() => { setNotice(''); void invitation.send(invite.email, invite.role, true) }}>
+                  Resend
                 </Button>
                 <Button
                   variant="quiet"

@@ -8,7 +8,7 @@ Use a React SPA under `/app`, React Router for URLs, a small feature-oriented da
 
 Supabase is selected for integrated auth and PostgreSQL authorization with a documented self-host path. It can run through Docker for self-hosting; the local CLI development stack is distinct from production hosting. Self-host operators own backups and maintenance. These are platform facts; Brie's single-workspace UX is independent of deployment mode. [Official self-hosting documentation](https://supabase.com/docs/guides/self-hosting)
 
-Sign-in uses Supabase email OTP with a configured SMTP transport. This is authentication infrastructure, not an event email integration. Owner-created invitation links are copied and shared manually; no invitation delivery service is needed. [Official email sign-in documentation](https://supabase.com/docs/guides/auth/auth-email-passwordless)
+Sign-in uses Supabase email OTP with a configured SMTP transport. This is authentication infrastructure, not an event email integration. Owner-created invitations are emailed by the `send-invitation` Edge Function through Resend; the owner also gets the link to copy, and the app falls back to link-only when the function is unavailable. [Official email sign-in documentation](https://supabase.com/docs/guides/auth/auth-email-passwordless)
 
 ### Boundaries
 

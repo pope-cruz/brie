@@ -69,7 +69,7 @@ Sign-in uses a 6-digit email code. Local messages appear in Mailpit at [http://1
 
 1. Sign in with a fictional email and the Mailpit code.
 2. Create a workspace.
-3. Invite a teammate by copying the link (Brie does not send invitation email).
+3. Invite a teammate from **Invite teammate** in the sidebar. Locally the app shows a link to copy; to exercise the email path run `supabase functions serve send-invitation --env-file <file>` with `RESEND_API_KEY` set (see [DEPLOYMENT.md](DEPLOYMENT.md#invitation-email)).
 4. Create an event, assign a task, add a run of show, then import `supabase/sample-attendance.csv`.
 
 ## Updated sign-in redirects

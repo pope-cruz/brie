@@ -52,3 +52,8 @@ content_path = "./supabase/templates/magic_link.html"
 [auth.email.template.confirmation]
 subject = "Your Brie sign-in code"
 content_path = "./supabase/templates/magic_link.html"
+
+# The function forwards the caller's token to `create_invitation`, which rejects anyone
+# who isn't the workspace owner, so the gateway's legacy JWT check is not needed.
+[functions.send-invitation]
+verify_jwt = false

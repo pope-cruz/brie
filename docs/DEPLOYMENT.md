@@ -70,9 +70,23 @@ In the target Supabase project's **Authentication** settings:
 2. Under **URL Configuration**, set **Site URL** to `https://<exact-app-host>/app`. Add a redirect URL that matches `https://<exact-app-host>/app/sign-in?return=...`; the current local configuration uses `https://<exact-app-host>/app/sign-in?**`. Add the plain `/app/sign-in` URL if the dashboard requires it. Use the exact trusted host, including any staging host; avoid a broad wildcard over unrelated domains. The app constructs the redirect from `window.location.origin`, and the final route may include an invitation token or query string. Test an emailed link from a nested route to confirm the allowlist works.
 3. Under **Emails → SMTP Settings**, connect a real sender, verify its sending domain with the provider, and set the sender address/name. New Free projects cannot edit hosted email templates while using Supabase's built-in sender. The built-in sender is restricted and unsuitable for real users. Store SMTP credentials in Supabase, never in Vercel or Git.
 4. Under **Email Templates**, set both **Magic Link / OTP** and **Confirm signup** to the content of [`supabase/templates/magic_link.html`](../supabase/templates/magic_link.html). It contains `{{ .Token }}` for the six-digit code and no clickable verification link, so email security scanners cannot consume the link before the user sees it. Set an appropriate subject such as “Your Brie sign-in code.” These dashboard changes are separate from the local template files. Set the hosted Email OTP length to six; `supabase db push` does not apply either setting. Review Auth email rate limits and expiry; the app waits 60 seconds before resend.
-5. From the deployed origin, request a code at `/app/sign-in` and verify it in the form. Repeat for a newly invited address and confirm that sign-in returns to `/app/invite/<token>`. Brie invitation links are copied by the workspace owner; Brie does not email them.
+5. From the deployed origin, request a code at `/app/sign-in` and verify it in the form. Repeat for a newly invited address and confirm that sign-in returns to `/app/invite/<token>`.
 
 After the first Vercel deployment gives you its assigned `*.vercel.app` origin, add that exact HTTPS origin to the Auth redirect list and use it for the first sign-in check. Before switching to a custom domain, add the final HTTPS origin to the redirect list, set Site URL to the final `/app` URL, and repeat the code/link checks on the final domain. Remove obsolete origins when no longer needed.
+
+### Invitation email
+
+Owners' invitations are emailed by the `send-invitation` Edge Function through Resend. It creates the invitation with the same `create_invitation` command the app uses, so only owners can send. Without it, the app still creates the invitation and asks the owner to copy the link.
+
+1. Create a Resend API key with sending access only. Use a verified sending domain; Resend's `onboarding@resend.dev` sender only delivers to the Resend account's own address.
+2. Set the function's secrets. `APP_ORIGIN` is the app's HTTPS origin used in the emailed link; the function never trusts a request's origin outside local development.
+
+   ```bash
+   supabase secrets set RESEND_API_KEY=<key> APP_ORIGIN=https://<exact-app-host> INVITE_FROM="Brie <invites@<verified-domain>>"
+   ```
+
+3. Deploy it with `supabase functions deploy send-invitation`.
+4. Invite an address you can read and confirm the email arrives and its link opens `/app/invite/<token>` on the app host. The function skips email (but still returns the link) after 30 invitations from one owner in an hour; failures are logged under **Edge Functions → send-invitation → Logs**.
 
 ## 4. Deploy the frontend with Vercel
 

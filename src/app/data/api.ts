@@ -1,4 +1,6 @@
-import { rpc } from './client'
+import { FunctionsHttpError } from '@supabase/supabase-js'
+import { getSupabase, rpc } from './client'
+import { toAppError } from './errors'
 import type {
   EventRecord,
   EventStatus,
@@ -51,6 +53,28 @@ export async function createInvitation(workspaceId: string, email: string, role:
     p_email: email,
     p_role: role,
   })
+}
+
+export type InvitationDelivery = 'sent' | 'not_configured' | 'rate_limited' | 'failed' | 'unavailable'
+
+/**
+ * Creates the invitation through the `send-invitation` function, which also emails the link.
+ * When the function can't be reached (not deployed, network), the invitation is created
+ * directly so the owner can still copy the link. Errors the command itself raises are
+ * passed through unchanged.
+ */
+export async function sendInvitation(workspaceId: string, email: string, role: Exclude<MemberRole, 'owner'>) {
+  const { data, error } = await getSupabase().functions.invoke<Invitation & { delivery: InvitationDelivery }>(
+    'send-invitation',
+    { body: { workspaceId, email, role } },
+  )
+  if (!error && data) return data
+  if (error instanceof FunctionsHttpError) {
+    const body = await (error.context as Response).json().catch(() => null) as { error?: unknown } | null
+    if (body?.error && typeof body.error === 'object') throw toAppError(body.error)
+  }
+  const invite = await createInvitation(workspaceId, email, role)
+  return { ...invite, delivery: 'unavailable' as const }
 }
 
 export async function revokeInvitation(invitationId: string) {

@@ -6,7 +6,8 @@ These are operator responsibilities. Reversion and archive are not privacy erasu
 
 - Static frontend host that serves `index.html` for `/app/*` and keeps `/` as the approved landing page.
 - Supabase (Docker self-host or a documented managed equivalent) with the migrations in `supabase/migrations/`.
-- Production SMTP for sign-in OTP. Invitation links are copied by owners; Brie does not send invite email.
+- Production SMTP for sign-in OTP.
+- The `send-invitation` Edge Function with a Resend key for invitation email. Owners can always copy the link if email is unavailable.
 - Allowlisted auth redirect URLs that match the deployed origin.
 - Telemetry stays off unless a later release decides otherwise.
 

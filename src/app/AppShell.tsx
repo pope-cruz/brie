@@ -6,6 +6,7 @@ import { getWorkspace, listMyWorkspaces, type WorkspaceSummary } from './data/ap
 import { toAppError } from './data/errors'
 import { canAdminWorkspace, canSeeAttendance } from './data/types'
 import { useSession } from './features/auth/SessionProvider'
+import { InviteDialog } from './features/workspaces/InviteDialog'
 import { rememberWorkspace, workspacePath } from './lib/paths'
 import { Button, ErrorRetry } from './components/ui'
 
@@ -25,6 +26,7 @@ export function AppShell() {
   }
   const queryClient = useQueryClient()
   const [menuOpen, setMenuOpen] = useState(false)
+  const [inviteOpen, setInviteOpen] = useState(false)
   const menuTrigger = useRef<HTMLElement | null>(null)
   const lastMembership = useRef<{ workspaceId: string; role: string } | null>(null)
   const workspace = useQuery({
@@ -140,6 +142,11 @@ export function AppShell() {
           ))}
           <option value="__create">Create workspace</option>
         </select>
+        {canAdminWorkspace(role) ? (
+          <Button variant="secondary" onClick={() => { setMenuOpen(false); setInviteOpen(true) }}>
+            Invite teammate
+          </Button>
+        ) : null}
       </div>
       <nav className="app-nav" aria-label="Workspace">
         <NavLink className="app-nav-item" to={workspacePath(workspaceId, 'home')}>
@@ -176,6 +183,7 @@ export function AppShell() {
 
   return (
     <div className="app-shell">
+      {inviteOpen ? <InviteDialog workspaceId={workspace.data.id} workspaceName={workspace.data.name} onClose={() => setInviteOpen(false)} /> : null}
       {!menuOpen ? <aside className="app-sidebar">{nav}</aside> : null}
       {menuOpen ? <Sheet open onOpenChange={setMenuOpen}>
         <SheetContent side="left" className="app-mobile-navigation" aria-describedby={undefined} showCloseButton={false}

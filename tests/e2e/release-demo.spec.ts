@@ -268,16 +268,22 @@ test('3. owner edits status and the header updates without a reload', async () =
 })
 
 test('4. owner creates organizer and member invitations', async () => {
-  await ownerPage.goto(`/app/w/${state.workspaceId}/settings?tab=team`)
+  await ownerPage.goto(`/app/w/${state.workspaceId}/home`)
+  await ownerPage.getByRole('button', { name: 'Invite teammate' }).click()
+  const inviteDialog = ownerPage.getByRole('dialog', { name: /^Invite to / })
+  await expect(inviteDialog.getByLabel('Email', { exact: true })).toBeVisible()
+  await inviteDialog.getByRole('link', { name: 'Manage team' }).click()
+  await expect(ownerPage).toHaveURL(/\/settings\?tab=team$/)
+  await expect(inviteDialog).toBeHidden()
   await ownerPage.getByLabel('Email', { exact: true }).fill(ORGANIZER)
   await ownerPage.getByLabel('Role', { exact: true }).selectOption('organizer')
-  await ownerPage.getByRole('button', { name: 'Create link' }).click()
+  await ownerPage.getByRole('button', { name: 'Send invite' }).click()
   await expect(ownerPage.getByLabel('Invitation link')).toHaveValue(/\/app\/invite\//)
   state.organizerLink = await ownerPage.getByLabel('Invitation link').inputValue()
 
   await ownerPage.getByLabel('Email', { exact: true }).fill(MEMBER)
   await ownerPage.getByLabel('Role', { exact: true }).selectOption('member')
-  await ownerPage.getByRole('button', { name: 'Create link' }).click()
+  await ownerPage.getByRole('button', { name: 'Send invite' }).click()
   await expect
     .poll(() => ownerPage.getByLabel('Invitation link').inputValue())
     .not.toBe(state.organizerLink)
@@ -285,7 +291,7 @@ test('4. owner creates organizer and member invitations', async () => {
   await expect(ownerPage.locator('.app-team-row', { hasText: MEMBER })).toBeVisible()
 
   const firstOrganizerLink = state.organizerLink
-  await ownerPage.locator('.app-team-row', { hasText: ORGANIZER }).getByRole('button', { name: 'Create new link' }).click()
+  await ownerPage.locator('.app-team-row', { hasText: ORGANIZER }).getByRole('button', { name: 'Resend' }).click()
   await expect(ownerPage.getByText('The earlier link no longer works.')).toBeVisible()
   state.organizerLink = await ownerPage.getByLabel('Invitation link').inputValue()
   expect(state.organizerLink).not.toBe(firstOrganizerLink)

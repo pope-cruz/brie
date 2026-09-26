@@ -7,7 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { SettingsPage } from '../../src/app/features/workspaces/SettingsPage'
 
 const state = vi.hoisted(() => ({ role: 'member' }))
-const api = vi.hoisted(() => ({ listWorkspaceTasks: vi.fn(), listTeam: vi.fn(), listEventTasks: vi.fn(), listRemovedTasks: vi.fn(), saveTask: vi.fn(), setTaskStatus: vi.fn(), removeTask: vi.fn(), restoreTask: vi.fn(), createInvitation: vi.fn(), changeMemberRole: vi.fn(), removeMember: vi.fn(), revokeInvitation: vi.fn(), saveWorkspace: vi.fn(), transferOwnership: vi.fn() }))
+const api = vi.hoisted(() => ({ listWorkspaceTasks: vi.fn(), listTeam: vi.fn(), listEventTasks: vi.fn(), listRemovedTasks: vi.fn(), saveTask: vi.fn(), setTaskStatus: vi.fn(), removeTask: vi.fn(), restoreTask: vi.fn(), sendInvitation: vi.fn(), changeMemberRole: vi.fn(), removeMember: vi.fn(), revokeInvitation: vi.fn(), saveWorkspace: vi.fn(), transferOwnership: vi.fn() }))
 vi.mock('../../src/app/data/api', () => api)
 vi.mock('../../src/app/features/workspaces/workspaceContext', () => ({ useCurrentWorkspace: () => ({ id: 'workspace', membershipId: 'member', name: 'Test team', role: state.role, timezone: 'America/New_York', version: 1 }) }))
 let host: HTMLDivElement
@@ -42,35 +42,53 @@ beforeEach(() => {
 afterEach(async () => { await act(async () => root.unmount()); client.clear(); router?.dispose(); host.remove(); vi.unstubAllGlobals() })
 
 describe('team invitation feedback', () => {
-  it('explains manual sharing and handles a clipboard failure', async () => {
+  it('emails the invitation and still offers the link', async () => {
+    state.role = 'owner'
+    api.sendInvitation.mockResolvedValue({ token: 'test-token', email: 'sam@example.test', delivery: 'sent' })
+    await mount()
+    expect((field('Role') as HTMLSelectElement).value).toBe('organizer')
+    await change(field('Email'), 'sam@example.test'); await click('Send invite')
+    expect(api.sendInvitation).toHaveBeenCalledWith('workspace', 'sam@example.test', 'organizer')
+    expect(host.textContent).toContain('Invitation emailed to sam@example.test.')
+    expect((field('Invitation link') as HTMLInputElement).value).toContain('/app/invite/test-token')
+    expect((field('Email') as HTMLInputElement).value).toBe('')
+  })
+  it('asks the owner to share the link when email is unavailable, and handles a clipboard failure', async () => {
     state.role = 'owner'
     Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: vi.fn().mockRejectedValue(new Error('denied')) } })
-    api.createInvitation.mockResolvedValue({ token: 'test-token', email: 'sam@example.test' })
+    api.sendInvitation.mockResolvedValue({ token: 'test-token', email: 'sam@example.test', delivery: 'unavailable' })
     await mount()
-    expect(host.textContent).toContain('Brie does not send an invitation email')
-    expect((field('Role') as HTMLSelectElement).value).toBe('organizer')
-    await change(field('Email'), 'sam@example.test'); await click('Create link')
-    expect((field('Invitation link') as HTMLInputElement).value).toContain('/app/invite/test-token')
+    await change(field('Email'), 'sam@example.test'); await click('Send invite')
+    expect(host.textContent).toContain('Brie can’t send email yet. Share the link below with sam@example.test.')
     await click('Copy invitation link')
     expect(host.textContent).toContain('copy it manually')
-    expect(host.textContent).toContain('They must sign in with that email')
+    expect(host.textContent).toContain('They must sign in with sam@example.test to join')
+  })
+  it('keeps the typed email when the invitation is rejected', async () => {
+    state.role = 'owner'
+    api.sendInvitation.mockRejectedValue(new Error('That person already belongs to this workspace.'))
+    await mount()
+    await change(field('Email'), 'sam@example.test'); await click('Send invite')
+    expect(host.querySelector('[role="alert"]')?.textContent).toBe('That person already belongs to this workspace.')
+    expect((field('Email') as HTMLInputElement).value).toBe('sam@example.test')
+    expect(host.textContent).not.toContain('Invitation link')
   })
   it('replaces a lost pending link and shows the new link for the same organizer', async () => {
     state.role = 'owner'
     api.listTeam.mockResolvedValue({ members: [], invitations: [{ id: 'invite-1', email: 'organizer@example.test', role: 'organizer', expiresAt: '2026-10-01T00:00:00Z' }] })
-    api.createInvitation.mockResolvedValue({ token: 'replacement-token', email: 'organizer@example.test' })
+    api.sendInvitation.mockResolvedValue({ token: 'replacement-token', email: 'organizer@example.test', delivery: 'sent' })
     await mount()
-    await click('Create new link')
-    expect(api.createInvitation).toHaveBeenCalledWith('workspace', 'organizer@example.test', 'organizer')
+    await click('Resend')
+    expect(api.sendInvitation).toHaveBeenCalledWith('workspace', 'organizer@example.test', 'organizer')
     expect((field('Invitation link') as HTMLInputElement).value).toContain('/app/invite/replacement-token')
-    expect(host.textContent).toContain('The earlier link no longer works')
+    expect(host.textContent).toContain('Invitation emailed to organizer@example.test. The earlier link no longer works.')
   })
   it('labels an expired invitation and still offers a new link', async () => {
     state.role = 'owner'
     api.listTeam.mockResolvedValue({ members: [], invitations: [{ id: 'invite-1', email: 'organizer@example.test', role: 'organizer', expiresAt: '2026-09-01T00:00:00Z', expired: true }] })
     await mount()
     expect(host.textContent).toContain('organizer@example.test · Organizer · Expired')
-    expect(button('Create new link')).toBeTruthy()
+    expect(button('Resend')).toBeTruthy()
   })
   it('reports a failed role change instead of failing silently', async () => {
     state.role = 'owner'; api.changeMemberRole.mockRejectedValue(new Error('Role change failed.'))

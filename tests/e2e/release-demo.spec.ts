@@ -447,6 +447,14 @@ test('9. organizer imports overlapping batches; totals reconcile and reversion k
   for (const name of ['Ana', 'Bo', 'Cy']) {
     await expect(organizerPage.getByRole('link', { name, exact: true })).toBeVisible()
   }
+  const [beforeExport] = await Promise.all([
+    organizerPage.waitForEvent('download'),
+    organizerPage.getByRole('button', { name: 'Export CSV' }).click(),
+  ])
+  const beforeCsv = readFileSync(await beforeExport.path(), 'utf8')
+  expect(beforeCsv).toContain('attendance_status')
+  expect(beforeCsv).toContain('bo.qa@example.test')
+  expect(beforeCsv).toContain('attendance-a.csv (row 3); attendance-b.csv (row 2)')
 
   await organizerPage.goto(batchA)
   await organizerPage.getByRole('button', { name: 'Revert import' }).click()
@@ -461,6 +469,14 @@ test('9. organizer imports overlapping batches; totals reconcile and reversion k
   await expect(organizerPage.getByRole('link', { name: 'Ana', exact: true })).toHaveCount(0)
   await expect(organizerPage.getByRole('link', { name: 'Bo', exact: true })).toBeVisible()
   await expect(organizerPage.getByRole('link', { name: 'Cy', exact: true })).toBeVisible()
+  const [afterExport] = await Promise.all([
+    organizerPage.waitForEvent('download'),
+    organizerPage.getByRole('button', { name: 'Export CSV' }).click(),
+  ])
+  const afterCsv = readFileSync(await afterExport.path(), 'utf8')
+  expect(afterCsv).not.toContain('ana.qa@example.test')
+  expect(afterCsv).toContain('attendance-b.csv (row 2)')
+  expect(afterCsv).not.toContain('attendance-a.csv')
   await organizerPage.goto(eventUrl('/attendance?view=imports'))
   await expect(organizerPage.getByText('Reverted')).toBeVisible()
   await expect(organizerPage.getByText('Active')).toBeVisible()

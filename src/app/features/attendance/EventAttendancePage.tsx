@@ -1,9 +1,11 @@
 import { Link, useOutletContext, useSearchParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { Button, EmptyState, Pagination, SkeletonRows, StatusBadge } from '../../components/ui'
-import { listEventImports, listEventPeople } from '../../data/api'
+import { exportEventAttendance, listEventImports, listEventPeople } from '../../data/api'
 import type { WorkspaceSummary } from '../../data/api'
+import { toAppError } from '../../data/errors'
 import { canSeeAttendance, type EventRecord } from '../../data/types'
+import { attendanceExportCsv } from '../../lib/attendanceExport'
 import { SEARCH_DEBOUNCE_MS } from '../../lib/search'
 import { useDebouncedValue } from '../../lib/useDebouncedValue'
 import { useState } from 'react'
@@ -15,6 +17,8 @@ export function EventAttendancePage() {
   const query = params.get('q') || ''
   const page = Number(params.get('page') || '1')
   const [draft, setDraft] = useState(query)
+  const [exporting, setExporting] = useState(false)
+  const [exportError, setExportError] = useState<string | null>(null)
   const debounced = useDebouncedValue(draft, SEARCH_DEBOUNCE_MS)
 
   const allowed = canSeeAttendance(workspace.role)
@@ -33,6 +37,26 @@ export function EventAttendancePage() {
     return <p className="app-lede">Ask an organizer to manage attendance.</p>
   }
 
+  async function downloadCsv() {
+    setExporting(true)
+    setExportError(null)
+    try {
+      const rows = await exportEventAttendance(workspace.id, event.id)
+      const url = URL.createObjectURL(new Blob([attendanceExportCsv(rows)], { type: 'text/csv;charset=utf-8' }))
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `brie-attendance-${event.id}.csv`
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      window.setTimeout(() => URL.revokeObjectURL(url), 0)
+    } catch (caught) {
+      setExportError(toAppError(caught).message)
+    } finally {
+      setExporting(false)
+    }
+  }
+
   return (
     <div>
       <div className="app-header-row" style={{ marginTop: 16 }}>
@@ -42,10 +66,16 @@ export function EventAttendancePage() {
             {event.attendanceCount ?? 0} distinct attendees recorded
           </p>
         </div>
-        <Link className="app-btn app-btn-primary" to={`/app/w/${workspace.id}/events/${event.id}/attendance/import`}>
-          Import CSV
-        </Link>
+        <div className="app-toolbar">
+          <Button variant="secondary" busy={exporting} onClick={() => void downloadCsv()}>
+            Export CSV
+          </Button>
+          <Link className="app-btn app-btn-primary" to={`/app/w/${workspace.id}/events/${event.id}/attendance/import`}>
+            Import CSV
+          </Link>
+        </div>
       </div>
+      {exportError ? <p className="app-error-text" role="alert">{exportError}</p> : null}
       <div className="app-toolbar">
         <Button variant={view === 'people' ? 'primary' : 'secondary'} onClick={() => setParams({ view: 'people' })}>
           People

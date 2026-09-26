@@ -1,6 +1,6 @@
 -- Attendance rules: privacy from members and other workspaces, overlapping imports, stale and expired previews, and reversion.
 begin;
-select plan(27);
+select plan(32);
 
 insert into auth.users (id, email) values
  ('e4000000-0000-4000-8000-000000000001', 'att-owner@example.test'),
@@ -29,9 +29,11 @@ select throws_ok($$select public.prepare_attendance_import('e4000000-0000-4000-8
 select throws_ok($$select public.list_event_people('e4000000-0000-4000-8000-0000000000aa', 'e4000000-0000-4000-8000-0000000000e1', '', 1)$$, 'P0001', 'FORBIDDEN', 'Member cannot see who attended an event');
 select throws_ok($$select public.list_attendance_history('e4000000-0000-4000-8000-0000000000aa', '', null, null, 1)$$, 'P0001', 'FORBIDDEN', 'Member cannot open attendance history');
 select throws_ok($$select public.list_event_imports('e4000000-0000-4000-8000-0000000000aa', 'e4000000-0000-4000-8000-0000000000e1')$$, 'P0001', 'FORBIDDEN', 'Member cannot see import receipts');
+select throws_ok($$select public.export_event_attendance('e4000000-0000-4000-8000-0000000000aa', 'e4000000-0000-4000-8000-0000000000e1')$$, 'P0001', 'FORBIDDEN', 'Member cannot export attendee contacts');
 select throws_ok($$select * from public.attendees$$, '42501', 'permission denied for table attendees', 'Direct attendee reads are denied');
 select set_config('request.jwt.claim.sub', 'e4000000-0000-4000-8000-000000000009', true);
 select throws_ok($$select public.list_event_people('e4000000-0000-4000-8000-0000000000aa', 'e4000000-0000-4000-8000-0000000000e1', '', 1)$$, 'P0001', 'UNAVAILABLE', 'Another workspace cannot see attendees');
+select throws_ok($$select public.export_event_attendance('e4000000-0000-4000-8000-0000000000aa', 'e4000000-0000-4000-8000-0000000000e1')$$, 'P0001', 'UNAVAILABLE', 'Another workspace cannot export attendee contacts');
 
 -- Batch A (Ana, Bo). Only the organizer who made a preview can commit it, and retries return one receipt.
 select set_config('request.jwt.claim.sub', 'e4000000-0000-4000-8000-000000000002', true);
@@ -47,6 +49,8 @@ select is(public.get_event('e4000000-0000-4000-8000-0000000000aa', 'e4000000-000
 select set_config('test.preview_b', public.prepare_attendance_import('e4000000-0000-4000-8000-0000000000aa', 'e4000000-0000-4000-8000-0000000000e1', 'batch-b.csv', 'hash-b', 'brie-csv-1', '{}', '[{"rowNumber":2,"email":"bo@example.test","name":"Bo"},{"rowNumber":3,"email":"cy@example.test","name":"Cy"}]', 0)->>'id', true);
 select set_config('test.batch_b', public.commit_attendance_import(current_setting('test.preview_b')::uuid, false, 'commit-key-b')->>'id', true);
 select is(public.get_event('e4000000-0000-4000-8000-0000000000aa', 'e4000000-0000-4000-8000-0000000000e1')->>'attendanceCount', '3', 'Overlapping batches count a shared person once');
+select is(jsonb_array_length(public.export_event_attendance('e4000000-0000-4000-8000-0000000000aa', 'e4000000-0000-4000-8000-0000000000e1')), 3, 'Export contains one row per distinct attendee');
+select is(jsonb_array_length((select item->'sources' from jsonb_array_elements(public.export_event_attendance('e4000000-0000-4000-8000-0000000000aa', 'e4000000-0000-4000-8000-0000000000e1')) item where item->>'email' = 'bo@example.test')), 2, 'Export includes both active sources for an overlapping attendee');
 
 -- A preview made before another import is stale.
 select set_config('test.preview_c', public.prepare_attendance_import('e4000000-0000-4000-8000-0000000000aa', 'e4000000-0000-4000-8000-0000000000e1', 'batch-c.csv', 'hash-c', 'brie-csv-1', '{}', '[{"rowNumber":2,"email":"dan@example.test","name":"Dan"}]', 0)->>'id', true);
@@ -79,6 +83,7 @@ select throws_ok($$select public.revert_attendance_import('e4000000-0000-4000-80
 select is(public.revert_attendance_import('e4000000-0000-4000-8000-0000000000aa', current_setting('test.batch_a')::uuid, (current_setting('test.impact_a')::jsonb->>'batchVersion')::int, (current_setting('test.impact_a')::jsonb->>'attendanceVersion')::int)->>'status', 'reverted', 'Batch A is reverted');
 select is(public.list_event_people('e4000000-0000-4000-8000-0000000000aa', 'e4000000-0000-4000-8000-0000000000e1', '', 1)->>'total', '4', 'Bo, Cy, Eve, and Fay remain');
 select is(public.list_event_people('e4000000-0000-4000-8000-0000000000aa', 'e4000000-0000-4000-8000-0000000000e1', 'ana', 1)->>'total', '0', 'Ana no longer appears at the event');
+select is(jsonb_array_length((select item->'sources' from jsonb_array_elements(public.export_event_attendance('e4000000-0000-4000-8000-0000000000aa', 'e4000000-0000-4000-8000-0000000000e1')) item where item->>'email' = 'bo@example.test')), 1, 'Export drops the reverted source but keeps active evidence');
 select is(public.revert_attendance_import('e4000000-0000-4000-8000-0000000000aa', current_setting('test.batch_a')::uuid, 1, 1)->>'status', 'reverted', 'Reverting again is a harmless no-op');
 
 -- Archived events, size limits, and organizer history lookup.

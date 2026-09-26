@@ -1,0 +1,50 @@
+# Post-MVP roadmap: attendance, venues, and planning access
+
+Audited against the repository on 2026-09-26. This document extends [PRODUCT.md](../PRODUCT.md) and [MVP.md](../MVP.md); the latter remains the record of the original release scope.
+
+## Current state
+
+| Area | Shipped foundation | Gap against the roadmap |
+| --- | --- | --- |
+| Events and planning | Workspace-scoped events, to-dos, schedule, briefing, duplication, archive, and run-of-show PDF (`src/app/features/events`, `tasks`, `schedule`; migrations `0003`–`0025`) | No separate template library or assistant-readable planning contract. |
+| People and attendance | CSV import, editable Email/Name mapping, server-side preview, email-keyed identities, deduplication, receipts/reversion, event and person history (`src/app/features/attendance`, `src/app/lib/csv.ts`; migrations `0008`–`0016`) | Every valid imported row is treated as attended. RSVP, waitlist, no-show, unknown, and check-in are not represented. No identity without email, manual entry, paste, XLSX, contact context, or review of ambiguous matches. |
+| Provenance and export | File label/hash, parser/mapping metadata, source row number, and active batch evidence are stored. This slice adds an organizer-only event CSV export with source references (`0026_export_event_attendance.sql`). | Raw rows and ignored columns are not retained. Rejected row detail disappears after commit. There is no workspace-wide CRM export or sync. |
+| Permissions | Owner/organizer can read attendance details; members see only event totals. Database RPCs enforce workspace roles and deny direct table access. | Contact-use consent, retention policy for new source data, and assistant scopes must be decided before outreach or MCP writes. |
+| Venues and links | Event has a free-text location; descriptions and briefings can contain text. | No structured venue, booking state, event links, contacts, costs, restrictions, or history. |
+| MCP | No Brie MCP server. | Scoped read resources, draft-plan commands, review of changes, and action audit trail remain to be designed. The local shadcn MCP tool mentioned in `SLICE_STATUS.md` is a development tool, not product MCP access. |
+
+## Sequence
+
+### 1. Make mixed attendance files safe to import
+
+Extend the existing CSV flow and database preview instead of replacing it. Add editable mappings for RSVP status, check-in/attendance status, timestamp, phone, and affiliation, with a preview of source values. Require the organizer to explicitly decide which source values mean **attended**; default unrecognized and unmapped attendance to **unknown**. Show unresolved rows before commit. Preserve RSVP and attendance as separate fields, so “registered” never implies “attended.” Reimporting the same source should show proposed additions/changes without silently overwriting a person's history.
+
+The current `attendees` table requires email and merges only on normalized email. Keep that safe rule until a reviewed identity model exists. For missing email, stage an unresolved source row; do not merge names. Store bounded raw row JSON and original headers in a protected import-source table only after a retention/erasure decision. Keep the current contribution model as the source of confirmed attendance, so old imports and reversion retain their meaning. Make every new RPC subject to the same role checks and `function_privileges.sql` allowlist.
+
+**Done when:** a mixed fixture with RSVP yes/no, checked-in, no-show, blank status, duplicate email, and missing email previews each outcome; only explicitly confirmed attendance contributes to counts/history; unresolved rows remain visible for review; a repeat import shows no duplicate attendance; rollback and cross-workspace tests pass. Add real fictional exports from at least two differing column schemes before adding presets. CSV first; XLSX and pasted tables can use the same normalized row boundary once CSV behavior is trusted.
+
+### 2. Make the history useful to organizers
+
+Add first-time/repeat attendance and event-based segments using distinct confirmed event attendance, not batch counts. Add source-aware context on a person's profile. Extend the current event CSV export to a workspace-wide, paginated/streamed export suitable for Clay or another CRM. Define who may use contact fields, consent state, retention, and erasure before adding automated outreach or direct sync. A CSV bridge is enough until real demand and documented APIs justify sync.
+
+**Done when:** first-time/repeat counts agree with person histories across overlapping imports and reversion; exports contain only permitted, explicitly selected fields; an organizer can explain the origin of each exported attendance fact.
+
+### 3. Add a workspace venue directory and booking tracker
+
+Create workspace-scoped venues with capacity, location, cost, accessibility, equipment, booking contact/link, lead time, restrictions, and event notes. Associate an event with a venue without removing its free-text location. Add configurable booking steps and dated statuses. For NYU rooms, prepare requirements and track the manual request. For external spaces, draft an editable email using event details and track replies, quotes, holds, confirmation, and deadlines. Keep sending or booking behind organizer review and a documented process.
+
+**Done when:** an organizer can compare suitable venues, reuse past notes, prepare a request, and see its status and deadlines without an external API. Different venue workflows can have different steps.
+
+### 4. Expose a scoped MCP planning surface
+
+After the core objects and permission policy settle, expose read-only event, task, run-of-show, venue, link, template/previous-event, and authorized attendance-summary resources. Then allow creation of a **draft** event plan, with assumptions and a reviewable change summary in Brie. Any assignment, contact, booking, or publication requires explicit organizer review; all assistant actions use workspace permission checks and an audit entry. Do not expose attendee contact data by default.
+
+**Done when:** “Plan a 40-person founder dinner based on our last two dinners” produces a usable draft inside the correct workspace, with cited prior events and visible assumptions. Cross-workspace and member-role access tests must cover the MCP surface.
+
+## First delivered slice in this pass
+
+An owner or organizer can export the event's **confirmed** attendance as CSV from the Attendance page. The export has one row per active attendee, with name, email, `attended` status, and every active file/row source. It follows batch reversion and is generated from a permission-checked database RPC. It is a bridge for manual CRM work, not a claim that RSVP or no-show data has been imported correctly. Before importing a mixed registration export, organizers must isolate checked-in attendees in the source file; the next slice removes that workaround.
+
+To try it locally, create an event, open **After → Import attendance**, and choose [`supabase/sample-attendance.csv`](../supabase/sample-attendance.csv). Review the preview, acknowledge the invalid row, and commit. Return to **Attendance → Export CSV**. The download contains three distinct attendees and file/row source references; the duplicate and invalid rows are excluded.
+
+Current supported input remains UTF-8 CSV, at most 2 MiB and 5,000 rows, with Email required and optional Name. XLSX, pasted tables, manual entry, phone-only identities, source-specific extra columns, and native Luma/Partiful/NYU Engage/Google Sheets/Clay connections are not yet supported.

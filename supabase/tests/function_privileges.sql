@@ -23,7 +23,7 @@ select is(
       and has_function_privilege('authenticated', p.oid, 'execute')
       and p.proname <> all (array[
         'accept_invitation', 'archive_event', 'change_member_role', 'commit_attendance_import',
-        'create_event', 'create_invitation', 'create_workspace', 'duplicate_event',
+        'create_event', 'create_invitation', 'create_workspace', 'duplicate_event', 'export_event_attendance',
         'get_attendee_detail', 'get_event', 'get_import_preview', 'get_import_receipt',
         'get_workspace', 'list_attendance_history', 'list_event_imports', 'list_event_people',
         'list_event_tasks', 'list_events', 'list_home_schedule', 'list_my_workspaces', 'list_overview_segments',

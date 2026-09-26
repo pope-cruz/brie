@@ -1,5 +1,7 @@
 # Slice completion ledger
 
+Post-MVP attendance, venue, and MCP priorities are in [POST_MVP_ROADMAP.md](POST_MVP_ROADMAP.md). The first post-MVP slice adds an organizer-only event attendance CSV export with active source references (`0026_export_event_attendance.sql`). The existing import still treats every valid row as attended, so the import screen now warns against uploading mixed RSVP/no-show lists. Verification on 2026-09-26: 218 app tests, 135 database checks, 18 release browser steps, lint, and production build passed. Database migration 0026 was applied to the local development stack; it was not deployed to production.
+
 | Slice | State | Notes |
 | --- | --- | --- |
 | 01 Sign-in and workspace | Implemented; broader acceptance pending | `create_workspace`, `/app` shell, empty Events |

@@ -58,4 +58,4 @@ Planning baseline: WCAG 2.2 AA, complete keyboard access, reduced motion, labele
 
 ## Planning status
 
-This document records the product direction and MVP scope. The core application is implemented; release acceptance is still in progress. See the [completion ledger](docs/SLICE_STATUS.md) for current verification evidence and remaining work. Read [DESIGN.md](DESIGN.md), [architecture](docs/ARCHITECTURE.md), and [implementation slices](docs/IMPLEMENTATION.md) together.
+This document records the product direction and MVP scope. The core application is implemented; release acceptance is still in progress. See the [completion ledger](docs/SLICE_STATUS.md) for current verification evidence and remaining work. The [post-MVP roadmap](docs/POST_MVP_ROADMAP.md) records the next attendance, venue, and MCP work. Read [DESIGN.md](DESIGN.md), [architecture](docs/ARCHITECTURE.md), and [implementation slices](docs/IMPLEMENTATION.md) together.

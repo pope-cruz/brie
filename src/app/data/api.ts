@@ -2,6 +2,7 @@ import { FunctionsHttpError } from '@supabase/supabase-js'
 import { getSupabase, rpc } from './client'
 import { toAppError } from './errors'
 import type {
+  AttendanceExportRow,
   EventRecord,
   EventStatus,
   HomeScheduleRecord,
@@ -441,6 +442,13 @@ export async function listEventPeople(workspaceId: string, eventId: string, quer
     p_event_id: eventId,
     p_query: query,
     p_page: page,
+  })
+}
+
+export async function exportEventAttendance(workspaceId: string, eventId: string) {
+  return rpc<AttendanceExportRow[]>('export_event_attendance', {
+    p_workspace_id: workspaceId,
+    p_event_id: eventId,
   })
 }
 

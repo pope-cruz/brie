@@ -118,6 +118,12 @@ export type AttendancePerson = {
   recordedIn: string | null
 }
 
+export type AttendanceExportRow = {
+  name: string | null
+  email: string
+  sources: Array<{ fileLabel: string; rowNumber: number; recordedAt: string }>
+}
+
 export type ImportReceipt = {
   id: string
   eventId: string

@@ -142,6 +142,7 @@ export function ImportPage() {
         <>
           <h2 className="app-section-title">Choose file</h2>
           <p>UTF-8 comma-delimited CSV, up to 2 MB and 5,000 data rows. Email is required for matching.</p>
+          <p className="app-banner app-banner-warning">Import only people confirmed as attended. Brie currently counts every valid row in the file as attended, including rows marked RSVP or no-show.</p>
           <input
             className="app-input"
             type="file"

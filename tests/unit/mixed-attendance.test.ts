@@ -5,8 +5,8 @@ import { parseAttendanceCsv, type ParsedCsv } from '../../src/app/lib/csv'
 /**
  * Target contract for mixed attendance imports. Outcome tests stay skipped
  * until the PR named in each title. Database storage, contribution counts,
- * unresolved identity, privileges, and rollback are pending in
- * supabase/tests/attendance_mixed.sql.
+ * unresolved identity, and privileges are checked in
+ * supabase/tests/attendance_mixed.sql (PR 2); rollback stays pending there.
  *
  * Organizer map these tests assume:
  * - Luma `approval_status`: approved = RSVP yes, declined = RSVP no, blank = unknown.

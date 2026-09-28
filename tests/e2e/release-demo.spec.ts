@@ -103,6 +103,8 @@ async function importCsv(page: Page, eventId: string, file: string) {
   await page.locator('input[type="file"]').setInputFiles(resolve(FIXTURES, file))
   await expect(page.getByRole('heading', { name: 'Map columns' })).toBeVisible()
   await expect(page.getByLabel('Email')).not.toHaveValue('')
+  // A plain name/email list: the organizer confirms every row attended.
+  await page.getByLabel('Who attended').selectOption({ label: 'Everyone in this file attended' })
   await page.getByRole('button', { name: 'Review' }).click()
   await expect(page.getByRole('heading', { name: 'Review' })).toBeVisible()
   const summary = (await page.getByText(/new · .* already recorded/).textContent()) ?? ''
@@ -537,6 +539,56 @@ test('10. duplicate makes a clean draft; cross-event history counts each event o
 
   await memberPage.goto(`/app/w/${state.workspaceId}/attendance`)
   await expect(memberPage.getByText(/bo\.qa@example\.test/)).toHaveCount(0)
+})
+
+test('10a. organizer imports a mixed guest export; only checked-in people count and a repeat adds nothing', async () => {
+  const page = organizerPage
+  const importUrl = `/app/w/${state.workspaceId}/events/${state.copyEventId}/attendance/import`
+  await page.goto(importUrl)
+  await page.locator('input[type="file"]').setInputFiles(resolve(FIXTURES, 'mixed-attendance-luma.csv'))
+  await expect(page.getByRole('heading', { name: 'Map columns' })).toBeVisible()
+  await expect(page.getByLabel('Who attended')).toHaveValue('4')
+  await expect(page.getByLabel('RSVP column')).toHaveValue('3')
+  await expect(page.getByLabel('Attendance for “2026-09-12 18:04:00”')).toHaveValue('')
+  await page.getByRole('button', { name: 'Review' }).click()
+  await expect(page.getByText('Choose which values mean attended. Nobody is counted until you do.')).toBeVisible()
+  await page.getByLabel('Attendance for other values').selectOption('attended')
+  await expect(page.getByText('Estimate: 3 will count · 3 won’t count · 1 need review · 1 duplicates')).toBeVisible()
+  await page.getByLabel(/Keep a copy of the original rows/).check()
+  await page.getByRole('button', { name: 'Review' }).click()
+  await expect(page.getByText('3 will count · 3 won’t count · 1 need review · 1 duplicates', { exact: true })).toBeVisible()
+  await expect(page.getByText('counts every valid row in the file as attended')).toHaveCount(0)
+  const needsReview = page.getByRole('region', { name: 'Needs review' })
+  await expect(needsReview).toContainText('Sasha Quinn')
+  await expect(needsReview).toContainText('not matched to anyone by name or phone')
+  await expect(page.getByRole('region', { name: 'Won’t count' })).toContainText('ren.sato@example.test')
+  await page.getByRole('button', { name: 'Record attendance for 3 people' }).click()
+  await expect(page.getByText('Acknowledge the rows that need review before recording attendance.')).toBeVisible()
+  await page.getByLabel(/Skip 1 rows that need review/).check()
+  await page.getByRole('button', { name: 'Record attendance for 3 people' }).click()
+  await expect(page).toHaveURL(/\/attendance\/imports\//)
+  await expect(page.getByText('3 attendees added · 0 already recorded · 5 rows skipped')).toBeVisible()
+  const [original] = await Promise.all([
+    page.waitForEvent('download'),
+    page.getByRole('button', { name: 'Download original rows' }).click(),
+  ])
+  const originalCsv = readFileSync(await original.path(), 'utf8')
+  expect(originalCsv).toContain('"source_row","name","email","phone_number"')
+  expect(originalCsv).toContain('"9","Sasha Quinn","",')
+  await page.getByRole('button', { name: 'Delete original rows' }).click()
+  await page.getByRole('dialog').getByRole('button', { name: 'Delete original rows' }).click()
+  await expect(page.getByRole('button', { name: 'Download original rows' })).toHaveCount(0)
+
+  // Importing the same file again proposes nothing and cannot count anyone twice.
+  await page.goto(importUrl)
+  await page.locator('input[type="file"]').setInputFiles(resolve(FIXTURES, 'mixed-attendance-luma.csv'))
+  await page.getByLabel('Attendance for other values').selectOption('attended')
+  await page.getByRole('button', { name: 'Review' }).click()
+  await expect(page.getByText('Nothing new to record from this file.')).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Record attendance for 0 people' })).toBeDisabled()
+  await page.goto(`/app/w/${state.workspaceId}/events/${state.copyEventId}/attendance?view=people`)
+  await expect(page.getByText('5 distinct attendees recorded')).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Jules Navarro', exact: true })).toHaveCount(0)
 })
 
 test('11. simultaneous edits conflict instead of silently overwriting', async () => {

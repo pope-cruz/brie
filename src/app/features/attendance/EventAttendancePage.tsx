@@ -5,7 +5,7 @@ import { exportEventAttendance, listEventImports, listEventPeople } from '../../
 import type { WorkspaceSummary } from '../../data/api'
 import { toAppError } from '../../data/errors'
 import { canSeeAttendance, type EventRecord } from '../../data/types'
-import { attendanceExportCsv } from '../../lib/attendanceExport'
+import { attendanceExportCsv, downloadCsv } from '../../lib/attendanceExport'
 import { SEARCH_DEBOUNCE_MS } from '../../lib/search'
 import { useDebouncedValue } from '../../lib/useDebouncedValue'
 import { useState } from 'react'
@@ -37,19 +37,12 @@ export function EventAttendancePage() {
     return <p className="app-lede">Ask an organizer to manage attendance.</p>
   }
 
-  async function downloadCsv() {
+  async function exportCsv() {
     setExporting(true)
     setExportError(null)
     try {
       const rows = await exportEventAttendance(workspace.id, event.id)
-      const url = URL.createObjectURL(new Blob([attendanceExportCsv(rows)], { type: 'text/csv;charset=utf-8' }))
-      const link = document.createElement('a')
-      link.href = url
-      link.download = `brie-attendance-${event.id}.csv`
-      document.body.appendChild(link)
-      link.click()
-      link.remove()
-      window.setTimeout(() => URL.revokeObjectURL(url), 0)
+      downloadCsv(`brie-attendance-${event.id}.csv`, attendanceExportCsv(rows))
     } catch (caught) {
       setExportError(toAppError(caught).message)
     } finally {
@@ -67,7 +60,7 @@ export function EventAttendancePage() {
           </p>
         </div>
         <div className="app-toolbar">
-          <Button variant="secondary" busy={exporting} onClick={() => void downloadCsv()}>
+          <Button variant="secondary" busy={exporting} onClick={() => void exportCsv()}>
             Export CSV
           </Button>
           <Link className="app-btn app-btn-primary" to={`/app/w/${workspace.id}/events/${event.id}/attendance/import`}>

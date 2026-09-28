@@ -28,11 +28,13 @@ Allow about 30–45 minutes. Use fictional accounts `owner@example.test`, `organ
 
 ## 4. Import, overlap, and correct attendance
 
-1. In Welcome night → Attendance, import `supabase/sample-attendance.csv`. Review mapping and every outcome before confirming. Expect the receipt and event count to agree.
+1. In Welcome night → Attendance, import `supabase/sample-attendance.csv`. Under **Who attended**, choose **Everyone in this file attended** (a plain list has no attendance column). Review mapping and every outcome before confirming. Expect the receipt and event count to agree.
 2. Import `tests/fixtures/attendance-a.csv`, then `attendance-b.csv`. The files share Bo. Expect three distinct people across these two batches, not four (plus any distinct people from the sample import).
 3. Revert batch A. Expect Ana to disappear from this event and Bo and Cy to remain. The reverted receipt stays visible.
 4. Duplicate the event with new dates. Expect Draft, Todo tasks, no assignees/due dates, shifted schedule, and no attendance.
 5. Import batch B into the second event. In workspace Attendance, expect Bo and Cy to each have two events; repeated evidence within one event counts only once.
+6. Import `tests/fixtures/mixed-attendance-luma.csv` into the second event. Brie guesses `checked_in_at` for attendance and `approval_status` for RSVP; every value starts unknown. Set **Other values** under Attendance to **Attended** and tick **Keep a copy of the original rows**. Expect the review to show 3 will count (Mira, the name-less guest.desk row, Sasha), 3 won’t count (Jules with a blank check-in, Ren declined, Noor blank), 1 needs review (Sasha without email, not merged by name or phone) and 1 duplicate (Mira again). Skip the row that needs review and record. On the receipt, download the original rows, then delete them.
+7. Import the same Luma file again with the same mapping. Expect “Nothing new to record from this file.” and no change to the count. A file that renames someone or marks a recorded person as a no-show lists that as a proposed change; Brie keeps the recorded details.
 
 ## 5. Recovery and isolation
 

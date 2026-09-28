@@ -133,6 +133,10 @@ export type ImportReceipt = {
   added: number
   alreadyRecorded: number
   skipped: number
+  notCounted?: number
+  unresolved?: number
+  /** Set while the organizer's kept copy of the original rows is available. */
+  sourceRetainedUntil?: string | null
   status: ImportBatchStatus
   revertedAt: string | null
 }
@@ -140,9 +144,50 @@ export type ImportReceipt = {
 export type PreviewOutcome =
   | 'new'
   | 'already_recorded'
+  | 'not_counted'
   | 'duplicate'
   | 'invalid'
+  | 'unresolved'
   | 'blank_ignored'
+
+export type RsvpStatus = 'yes' | 'no' | 'unknown'
+export type AttendanceStatus = 'attended' | 'no_show' | 'unknown'
+export type PreviewGroup = 'will-count' | 'wont-count' | 'needs-review' | 'duplicate'
+
+export type StatusRule<S extends string> = {
+  values?: Record<string, S>
+  otherNonBlank?: S | null
+  everyRow?: S | null
+}
+
+export type StatusMap = {
+  rsvp?: StatusRule<RsvpStatus> | null
+  attendance?: StatusRule<AttendanceStatus> | null
+}
+
+export type PreviewRow = {
+  rowNumber: number
+  name: string
+  email: string
+  outcome: PreviewOutcome
+  reason: string
+  group?: PreviewGroup
+  rsvp?: RsvpStatus
+  attendance?: AttendanceStatus
+  rsvpSource?: string | null
+  attendanceSource?: string | null
+  timestamp?: string | null
+  phone?: string | null
+  affiliation?: string | null
+  addsContribution?: boolean
+}
+
+export type ProposedChange = {
+  email: string
+  field: 'name' | 'attendance'
+  from: string | null
+  to: string | null
+}
 
 export type ImportPreview = {
   id: string
@@ -152,6 +197,8 @@ export type ImportPreview = {
   fileLabel: string
   fileHash: string
   existingReceiptId: string | null
+  statusMap?: StatusMap | null
+  keepsSource?: boolean
   counts: {
     newAttendance: number
     alreadyRecorded: number
@@ -159,14 +206,19 @@ export type ImportPreview = {
     invalid: number
     blank: number
     accepted: number
+    notCounted?: number
+    unresolved?: number
   }
-  rows: Array<{
-    rowNumber: number
-    name: string
-    email: string
-    outcome: PreviewOutcome
-    reason: string
-  }>
+  rows: PreviewRow[]
+  proposals?: { additions: string[]; changes: ProposedChange[] }
+}
+
+export type ImportSource = {
+  batchId: string
+  fileLabel: string
+  headers: string[]
+  retainedUntil: string
+  rows: Array<{ rowNumber: number; values: string[] }>
 }
 
 export type PageResult<T> = {

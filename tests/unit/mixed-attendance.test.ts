@@ -1,12 +1,25 @@
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import { parseAttendanceCsv, type ParsedCsv } from '../../src/app/lib/csv'
+import {
+  buildMixedRows,
+  applyStatusRule,
+  buildStatusMap,
+  classifyRows,
+  defaultAttendanceMap,
+  describeChange,
+  guessColumns,
+  sampleSourceValues as sampleValues,
+  type ClassifiedRow,
+  type ColumnMapping,
+} from '../../src/app/lib/mixedAttendance'
+import type { StatusMap } from '../../src/app/data/types'
 
 /**
- * Target contract for mixed attendance imports. Outcome tests stay skipped
- * until the PR named in each title. Database storage, contribution counts,
- * unresolved identity, and privileges are checked in
- * supabase/tests/attendance_mixed.sql (PR 2); rollback stays pending there.
+ * Mixed attendance imports: the client mapping and review contract. The database
+ * classifies rows authoritatively; supabase/tests/attendance_mixed.sql checks the
+ * same fixtures there (storage, counts, unresolved identity, repeat imports,
+ * rollback, privileges, and kept original rows).
  *
  * Organizer map these tests assume:
  * - Luma `approval_status`: approved = RSVP yes, declined = RSVP no, blank = unknown.
@@ -17,18 +30,22 @@ import { parseAttendanceCsv, type ParsedCsv } from '../../src/app/lib/csv'
  * RSVP never implies attendance. An unmapped attendance column is unknown.
  */
 
-type RsvpStatus = 'yes' | 'no' | 'unknown'
-type AttendanceStatus = 'attended' | 'no_show' | 'unknown'
-type PreviewGroup = 'will-count' | 'wont-count' | 'needs-review' | 'duplicate'
+type Fixture = 'luma' | 'google-form'
 
-type ClassifiedRow = {
-  rowNumber: number
-  email: string
-  name: string
-  rsvp: RsvpStatus
-  attendance: AttendanceStatus
-  group: PreviewGroup
-  contributes: boolean
+const FIXTURE_FILES: Record<Fixture, string> = {
+  luma: 'mixed-attendance-luma.csv',
+  'google-form': 'mixed-attendance-google-form.csv',
+}
+
+const ORGANIZER_MAPS: Record<Fixture, StatusMap> = {
+  luma: {
+    rsvp: { values: { approved: 'yes', declined: 'no' } },
+    attendance: { values: {}, otherNonBlank: 'attended' },
+  },
+  'google-form': {
+    rsvp: { values: { Yes: 'yes', No: 'no' } },
+    attendance: { values: { Yes: 'attended', No: 'no_show' } },
+  },
 }
 
 function readFixture(name: string): ParsedCsv {
@@ -45,26 +62,37 @@ function cell(parsed: ParsedCsv, rowNumber: number, header: string): string {
   return row.values[index] ?? ''
 }
 
-function classifyRow(fixture: string, rowNumber: number, attendanceMapped: boolean): ClassifiedRow {
-  throw new Error(
-    `Pending classification for ${fixture} row ${rowNumber} (attendance mapped: ${attendanceMapped}). Unskip only in the PR named on the test.`,
-  )
+function fixtureColumns(fixture: Fixture, attendanceMapped: boolean): { parsed: ParsedCsv; columns: ColumnMapping } {
+  const parsed = readFixture(FIXTURE_FILES[fixture])
+  const columns = guessColumns(parsed.headerLabels)
+  return { parsed, columns: attendanceMapped ? columns : { ...columns, attendance: null } }
 }
 
-function sampleSourceValues(fixture: string, header: string): string[] {
-  throw new Error(`Pending sample values for ${fixture} column ${header}. Enabled by PR 3.`)
+function classifyRow(fixture: Fixture, rowNumber: number, attendanceMapped: boolean): ClassifiedRow {
+  const { parsed, columns } = fixtureColumns(fixture, attendanceMapped)
+  const statusMap = attendanceMapped ? ORGANIZER_MAPS[fixture] : { ...ORGANIZER_MAPS[fixture], attendance: null }
+  const row = classifyRows(parsed.rows, columns, statusMap).find((item) => item.rowNumber === rowNumber)
+  if (!row) throw new Error(`Missing ${fixture} row ${rowNumber}`)
+  return row
 }
 
-function mappedColumns(fixture: string): Record<string, string | null> {
-  throw new Error(`Pending column mapping for ${fixture}. Enabled by PR 3.`)
+function sampleSourceValues(fixture: Fixture, header: string): string[] {
+  const parsed = readFixture(FIXTURE_FILES[fixture])
+  return sampleValues(parsed.rows, parsed.headers.indexOf(header))
 }
 
-function repeatLumaImport(scenario: string): {
-  additions: string[]
-  changes: Array<{ email: string; field: string; from: string; to: string }>
-  attendanceCount: number
-} {
-  throw new Error(`Pending repeat-import check (${scenario}). Enabled by PR 5.`)
+function mappedColumns(fixture: Fixture): Record<string, string | null> {
+  const parsed = readFixture(FIXTURE_FILES[fixture])
+  const columns = guessColumns(parsed.headerLabels)
+  const header = (index: ColumnMapping[keyof ColumnMapping]) =>
+    typeof index === 'number' ? (parsed.headers[index] ?? null) : null
+  return {
+    rsvp: header(columns.rsvp),
+    attendance: header(columns.attendance),
+    timestamp: header(columns.timestamp),
+    phone: header(columns.phone),
+    affiliation: header(columns.affiliation),
+  }
 }
 
 describe('mixed attendance fixtures', () => {
@@ -137,8 +165,7 @@ describe('mixed attendance fixtures', () => {
 })
 
 describe('mixed attendance target outcomes', () => {
-  // Enabled by PR 3: mapping UI. Unskip when the organizer map is applied.
-  it.skip('PR 3: checked-in rows keep RSVP yes separate from attendance attended', () => {
+  it('PR 3: checked-in rows keep RSVP yes separate from attendance attended', () => {
     expect(classifyRow('luma', 2, true)).toMatchObject({
       email: 'mira.okonkwo@example.test',
       name: 'Mira Okonkwo',
@@ -153,8 +180,8 @@ describe('mixed attendance target outcomes', () => {
     })
   })
 
-  // Enabled by PR 3. A blank check-in is unknown, not attended.
-  it.skip('PR 3: RSVP yes with a blank check-in stays attendance unknown', () => {
+  // A blank check-in is unknown, not attended.
+  it('PR 3: RSVP yes with a blank check-in stays attendance unknown', () => {
     expect(classifyRow('luma', 3, true)).toMatchObject({
       email: 'jules.navarro@example.test',
       rsvp: 'yes',
@@ -167,8 +194,8 @@ describe('mixed attendance target outcomes', () => {
     })
   })
 
-  // Enabled by PR 3. Declined / RSVP no does not set attendance.
-  it.skip('PR 3: RSVP no stays separate and does not set attendance', () => {
+  // Declined / RSVP no does not set attendance.
+  it('PR 3: RSVP no stays separate and does not set attendance', () => {
     expect(classifyRow('luma', 4, true)).toMatchObject({
       email: 'ren.sato@example.test',
       rsvp: 'no',
@@ -181,8 +208,8 @@ describe('mixed attendance target outcomes', () => {
     })
   })
 
-  // Enabled by PR 3. The organizer explicitly mapped check-in "No" to no-show.
-  it.skip('PR 3: an explicit no-show value stays no-show while RSVP stays yes', () => {
+  // The organizer explicitly mapped check-in "No" to no-show.
+  it('PR 3: an explicit no-show value stays no-show while RSVP stays yes', () => {
     expect(classifyRow('google-form', 3, true)).toMatchObject({
       email: 'elio.marquez@example.test',
       rsvp: 'yes',
@@ -196,8 +223,8 @@ describe('mixed attendance target outcomes', () => {
     })
   })
 
-  // Enabled by PR 3. Blank RSVP and blank attendance are unknown.
-  it.skip('PR 3: a blank status is unknown for both RSVP and attendance', () => {
+  // Blank RSVP and blank attendance are unknown.
+  it('PR 3: a blank status is unknown for both RSVP and attendance', () => {
     expect(classifyRow('luma', 5, true)).toMatchObject({
       email: 'noor.elsayed@example.test',
       rsvp: 'unknown',
@@ -210,8 +237,8 @@ describe('mixed attendance target outcomes', () => {
     })
   })
 
-  // Enabled by PR 3. Unrecognized attendance values default to unknown.
-  it.skip('PR 3: an unrecognized attendance value defaults to unknown', () => {
+  // Unrecognized attendance values default to unknown.
+  it('PR 3: an unrecognized attendance value defaults to unknown', () => {
     expect(classifyRow('google-form', 9, true)).toMatchObject({
       email: 'niall.berg@example.test',
       rsvp: 'yes',
@@ -219,8 +246,8 @@ describe('mixed attendance target outcomes', () => {
     })
   })
 
-  // Enabled by PR 3. Unmapped attendance defaults to unknown, including a check-in timestamp.
-  it.skip('PR 3: an unmapped attendance column defaults every row to unknown', () => {
+  // Unmapped attendance defaults to unknown, including a check-in timestamp.
+  it('PR 3: an unmapped attendance column defaults every row to unknown', () => {
     expect(classifyRow('luma', 2, false)).toMatchObject({
       email: 'mira.okonkwo@example.test',
       rsvp: 'yes',
@@ -233,8 +260,8 @@ describe('mixed attendance target outcomes', () => {
     })
   })
 
-  // Enabled by PR 3. Distinct non-blank source values, first-seen order.
-  it.skip('PR 3: mapping shows sample source values for RSVP and attendance columns', () => {
+  // Distinct non-blank source values, first-seen order.
+  it('PR 3: mapping shows sample source values for RSVP and attendance columns', () => {
     expect(sampleSourceValues('luma', 'approval_status')).toEqual(['approved', 'declined'])
     expect(sampleSourceValues('luma', 'checked_in_at')).toEqual([
       '2026-09-12 18:04:00',
@@ -246,8 +273,8 @@ describe('mixed attendance target outcomes', () => {
     expect(sampleSourceValues('google-form', 'Checked in at the door?')).toEqual(['Yes', 'No', 'Maybe'])
   })
 
-  // Enabled by PR 3. These columns are optional context, not identity or attendance.
-  it.skip('PR 3: phone, timestamp, and affiliation columns are optional and do not set attendance', () => {
+  // These columns are optional context, not identity or attendance.
+  it('PR 3: phone, timestamp, and affiliation columns are optional and do not set attendance', () => {
     expect(mappedColumns('luma')).toEqual({
       rsvp: 'approval_status',
       attendance: 'checked_in_at',
@@ -264,8 +291,8 @@ describe('mixed attendance target outcomes', () => {
     })
   })
 
-  // Enabled by PR 4. The email-less row stays in needs-review and is not merged by name.
-  it.skip('PR 4: a missing email is needs-review and is not grouped with the same name', () => {
+  // The email-less row stays in needs-review and is not merged by name.
+  it('PR 4: a missing email is needs-review and is not grouped with the same name', () => {
     expect(classifyRow('luma', 8, true)).toMatchObject({
       email: 'sasha.quinn@example.test',
       name: 'Sasha Quinn',
@@ -296,8 +323,8 @@ describe('mixed attendance target outcomes', () => {
     })
   })
 
-  // Enabled by PR 4. The later row is a duplicate and does not contribute again.
-  it.skip('PR 4: a duplicate email is one will-count or wont-count person, not two', () => {
+  // The later row is a duplicate and does not contribute again.
+  it('PR 4: a duplicate email is one will-count or wont-count person, not two', () => {
     expect(classifyRow('luma', 2, true)).toMatchObject({
       email: 'mira.okonkwo@example.test',
       group: 'will-count',
@@ -320,8 +347,8 @@ describe('mixed attendance target outcomes', () => {
     })
   })
 
-  // Enabled by PR 4. Only explicitly confirmed attendance is in will-count.
-  it.skip('PR 4: will-count contains only explicitly confirmed attendance', () => {
+  // Only explicitly confirmed attendance is in will-count.
+  it('PR 4: will-count contains only explicitly confirmed attendance', () => {
     const luma = [2, 3, 4, 5, 6, 7, 8, 9].map((rowNumber) => classifyRow('luma', rowNumber, true))
     const google = [2, 3, 4, 5, 6, 7, 8, 9, 10].map((rowNumber) => classifyRow('google-form', rowNumber, true))
     expect(luma.filter((row) => row.group === 'will-count').map((row) => row.email)).toEqual([
@@ -348,27 +375,53 @@ describe('mixed attendance target outcomes', () => {
     expect([...luma, ...google].filter((row) => row.contributes).every((row) => row.attendance === 'attended')).toBe(true)
   })
 
-  // Enabled by PR 4. The import screen stops telling organizers that every valid row counts.
-  it.skip('PR 4: removes the mixed-list warning from the import screen', () => {
+  // The import screen stops telling organizers that every valid row counts.
+  it('PR 4: removes the mixed-list warning from the import screen', () => {
     const source = readFileSync(new URL('../../src/app/features/attendance/ImportPage.tsx', import.meta.url), 'utf8')
     expect(source).not.toContain('counts every valid row in the file as attended')
   })
 
-  // Enabled by PR 5. A second import of the same file adds no attendance.
-  it.skip('PR 5: importing the Luma fixture again proposes no additions and does not count anyone twice', () => {
-    expect(repeatLumaImport('same file')).toEqual({
-      additions: [],
-      changes: [],
-      attendanceCount: 3,
-    })
+  // The database decides repeat outcomes (attendance_mixed.sql PR 5); the review screen
+  // lists its proposals and never applies them.
+  it('PR 5: a renamed repeat row is described as a proposed change that keeps the stored name', () => {
+    expect(
+      describeChange({ email: 'mira.okonkwo@example.test', field: 'name', from: 'Mira Okonkwo', to: 'Mira O.' }),
+    ).toBe('mira.okonkwo@example.test: the file says “Mira O.”; the stored name “Mira Okonkwo” is kept.')
+    expect(
+      describeChange({ email: 'guest.desk@example.test', field: 'attendance', from: 'attended', to: 'no_show' }),
+    ).toBe('guest.desk@example.test: the file says no-show; the recorded attendance is kept.')
   })
 
-  // Enabled by PR 5. A different display name is a proposed change, not a silent overwrite.
-  it.skip('PR 5: a renamed repeat row is a proposed change and does not overwrite the stored name', () => {
-    expect(repeatLumaImport('Mira Okonkwo renamed to Mira O.')).toEqual({
-      additions: [],
-      changes: [{ email: 'mira.okonkwo@example.test', field: 'name', from: 'Mira Okonkwo', to: 'Mira O.' }],
-      attendanceCount: 3,
+  it('PR 6: original rows are sent only when the organizer keeps them', () => {
+    const { parsed, columns } = fixtureColumns('luma', true)
+    const kept = buildMixedRows(parsed.rows, columns, true)
+    const dropped = buildMixedRows(parsed.rows, columns, false)
+    expect(kept[7]).toMatchObject({
+      rowNumber: 9,
+      email: '',
+      name: 'Sasha Quinn',
+      rsvp: 'approved',
+      attendance: '2026-09-12 18:30:00',
+      phone: '+12125550188',
+      values: ['Sasha Quinn', '', '+12125550188', 'approved', '2026-09-12 18:30:00', '2026-09-06 10:05:00'],
     })
+    expect(dropped.every((row) => row.values === undefined)).toBe(true)
+  })
+
+  it('PR 3: a value set to unknown stays unknown when other values mean attended', () => {
+    const map = { ...defaultAttendanceMap(['Maybe', 'Yes']), other: 'attended' as const }
+    map.values.Maybe = 'unknown'
+    const statusMap = buildStatusMap({ rsvp: null, attendance: 4 }, null, map)
+    expect(applyStatusRule('maybe', statusMap.attendance)).toBe('unknown')
+    expect(applyStatusRule('Yes', statusMap.attendance)).toBe('attended')
+    expect(applyStatusRule('', statusMap.attendance)).toBe('unknown')
+  })
+
+  it('PR 3: a plain attendee list must be confirmed as all attended', () => {
+    expect(buildStatusMap({ rsvp: null, attendance: 'every-row' }, null, null)).toEqual({
+      rsvp: null,
+      attendance: { everyRow: 'attended' },
+    })
+    expect(buildStatusMap({ rsvp: null, attendance: null }, null, null).attendance).toBeNull()
   })
 })

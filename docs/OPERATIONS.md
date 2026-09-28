@@ -48,11 +48,21 @@ select public.purge_expired_previews();
 
 Expired preview payloads are hidden from reads immediately; this command deletes unused rows.
 
+## Kept original import rows
+
+When an organizer ticks **Keep a copy of the original rows** during import, the original headers and every data row (bounded to 200 columns and 2,000 characters per cell) are kept with that batch for 90 days (`0028_mixed_attendance_import.sql`). Only owners and organizers can download them, through `get_import_source`. They are deleted when an organizer chooses **Delete original rows** on the receipt, when the batch is reverted, and after 90 days. Past retention they cannot be read; later imports in the workspace delete them, and this daily command deletes them everywhere:
+
+```sql
+select public.purge_expired_import_sources();
+```
+
+Attendance counts, history and export never read these rows. Deleting a person's attendance record itself is still an operator task (see Scoped erasure).
+
 ## Scoped erasure
 
 Product MVP has no workspace or account deletion screen. An operator purge must:
 
-1. Preview impact: memberships, events, tasks, segments, attendees, contributions, previews, and audit IDs for one workspace.
+1. Preview impact: memberships, events, tasks, segments, attendees, contributions, previews, staged preview rows, kept original import rows, and audit IDs for one workspace.
 2. Export or retain a backup according to the operator’s retention policy.
 3. Delete only that workspace’s rows. Do not delete an `auth.users` row if the person still belongs to another workspace.
 4. Record that this is permanent erasure, not attendance reversion.

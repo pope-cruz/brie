@@ -324,6 +324,30 @@ def main():
     ok(before == snapshot(), 'late commit failure rolls back even preview purge and revision update')
     sql('drop trigger reliability_fail on public.audit_entries; drop function public.reliability_fail();')
     rpc(commit(p, 'late-failure-key'))
+    # Mixed imports: a late failure also keeps staged and unresolved rows and keeps no original rows.
+    mixed_rows = json.dumps([
+        {'rowNumber': 2, 'email': 'mixed-one@example.test', 'name': 'Mixed one', 'attendance': 'Yes',
+         'values': ['Mixed one', 'mixed-one@example.test', 'Yes']},
+        {'rowNumber': 3, 'email': '', 'name': 'No email', 'attendance': 'Yes', 'values': ['No email', '', 'Yes']},
+    ])
+    mixed_map = json.dumps({'attendance': {'values': {'Yes': 'attended'}}})
+    mixed = rpc(f"public.prepare_mixed_attendance_import('{W}','{e4}','mixed.csv','mixed-hash','brie-csv-1','{{}}',"
+                f"'{mixed_map}','{mixed_rows}',0,'[\"name\",\"email\",\"checked in\"]')")
+    sql("""create function public.reliability_fail() returns trigger language plpgsql as $$
+      begin raise exception 'INJECTED_FAILURE'; end $$;
+      revoke all on function public.reliability_fail() from public, anon, authenticated;
+      create trigger reliability_fail before insert on public.audit_entries
+      for each row execute function public.reliability_fail();""")
+    before = snapshot()
+    finish(start(auth(f"select public.commit_attendance_import('{mixed['id']}', true, 'mixed-failure-key')"), 'failed_mixed'), 'INJECTED_FAILURE')
+    ok(before == snapshot(), 'late mixed commit failure rolls back contributions, kept original rows and staged unresolved rows')
+    sql('drop trigger reliability_fail on public.audit_entries; drop function public.reliability_fail();')
+    mixed_receipt = rpc(f"public.commit_attendance_import('{mixed['id']}', true, 'mixed-failure-key')")
+    ok(mixed_receipt['added'] == 1 and mixed_receipt['unresolved'] == 1 and mixed_receipt['sourceRetainedUntil'],
+       'retried mixed commit counts only the attended email row and keeps the original rows')
+    ok(sql(f"select count(*) from public.attendance_import_source_rows where batch_id='{mixed_receipt['id']}'") == '2',
+       'kept original rows include the unresolved row')
+
     # Two simultaneous reversions are harmless retries, not double revision changes.
     batch_id = rpc(commit(p, 'late-failure-key'))['id']
     impact = rpc(f"public.preview_revert_import('{W}','{batch_id}')")
@@ -345,6 +369,26 @@ def main():
         ok(preview_seconds < 10 and commit_seconds < 10, '5000-row preview and commit each meet the 10-second local budget')
         ok(receipt['added'] == (5000 if iteration == 0 else 0), 'capacity receipt reconciles distinct attendance')
     ok(rpc(f"public.get_event('{W}','{big_event}')")['attendanceCount'] == 5000, 'overlapping 5000-row import does not double count')
+    # Five thousand mixed rows with RSVP, check-in and kept original rows.
+    mixed_event = event()
+    mixed_big = json.dumps([
+        {'rowNumber': i + 2, 'email': '' if i % 50 == 0 else f'mixed-{i}@example.test', 'name': f'Mixed {i}',
+         'rsvp': 'approved', 'attendance': ['Yes', 'No', ''][i % 3], 'values': [f'Mixed {i}', f'mixed-{i}@example.test', 'approved']}
+        for i in range(5000)])
+    status_map = json.dumps({'rsvp': {'values': {'approved': 'yes'}}, 'attendance': {'values': {'Yes': 'attended', 'No': 'no_show'}}})
+    started = time.monotonic()
+    mixed_preview = rpc(f"public.prepare_mixed_attendance_import('{W}','{mixed_event}','mixed-big.csv','mixed-big','brie-csv-1','{{}}',"
+                        f"'{status_map}','{mixed_big}',0,'[\"name\",\"email\",\"status\"]')")
+    preview_seconds = time.monotonic() - started
+    started = time.monotonic()
+    mixed_receipt = rpc(f"public.commit_attendance_import('{mixed_preview['id']}', true, 'mixed-capacity-key')")
+    commit_seconds = time.monotonic() - started
+    print(f'TIMING 5000 mixed rows: preview={preview_seconds:.3f}s commit={commit_seconds:.3f}s (includes local Docker/psql transport)', flush=True)
+    attended = sum(1 for i in range(5000) if i % 50 and i % 3 == 0)
+    ok(preview_seconds < 10 and commit_seconds < 10, '5000-row mixed preview and commit each meet the 10-second local budget')
+    ok(mixed_receipt['added'] == attended and rpc(f"public.get_event('{W}','{mixed_event}')")['attendanceCount'] == attended,
+       'mixed capacity import counts only rows marked attended')
+
 
     # Preserve nonempty tasks/schedule and a reverted overlapping batch through restore.
     sql(f"insert into public.tasks(workspace_id,event_id,title,created_by) values ('{W}','{e}','Restore task','{OWNER}');")

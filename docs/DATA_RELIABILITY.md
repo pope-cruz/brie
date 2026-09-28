@@ -16,6 +16,7 @@ Separate PostgreSQL connections hold the first writer's transaction open after i
 - Receipt lookup recovers a completed response. Expired previews and archived events still allow authorized recovery of existing receipts; missing previews cannot bypass workspace/creator checks.
 - Concurrent reversions return the same reverted receipt and increment attendance revision once.
 - Two 5,000-row imports reconcile new and already-recorded people, preserve 5,000 distinct attendees, and meet the local 10-second budget for each preview/commit.
+- Mixed imports (`prepare_mixed_attendance_import`): a forced failure at the final audit write rolls back contributions, kept original rows and the staged unresolved rows together; the retry counts only the attended row with an email. A 5,000-row mixed file with RSVP, check-in, no-show, blank and email-less rows, keeping its original rows, meets the same 10-second budget and counts only rows marked attended.
 - A `pg_dump` of the fictional database restores into a second empty database. Every application row matches, including tasks, schedule, identities, contribution source rows, preview payloads, revisions, audit, and reverted batches. Fictional Auth accounts match, owner RPC access succeeds, and member attendance access remains denied.
 
 CI runs this harness after the normal migration/database test job. The harness itself also runs all pgTAP files against its migration replay. A failure in either SQL assertions or concurrent assertions fails the job.

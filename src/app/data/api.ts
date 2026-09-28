@@ -8,11 +8,13 @@ import type {
   HomeScheduleRecord,
   ImportPreview,
   ImportReceipt,
+  ImportSource,
   Invitation,
   MemberRole,
   Membership,
   PageResult,
   SegmentRecord,
+  StatusMap,
   TaskRecord,
   TaskStatus,
   TeamInvitation,
@@ -385,24 +387,41 @@ export async function restoreSegment(workspaceId: string, segmentId: string, ver
   })
 }
 
-export async function prepareAttendanceImport(input: {
+export type MixedImportRow = {
+  rowNumber: number
+  email: string
+  name: string
+  rsvp?: string
+  attendance?: string
+  timestamp?: string
+  phone?: string
+  affiliation?: string
+  values?: string[]
+}
+
+export async function prepareMixedAttendanceImport(input: {
   workspaceId: string
   eventId: string
   fileLabel: string
   fileHash: string
   mapping: Record<string, unknown>
-  rows: Array<{ rowNumber: number; name: string; email: string }>
+  statusMap: StatusMap
+  rows: MixedImportRow[]
   blankCount: number
+  /** Original headers; send them (and each row's values) only to keep the original rows. */
+  sourceHeaders: string[] | null
 }) {
-  return rpc<ImportPreview>('prepare_attendance_import', {
+  return rpc<ImportPreview>('prepare_mixed_attendance_import', {
     p_workspace_id: input.workspaceId,
     p_event_id: input.eventId,
     p_file_label: input.fileLabel,
     p_file_hash: input.fileHash,
     p_parser_version: 'brie-csv-1',
     p_mapping: input.mapping,
+    p_status_map: input.statusMap,
     p_rows: input.rows,
     p_blank_count: input.blankCount,
+    p_source_headers: input.sourceHeaders,
   })
 }
 
@@ -464,6 +483,14 @@ export async function getImportReceipt(workspaceId: string, batchId: string) {
     p_workspace_id: workspaceId,
     p_batch_id: batchId,
   })
+}
+
+export async function getImportSource(workspaceId: string, batchId: string) {
+  return rpc<ImportSource>('get_import_source', { p_workspace_id: workspaceId, p_batch_id: batchId })
+}
+
+export async function eraseImportSource(workspaceId: string, batchId: string) {
+  return rpc<ImportReceipt>('erase_import_source', { p_workspace_id: workspaceId, p_batch_id: batchId })
 }
 
 export async function previewRevertImport(workspaceId: string, batchId: string) {

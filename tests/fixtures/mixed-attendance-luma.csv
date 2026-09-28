@@ -1,0 +1,9 @@
+name,email,phone_number,approval_status,checked_in_at,created_at
+Mira Okonkwo,mira.okonkwo@example.test,+12125550148,approved,2026-09-12 18:04:00,2026-09-01 09:12:00
+Jules Navarro,jules.navarro@example.test,+12125550172,approved,,2026-09-02 11:03:00
+Ren Sato,ren.sato@example.test,+12125550190,declined,,2026-09-03 14:40:00
+Noor El-Sayed,noor.elsayed@example.test,+12125550163,,,2026-09-04 08:15:00
+,guest.desk@example.test,+12125550111,approved,2026-09-12 18:10:00,2026-09-05 16:22:00
+Mira Okonkwo,mira.okonkwo@example.test,+12125550148,approved,2026-09-12 18:04:00,2026-09-01 09:12:00
+Sasha Quinn,sasha.quinn@example.test,+12125550184,approved,2026-09-12 18:22:00,2026-09-06 10:01:00
+Sasha Quinn,,+12125550188,approved,2026-09-12 18:30:00,2026-09-06 10:05:00

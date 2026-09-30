@@ -23,8 +23,8 @@ select is(
       and has_function_privilege('authenticated', p.oid, 'execute')
       and p.proname <> all (array[
         'accept_invitation', 'archive_event', 'archive_event_booking', 'archive_venue', 'begin_workspace_attendance_export', 'change_member_role', 'commit_attendance_import',
-        'create_event', 'create_invitation', 'create_workspace', 'duplicate_event', 'export_event_attendance', 'export_workspace_attendance',
-        'get_attendee_detail', 'get_event', 'get_event_attendance_groups', 'get_event_booking', 'get_event_venue', 'get_import_preview', 'get_import_receipt', 'get_venue', 'get_venue_booking_steps',
+        'create_event', 'create_invitation', 'create_workspace', 'delete_import_source', 'duplicate_event', 'export_event_attendance', 'export_workspace_attendance',
+        'get_attendee_detail', 'get_event', 'get_event_attendance_groups', 'get_event_booking', 'get_event_venue', 'get_import_preview', 'get_import_receipt', 'get_import_source', 'get_venue', 'get_venue_booking_steps',
         'get_workspace', 'list_archived_event_bookings', 'list_attendance_groups', 'list_attendance_history', 'list_event_attendance_groups', 'list_event_imports', 'list_event_people',
         'list_event_tasks', 'list_events', 'list_home_schedule', 'list_my_workspaces', 'list_overview_segments',
         'list_overview_tasks', 'list_removed_tasks', 'list_segments', 'list_team',

@@ -1,5 +1,9 @@
 # Slice completion ledger
 
+## Venue directory — 2026-09-30
+
+Added workspace-scoped venues with versioned edits, archive/restore, role-checked RPCs, and audit entries. Events can link a venue independently of their free-text location; venue details list past linked events. Database tests cover cross-workspace isolation and member write denial.
+
 ## Workspace attendance CSV — 2026-09-30
 
 Owners and organizers can choose from seven attendance fields and download one CSV using keyset pages of up to 1,000 people. The download applies the People page's attendance filters, escapes spreadsheet formulas, and records one audit entry with the selected fields and filters. No extra contact fields or sync were added.

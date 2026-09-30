@@ -8,6 +8,7 @@ import { ErrorRetry } from '../../components/ui'
 import { useCurrentWorkspace } from '../workspaces/workspaceContext'
 import { DetailsPanel } from './EventPanels'
 import type { EventSectionId } from '../../lib/eventPhase'
+import { EventVenuePicker } from '../venues/EventVenuePicker'
 
 export function EventLayout() {
   const workspace = useCurrentWorkspace()
@@ -82,6 +83,7 @@ export function EventLayout() {
             lead ? `Lead: ${lead}` : null,
           ].filter(Boolean).join(' · ')}
         </p>
+        <EventVenuePicker workspace={workspace} event={event.data} />
         {!subpage && event.data.description ? <p className="event-description">{event.data.description}</p> : null}
         {event.data.archivedAt ? <div className="app-banner">This event is archived. Restore it to edit the plan.</div> : null}
         {event.data.status === 'canceled' ? <div className="app-banner">This event is canceled. Previously recorded attendance stays in history.</div> : null}

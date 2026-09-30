@@ -513,6 +513,41 @@ export async function listAttendanceHistory(
   )
 }
 
+export type AttendanceGroupFilters = {
+  attendedEventId?: string
+  anyEventIds?: string[]
+  firstEventId?: string
+  minEvents?: number
+  notSeenSince?: string
+  from?: string
+  to?: string
+}
+
+export async function listAttendanceGroups(workspaceId: string, query: string, filters: AttendanceGroupFilters, page: number) {
+  return rpc<PageResult<import('./types').AttendancePerson> & { peopleCount: number; eventCount: number }>(
+    'list_attendance_groups',
+    { p_workspace_id: workspaceId, p_query: query, p_filters: filters, p_page: page },
+  )
+}
+
+export type EventAttendanceGroup = {
+  eventId: string
+  title: string
+  startsAt: string
+  firstTime: number
+  repeat: number
+}
+
+export async function listEventAttendanceGroups(workspaceId: string) {
+  return rpc<EventAttendanceGroup[]>('list_event_attendance_groups', { p_workspace_id: workspaceId })
+}
+
+export async function getEventAttendanceGroups(workspaceId: string, eventId: string) {
+  return rpc<{ firstTime: number; repeat: number }>('get_event_attendance_groups', {
+    p_workspace_id: workspaceId, p_event_id: eventId,
+  })
+}
+
 export async function getAttendeeDetail(workspaceId: string, attendeeId: string) {
   return rpc<{
     id: string

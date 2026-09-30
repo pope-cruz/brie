@@ -90,7 +90,7 @@ Owners' invitations are emailed by the `send-invitation` Edge Function through R
 
 ### Assistant (MCP) server
 
-The `mcp` Edge Function lets assistants such as Claude read a workspace's plans with an assistant key created on the app's **Assistant access** page. It needs no secrets beyond the project's built-in `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`, and it can only call `assistant_check` and `assistant_call`. Apply migrations through `0062_assistant_access.sql` first.
+The `mcp` Edge Function lets assistants such as Claude read a workspace's plans with an assistant key created on the app's **Assistant access** page. It needs no secrets beyond the project's built-in `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`, and it can only call `assistant_check` and `assistant_call`. Set the optional `APP_ORIGIN` secret (the same value used for invitations) so a proposed draft comes back with a full review link. Apply migrations through `0063_event_plan_drafts.sql` first.
 
 1. Deploy it without the gateway JWT check, because it authenticates Brie assistant keys, not Supabase sessions: `supabase functions deploy mcp --no-verify-jwt`.
 2. Create a read-only key in the app, then from a terminal run the Claude Code command the app shows (`claude mcp add --transport http brie https://<project>.supabase.co/functions/v1/mcp --header "Authorization: Bearer brie_…"`). Ask it to list upcoming events. The call should appear under **Recent assistant activity**.

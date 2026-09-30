@@ -1,5 +1,17 @@
 # Slice completion ledger
 
+## Draft event plans — 2026-09-30
+
+An assistant key with **Read and propose drafts** access can call the MCP tool `create_event_plan_draft`. A proposal holds event details, to-dos with due dates relative to the event day, a run of show given as minutes from the start, a team briefing, an optional venue, **at least one assumption**, and the past events it was based on. Proposals are validated (cited events and venues must belong to the same workspace, and assignees are ignored) and saved as pending drafts that change nothing else (`0063_event_plan_drafts.sql`).
+
+Owners and organizers review drafts on a new **Drafts** page. The review shows the assumptions to check, links to the cited events, and where each item lands. The reviewer can change the title and times or drop items. **Create draft event** creates a Draft-status event with unassigned to-dos, the schedule, the briefing, and the venue link (no booking) in one idempotent, version-checked, audited transaction. Discarding keeps the record. Members cannot see drafts.
+
+Verification:
+- 319 app tests pass (14 new: draft helpers and pages, plus the draft tool in the protocol), plus lint and production build. The reliability harness passes (70 assertions).
+- 443 database checks pass (35 new): scope enforcement, required assumptions, cross-workspace citations and venues, unreadable times, limits, assignee details not stored, member and cross-workspace denial, a rejected accept leaving nothing behind, accept with changes (due dates, offsets, venue, no assignees), idempotent retry, double-accept conflict, audit, and discard.
+- 9 MCP integration tests pass with the official SDK client, including proposing a draft and the tool being hidden from read-only keys.
+- End to end in the local browser: I created a draft key in the app, proposed a draft through the real MCP endpoint, reviewed it, dropped one to-do, and accepted it. The database showed the Draft event with 3 unassigned to-dos, 4 schedule items, the briefing, the linked venue, and the audit entry. Checked at desktop width and 375px.
+
 ## Read-only MCP server — 2026-09-30
 
 Added `supabase/functions/mcp`, Brie's MCP server for assistants. With a key from the Assistant access page, an assistant such as Claude Code can read workspace details, list and search events, read an event plan (`brie.event-plan/1`), and list or read venues. It can't write anything. The server uses the stateless subset of MCP Streamable HTTP, implemented in a dependency-free `protocol.ts`. Every request is authorized by the database through the service-role-only `assistant_check`/`assistant_call`, so a revoked key stops a connected assistant on its next request. `config.toml` turns off the gateway JWT check for this function. DEPLOYMENT.md lists the maintainer steps for production (`supabase functions deploy mcp --no-verify-jwt`). They were not run.

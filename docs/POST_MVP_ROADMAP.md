@@ -61,6 +61,8 @@ After the core objects and permission policy settle, expose read-only event, tas
 
 **MCP server slice:** The `mcp` Edge Function serves the read tools over MCP Streamable HTTP. Tools cover the workspace, events (list and search), event plans, and venues. Every request is authorized in the database and logged, and a revoked key stops a connected assistant immediately. An integration suite drives it with the official MCP SDK client in CI. Production deployment is a maintainer step in DEPLOYMENT.md.
 
+**Draft plans slice:** A `read_draft` key can propose a draft event plan with required assumptions and cited past events. Owners and organizers review it under Drafts, can adjust the title and times or drop items, and accept it as a Draft event (unassigned to-dos, schedule, briefing, venue link without booking) in one audited transaction (`0063_event_plan_drafts.sql`). Nothing enters the workspace before acceptance.
+
 ## First delivered slice in this pass
 
 An owner or organizer can export the event's **confirmed** attendance as CSV from the Attendance page. The export has one row per active attendee, with name, email, `attended` status, and every active file/row source. It follows batch reversion and is generated from a permission-checked database RPC. It is a bridge for manual CRM work, not a claim that RSVP or no-show data has been imported correctly. Before importing a mixed registration export, organizers must isolate checked-in attendees in the source file; the next slice removes that workaround.

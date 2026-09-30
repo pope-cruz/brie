@@ -158,6 +158,11 @@ export function AppShell() {
         <NavLink className="app-nav-item" to={workspacePath(workspaceId, 'venues')}>
           Venues
         </NavLink>
+        {canManageEvents(role) ? (
+          <NavLink className="app-nav-item" to={workspacePath(workspaceId, 'drafts')}>
+            Drafts
+          </NavLink>
+        ) : null}
         {canSeeAttendance(role) ? (
           <NavLink className="app-nav-item" to={workspacePath(workspaceId, 'people')}>
             People

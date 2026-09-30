@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Button, ConfirmDialog, EmptyState, ErrorRetry, Field, SkeletonRows, StatusBadge } from '../../components/ui'
 import { createAssistantToken, listAssistantActions, listAssistantTokens, revokeAssistantToken } from '../../data/api'
 import { toAppError } from '../../data/errors'
-import { canManageEvents, type AssistantToken } from '../../data/types'
+import { canManageEvents, type AssistantScope, type AssistantToken } from '../../data/types'
 import {
   KEY_LIFETIMES,
   claudeCodeCommand,
@@ -34,6 +34,7 @@ export function AssistantAccessPage() {
     enabled: allowed,
   })
   const [label, setLabel] = useState('')
+  const [scope, setScope] = useState<AssistantScope>('read')
   const [lifetime, setLifetime] = useState(30)
   const [creating, setCreating] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -57,7 +58,7 @@ export function AssistantAccessPage() {
     if (!label.trim()) { setError('Name the key so you can recognize it later.'); return }
     setCreating(true); setError(null); setCopyStatus('')
     try {
-      const result = await createAssistantToken(workspace.id, label.trim(), 'read', lifetime)
+      const result = await createAssistantToken(workspace.id, label.trim(), scope, lifetime)
       setCreated({ label: result.label, secret: result.secret })
       setLabel('')
       await queryClient.invalidateQueries({ queryKey: ['assistant-tokens', workspace.id] })
@@ -91,7 +92,7 @@ export function AssistantAccessPage() {
     <div className="app-page">
       <h1 className="app-h1">Assistant access</h1>
       <p className="app-lede">
-        Let an AI assistant such as Claude read this workspace’s event plans, schedules, and venues through MCP. Keys never expose attendee names or contact details, and an assistant can’t change anything in Brie.
+        Let an AI assistant such as Claude read this workspace’s event plans, schedules, and venues through MCP. Keys never expose attendee names or contact details. An assistant can’t change anything in Brie; with draft access it can propose event plans for you to review.
       </p>
 
       <section aria-labelledby="new-key" className="app-page-narrow" style={{ marginTop: 24 }}>
@@ -100,6 +101,13 @@ export function AssistantAccessPage() {
         <Field label="Name">
           <input className="app-input" value={label} maxLength={80} placeholder="e.g. Claude on my laptop" onChange={(change) => setLabel(change.target.value)} />
         </Field>
+        <Field label="Access">
+          <select className="app-select" value={scope} onChange={(change) => setScope(change.target.value as AssistantScope)}>
+            <option value="read">{scopeLabel('read')}</option>
+            <option value="read_draft">{scopeLabel('read_draft')}</option>
+          </select>
+        </Field>
+        {scope === 'read_draft' ? <p className="app-meta" style={{ marginTop: -8, marginBottom: 16 }}>Drafts wait under Drafts for an owner or organizer to review. Nothing is created until someone accepts one.</p> : null}
         <Field label="Expires after">
           <select className="app-select" value={lifetime} onChange={(change) => setLifetime(Number(change.target.value))}>
             {KEY_LIFETIMES.map((option) => <option key={option.days} value={option.days}>{option.label}</option>)}

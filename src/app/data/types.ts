@@ -125,6 +125,46 @@ export type AssistantAction = {
   tokenLabel: string
 }
 
+export type PlanDraftTodo = { title: string; notes: string; dueDaysBeforeEvent: number | null }
+export type PlanDraftScheduleItem = { title: string; minutesFromStart: number; durationMinutes: number; instructions: string }
+
+export type PlanDraft = {
+  id: string
+  status: 'pending' | 'accepted' | 'discarded'
+  version: number
+  title: string
+  description: string
+  location: string
+  startsAt: string
+  endsAt: string
+  timezone: string
+  localDate: string
+  venue: { id: string; name: string; capacity: number | null; archived: boolean } | null
+  expectedAttendance: number | null
+  teamBriefing: string
+  todos: PlanDraftTodo[]
+  schedule: PlanDraftScheduleItem[]
+  assumptions: string[]
+  summary: string
+  citedEvents: Array<{ id: string; title: string; startsAt: string; timezone: string; archived: boolean }>
+  keyLabel: string
+  proposedByName: string
+  createdAt: string
+  decidedAt: string | null
+  decidedByName: string | null
+  acceptedEventId: string | null
+}
+
+export type PlanDraftChanges = {
+  title?: string
+  startsAt?: string
+  endsAt?: string
+  timezone?: string
+  includeVenue?: boolean
+  todoIndexes?: number[]
+  scheduleIndexes?: number[]
+}
+
 export type VenueBookingStepTemplate = { title: string; offsetDays: number }
 export type VenueBookingSteps = { steps: VenueBookingStepTemplate[]; customized: boolean; version: number }
 export type EventBookingStep = VenueBookingStepTemplate & {

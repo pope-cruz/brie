@@ -165,6 +165,14 @@ Migration 0062 adds workspace-scoped assistant keys (`assistant_tokens`) and a c
 - **Server entry points.** Only `service_role` can execute `assistant_check(key)` (resolves a key without logging, for rejecting bad keys up front) and `assistant_call(key, tool, args)`. `assistant_call` resolves the key and dispatches one tool through the same internal builders the app uses: `event_search_json`, `event_plan_json`, `venue_comparison_json`, and `venue_detail_json`. `compare_venues` and `get_venue` are now wrappers around those builders. It returns `{ok, result}` or `{ok: false, error: {code, message}}`. An unknown or invalid key raises `UNAUTHORIZED`.
 - **Call log.** Every resolved call is logged with its tool, its outcome (`ok` or the error code), and only known arguments (`eventId`, `venueId`, `query`, `when`, `limit`, `includeArchived`), with text cut to 120 characters. Failed calls are logged too. Owners see the whole workspace's recent activity; organizers see activity for their own keys.
 
+### MCP server
+
+`supabase/functions/mcp` exposes the assistant tools over MCP. `protocol.ts` implements the stateless subset of the Streamable HTTP transport (protocol versions 2025-11-25, 2025-06-18, and 2025-03-26). Each POST carries one JSON-RPC message or a batch of up to 20 and gets a JSON reply. `initialize`, `ping`, `tools/list`, and `tools/call` are supported. Notifications get 202, and GET/DELETE get 405 because the server keeps no sessions and opens no event streams. `index.ts` connects it to the database with the service-role client.
+
+Every POST first calls `assistant_check`; a missing or rejected key gets HTTP 401 with `WWW-Authenticate: Bearer`. `tools/list` shows only the tools the key's scope allows, all marked read-only. `tools/call` goes through `assistant_call`, so the database resolves the key again and enforces workspace, scope, and role on every call. A revoked key stops a connected assistant on its next request. Tool failures come back as MCP tool errors (`isError`, with the Brie error code and message); unexpected failures return a generic retryable error without internal detail. Successful results carry the JSON as text and as `structuredContent`. The gateway's JWT check is off for this function (`verify_jwt = false`, deployed with `--no-verify-jwt`).
+
+`npm run test:mcp` connects the official MCP TypeScript SDK client to the function on the local stack. It creates fictional fixtures and keys through the app's own RPCs, then checks initialization, every read tool, workspace isolation, rejection of an unknown key, revocation during a session, and the call log. CI runs it after the browser suites.
+
 ## Queries, caching, and performance
 
 - Query keys always include workspace, entity, filters, and page. On workspace switch/sign-out/removal clear scoped queries; do not show previous workspace data while loading the next. Refetch on window focus and after relevant writes; no live-collaboration claims.

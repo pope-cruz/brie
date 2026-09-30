@@ -13,7 +13,8 @@
     "test:reliability": "python3 tests/reliability/run.py",
     "test:e2e": "playwright test",
     "test:e2e:public": "playwright test --project=public",
-    "test:e2e:release": "playwright test --project=release"
+    "test:e2e:release": "playwright test --project=release",
+    "test:mcp": "vitest run --config tests/mcp/vitest.config.ts"
   },
   "dependencies": {
     "@paper-design/shaders-react": "^0.0.80",
@@ -36,6 +37,7 @@
     "tailwindcss": "^4.3.3"
   },
   "devDependencies": {
+    "@modelcontextprotocol/sdk": "^1.31.0",
     "@playwright/test": "^1.63.0",
     "@types/node": "^24.13.3",
     "@types/papaparse": "^5.5.2",

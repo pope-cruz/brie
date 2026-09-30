@@ -88,6 +88,14 @@ Owners' invitations are emailed by the `send-invitation` Edge Function through R
 3. Deploy it with `supabase functions deploy send-invitation`.
 4. Invite an address you can read and confirm the email arrives and its link opens `/app/invite/<token>` on the app host. The function skips email (but still returns the link) after 30 invitations from one owner in an hour; failures are logged under **Edge Functions → send-invitation → Logs**.
 
+### Assistant (MCP) server
+
+The `mcp` Edge Function lets assistants such as Claude read a workspace's plans with an assistant key created on the app's **Assistant access** page. It needs no secrets beyond the project's built-in `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`, and it can only call `assistant_check` and `assistant_call`. Apply migrations through `0062_assistant_access.sql` first.
+
+1. Deploy it without the gateway JWT check, because it authenticates Brie assistant keys, not Supabase sessions: `supabase functions deploy mcp --no-verify-jwt`.
+2. Create a read-only key in the app, then from a terminal run the Claude Code command the app shows (`claude mcp add --transport http brie https://<project>.supabase.co/functions/v1/mcp --header "Authorization: Bearer brie_…"`). Ask it to list upcoming events. The call should appear under **Recent assistant activity**.
+3. Revoke the test key and confirm the next request fails with 401. Calls are logged under **Edge Functions → mcp → Logs**. The function never logs keys or tool results.
+
 ## 4. Deploy the frontend with Vercel
 
 1. In [Vercel](https://vercel.com/new), import this Git repository. Set **Framework Preset** to Vite and **Root Directory** to the repository root. Use `npm run build` as the build command and `dist` as the output directory. The repo's Node checks use Node 24; select Node 24 for the Vercel project as well.

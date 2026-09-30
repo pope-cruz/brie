@@ -18,6 +18,7 @@ vi.mock('react-router-dom', () => ({
 }))
 vi.mock('../../src/app/features/tasks/TasksPage', () => ({ EventTasksPage: () => createElement('p', null, 'to-do list') }))
 vi.mock('../../src/app/features/schedule/RunOfShowPage', () => ({ RunOfShowPage: () => createElement('p', null, 'run of show') }))
+vi.mock('../../src/app/features/venues/EventBookingPanel', () => ({ EventBookingPanel: () => null }))
 
 let host: HTMLDivElement
 let root: Root

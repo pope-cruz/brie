@@ -6,6 +6,7 @@ import { toAppError } from '../../data/errors'
 import { canManageEvents } from '../../data/types'
 import { eventLocalDate } from '../../lib/timezone'
 import { useCurrentWorkspace } from '../workspaces/workspaceContext'
+import { VenueBookingStepsEditor } from './VenueBookingStepsEditor'
 
 export function VenueDetailPage() {
   const workspace = useCurrentWorkspace()
@@ -57,6 +58,7 @@ export function VenueDetailPage() {
         {' · '}{eventLocalDate(event.startsAt, event.timezone)}
         {event.location ? ` · ${event.location}` : ''}
       </p>)}
+      <VenueBookingStepsEditor workspaceId={workspace.id} venueId={item.id} canEdit={canManageEvents(workspace.role) && !item.removedAt} />
       <Button variant="quiet" onClick={() => navigate(`/app/w/${workspace.id}/venues`)}>Back to venues</Button>
     </div>
   )

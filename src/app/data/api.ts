@@ -1,6 +1,7 @@
 import { FunctionsHttpError } from '@supabase/supabase-js'
 import { getSupabase, rpc } from './client'
 import { toAppError } from './errors'
+import type { StatusMap } from '../lib/mixedAttendance'
 import type {
   AttendanceExportRow,
   EventRecord,
@@ -19,6 +20,8 @@ import type {
   Workspace,
   Venue,
   VenueDetail,
+  WorkspaceAttendanceField,
+  WorkspaceAttendanceRow,
 } from './types'
 
 export type WorkspaceSummary = Workspace & {
@@ -449,6 +452,29 @@ export async function prepareAttendanceImport(input: {
   })
 }
 
+export async function prepareMixedAttendanceImport(input: {
+  workspaceId: string
+  eventId: string
+  fileLabel: string
+  fileHash: string
+  mapping: Record<string, unknown>
+  statusMap: StatusMap
+  rows: Array<Record<string, string | number | string[]>>
+  blankCount: number
+}) {
+  return rpc<ImportPreview>('prepare_mixed_attendance_import', {
+    p_workspace_id: input.workspaceId,
+    p_event_id: input.eventId,
+    p_file_label: input.fileLabel,
+    p_file_hash: input.fileHash,
+    p_parser_version: 'brie-csv-1',
+    p_mapping: input.mapping,
+    p_status_map: input.statusMap,
+    p_rows: input.rows,
+    p_blank_count: input.blankCount,
+  })
+}
+
 export async function getImportPreview(previewId: string) {
   return rpc<ImportPreview>('get_import_preview', { p_preview_id: previewId })
 }
@@ -509,6 +535,20 @@ export async function getImportReceipt(workspaceId: string, batchId: string) {
   })
 }
 
+export async function getImportSource(workspaceId: string, batchId: string) {
+  return rpc<{ headers: string[]; rows: string[][]; deleteAfter: string }>('get_import_source', {
+    p_workspace_id: workspaceId,
+    p_batch_id: batchId,
+  })
+}
+
+export async function deleteImportSource(workspaceId: string, batchId: string) {
+  return rpc<ImportReceipt>('delete_import_source', {
+    p_workspace_id: workspaceId,
+    p_batch_id: batchId,
+  })
+}
+
 export async function previewRevertImport(workspaceId: string, batchId: string) {
   return rpc<{
     batchId: string
@@ -556,6 +596,60 @@ export async function listAttendanceHistory(
   )
 }
 
+export type AttendanceGroupFilters = {
+  attendedEventId?: string
+  anyEventIds?: string[]
+  firstEventId?: string
+  minEvents?: number
+  notSeenSince?: string
+  from?: string
+  to?: string
+}
+
+export async function listAttendanceGroups(workspaceId: string, query: string, filters: AttendanceGroupFilters, page: number) {
+  return rpc<PageResult<import('./types').AttendancePerson> & { peopleCount: number; eventCount: number }>(
+    'list_attendance_groups',
+    { p_workspace_id: workspaceId, p_query: query, p_filters: filters, p_page: page },
+  )
+}
+
+export type EventAttendanceGroup = {
+  eventId: string
+  title: string
+  startsAt: string
+  firstTime: number
+  repeat: number
+}
+
+export async function listEventAttendanceGroups(workspaceId: string) {
+  return rpc<EventAttendanceGroup[]>('list_event_attendance_groups', { p_workspace_id: workspaceId })
+}
+
+export async function getEventAttendanceGroups(workspaceId: string, eventId: string) {
+  return rpc<{ firstTime: number; repeat: number }>('get_event_attendance_groups', {
+    p_workspace_id: workspaceId, p_event_id: eventId,
+  })
+}
+
+export async function beginWorkspaceAttendanceExport(
+  workspaceId: string, fields: WorkspaceAttendanceField[], filters: AttendanceGroupFilters,
+) {
+  return rpc<{ id: string }>('begin_workspace_attendance_export', {
+    p_workspace_id: workspaceId, p_fields: fields, p_filters: filters,
+  })
+}
+
+export async function exportWorkspaceAttendancePage(
+  workspaceId: string, exportId: string, afterAttendeeId: string | null,
+) {
+  return rpc<{ rows: WorkspaceAttendanceRow[]; nextAfter: string | null; count: number }>(
+    'export_workspace_attendance', {
+      p_workspace_id: workspaceId, p_export_id: exportId,
+      p_after_attendee_id: afterAttendeeId, p_limit: 1000,
+    },
+  )
+}
+
 export async function getAttendeeDetail(workspaceId: string, attendeeId: string) {
   return rpc<{
     id: string
@@ -571,7 +665,16 @@ export async function getAttendeeDetail(workspaceId: string, attendeeId: string)
       timezone: string
       status: EventStatus
       archivedAt: string | null
-      batches: Array<{ id: string; fileLabel: string; committedAt: string }>
+      active: boolean
+      batches: Array<{
+        id: string
+        fileLabel: string
+        rowNumber: number
+        committedAt: string
+        importedBy: string
+        status: 'active' | 'reverted'
+        revertedAt: string | null
+      }>
     }>
   }>('get_attendee_detail', {
     p_workspace_id: workspaceId,

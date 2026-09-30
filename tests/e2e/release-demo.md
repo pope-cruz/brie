@@ -11,6 +11,7 @@ Run after `npm run build`, `npm run lint`, `npm test`, and a local `supabase db 
 - [ ] Import preview totals match committed receipt totals.
 - [ ] Retrying commit with the same key does not double-count.
 - [ ] Revert of overlapping batches keeps people supported by the other batch.
+- [ ] A mixed registration export counts only values mapped to Attended; importing it again adds nobody and changes no stored name.
 - [ ] Viewports: 1440×900, 1024×768, 768×1024, 375×812, 320×640.
 - [ ] 200% zoom, reduced motion, and contrast of text/control pairs.
 - [ ] Empty, loading, error, and permission states have no sample numbers.

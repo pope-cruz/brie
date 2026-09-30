@@ -1,7 +1,7 @@
 import { Link, useOutletContext, useSearchParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { Button, EmptyState, Pagination, SkeletonRows, StatusBadge } from '../../components/ui'
-import { exportEventAttendance, listEventImports, listEventPeople } from '../../data/api'
+import { exportEventAttendance, getEventAttendanceGroups, listEventImports, listEventPeople } from '../../data/api'
 import type { WorkspaceSummary } from '../../data/api'
 import { toAppError } from '../../data/errors'
 import { canSeeAttendance, type EventRecord } from '../../data/types'
@@ -31,6 +31,11 @@ export function EventAttendancePage() {
     queryKey: ['event-imports', workspace.id, event.id],
     queryFn: () => listEventImports(workspace.id, event.id),
     enabled: allowed && view === 'imports',
+  })
+  const groups = useQuery({
+    queryKey: ['event-attendance-groups', workspace.id, event.id],
+    queryFn: () => getEventAttendanceGroups(workspace.id, event.id),
+    enabled: allowed,
   })
 
   if (!allowed) {
@@ -65,6 +70,8 @@ export function EventAttendancePage() {
           <p className="app-meta">
             {event.attendanceCount ?? 0} distinct attendees recorded
           </p>
+          {groups.data ? <p className="app-meta">{groups.data.firstTime} first-time · {groups.data.repeat} repeat</p> : null}
+          {groups.isError ? <p className="app-error-text" role="alert">{toAppError(groups.error).message}</p> : null}
         </div>
         <div className="app-toolbar">
           <Button variant="secondary" busy={exporting} onClick={() => void downloadCsv()}>

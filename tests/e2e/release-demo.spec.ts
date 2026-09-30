@@ -721,3 +721,42 @@ test('18. ownership transfer and role changes refresh both open accounts', async
   await expect(ownerPage).toHaveURL(/\/app\/new-workspace/, { timeout: 25_000 })
   await expect(ownerPage.getByText('Welcome night')).toHaveCount(0)
 })
+
+test('19. a registration export counts only checked-in guests, and importing it again adds nobody', async () => {
+  const attendanceUrl = `/app/w/${state.workspaceId}/events/${state.copyEventId}/attendance`
+  const importUrl = `${attendanceUrl}/import`
+  await organizerPage.goto(attendanceUrl)
+  const count = organizerPage.getByText(/\d+ distinct attendees recorded/)
+  const before = Number((await count.textContent())?.match(/\d+/)?.[0] ?? NaN)
+
+  await organizerPage.goto(importUrl)
+  await organizerPage.locator('input[type="file"]').setInputFiles(resolve(FIXTURES, 'mixed-attendance-luma.csv'))
+  await expect(organizerPage.getByRole('heading', { name: 'Map columns' })).toBeVisible()
+  await expect(organizerPage.getByLabel('Attendance', { exact: true })).toHaveValue('4')
+  await expect(organizerPage.getByText('No value is marked Attended yet')).toBeVisible()
+  await organizerPage.getByLabel('What each attendance value means: any value').selectOption('attended')
+  await expect(organizerPage.getByText(/With this mapping: 3 counted as attended/)).toBeVisible()
+  await organizerPage.getByRole('button', { name: 'Review' }).click()
+  await expect(organizerPage.getByRole('heading', { name: 'Review', exact: true })).toBeVisible()
+  await expect(organizerPage.getByRole('heading', { name: /Will count as attended/ })).toContainText('3')
+  await expect(organizerPage.getByRole('heading', { name: /Won’t count/ })).toContainText('3')
+  await expect(organizerPage.getByRole('heading', { name: /Can’t be matched/ })).toContainText('1')
+  await organizerPage.getByRole('checkbox', { name: /Skip 1 row that can’t be matched/ }).check()
+  await organizerPage.getByRole('button', { name: 'Record attendance for 3 people' }).click()
+  await expect(organizerPage).toHaveURL(/\/attendance\/imports\//)
+  await expect(organizerPage.getByText('3 attendees added')).toBeVisible()
+
+  await organizerPage.goto(importUrl)
+  await organizerPage.locator('input[type="file"]').setInputFiles(resolve(FIXTURES, 'mixed-attendance-luma.csv'))
+  await organizerPage.getByLabel('What each attendance value means: any value').selectOption('attended')
+  await organizerPage.getByRole('button', { name: 'Review' }).click()
+  await expect(organizerPage.getByText('0 new · 3 already recorded at this event')).toBeVisible()
+  await expect(organizerPage.getByText('An active import used this same file.')).toBeVisible()
+  await expect(organizerPage.getByRole('heading', { name: /Differences from what’s recorded/ })).toHaveCount(0)
+  await organizerPage.getByRole('checkbox', { name: /Skip 1 row/ }).check()
+  await organizerPage.getByRole('button', { name: 'Record attendance for 3 people' }).click()
+  await expect(organizerPage.getByText('0 attendees added')).toBeVisible()
+
+  await organizerPage.goto(attendanceUrl)
+  await expect(organizerPage.getByText(`${before + 3} distinct attendees recorded`)).toBeVisible()
+})

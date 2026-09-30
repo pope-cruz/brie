@@ -1,3 +1,5 @@
+import type { AttendanceStatus, PreviewGroup, RsvpStatus, StatusMap } from '../lib/mixedAttendance'
+
 export type MemberRole = 'owner' | 'organizer' | 'member'
 export type EventStatus = 'draft' | 'planned' | 'completed' | 'canceled'
 export type TaskStatus = 'todo' | 'done'
@@ -148,6 +150,9 @@ export type ImportReceipt = {
   skipped: number
   status: ImportBatchStatus
   revertedAt: string | null
+  // Set while the import's original rows are kept (mixed imports, opt-in).
+  sourceRowCount?: number | null
+  sourceDeleteAfter?: string | null
 }
 
 export type PreviewOutcome =
@@ -156,6 +161,8 @@ export type PreviewOutcome =
   | 'duplicate'
   | 'invalid'
   | 'blank_ignored'
+  | 'not_counted'
+  | 'unresolved'
 
 export type ImportPreview = {
   id: string
@@ -165,6 +172,9 @@ export type ImportPreview = {
   fileLabel: string
   fileHash: string
   existingReceiptId: string | null
+  // Null for previews made by prepare_attendance_import (every valid row attended).
+  statusMap?: StatusMap | null
+  keepSource?: boolean
   counts: {
     newAttendance: number
     alreadyRecorded: number
@@ -172,6 +182,8 @@ export type ImportPreview = {
     invalid: number
     blank: number
     accepted: number
+    notCounted?: number
+    unresolved?: number
   }
   rows: Array<{
     rowNumber: number
@@ -179,6 +191,20 @@ export type ImportPreview = {
     email: string
     outcome: PreviewOutcome
     reason: string
+    // Mixed previews only; legacy rows are grouped by outcome on the client.
+    group?: PreviewGroup
+    rsvp?: RsvpStatus
+    attendance?: AttendanceStatus
+    rsvpSource?: string | null
+    attendanceSource?: string | null
+    timestamp?: string | null
+    phone?: string | null
+    affiliation?: string | null
+    storedName?: string | null
+    // Active attendance at this event from an earlier import.
+    recordedAttended?: boolean
+    // Differences from what is stored. Never applied by the import.
+    changes?: Array<{ field: 'name' | 'attendance'; from: string; to: string }>
   }>
 }
 

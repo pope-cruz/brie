@@ -2,7 +2,8 @@ import type { AttendanceExportRow, WorkspaceAttendanceField, WorkspaceAttendance
 
 function cell(value: string): string {
   // Spreadsheet apps may evaluate imported text as a formula, including after spaces.
-  const safe = '=+-@'.includes(value.trimStart().charAt(0)) ? `'${value}` : value
+  const first = value.trimStart().charAt(0)
+  const safe = first !== '' && '=+-@'.includes(first) ? `'${value}` : value
   return `"${safe.replaceAll('"', '""')}"`
 }
 
@@ -38,4 +39,9 @@ export function workspaceAttendanceExportCsv(rows: WorkspaceAttendanceRow[], fie
   const lines = [fields.map((field) => workspaceAttendanceFieldOptions.find((option) => option.key === field)?.label ?? field)]
   for (const row of rows) lines.push(fields.map((field) => value(row, field)))
   return '\uFEFF' + lines.map((line) => line.map(cell).join(',')).join('\r\n') + '\r\n'
+}
+
+// An import's kept original rows, as a CSV with the original headers.
+export function sourceRowsCsv(headers: string[], rows: string[][]): string {
+  return '\uFEFF' + [headers, ...rows].map((line) => line.map(cell).join(',')).join('\r\n') + '\r\n'
 }

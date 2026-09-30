@@ -1,5 +1,11 @@
 # Slice completion ledger
 
+## Assistant access keys — 2026-09-30
+
+Owners and organizers can create read-only assistant keys on a new **Assistant access** page. The page shows each key once, along with a ready-to-paste Claude Code command. It lists keys with their creator, status, last use, and expiry, supports revocation, and shows recent assistant activity. Keys are stored as hashes. Each key acts with its creator's current role, so removal, demotion to member, expiry, or revocation stops it immediately. `0062_assistant_access.sql` also adds the service-role-only `assistant_check` and `assistant_call`. `assistant_call` runs one read tool (workspace, event list and search, event plan, venue list and detail) through the app's own builders and logs every call, including failures. The MCP server that calls these arrives in the next slice.
+
+Verification: 287 app tests (6 new), 408 database checks (37 new: key lifecycle, owner/organizer/member limits, secret and hash never listed, cross-workspace denial, malformed IDs, unknown tools, bounded call-log arguments, and denial after demotion, removal, expiry, or revocation), lint, and production build pass. In the local browser, a key was created, shown once, and listed. Calling it through local PostgREST worked with the service-role key and returned `permission denied` with the anon key. The call then appeared in the activity list.
+
 ## Planning read contract — 2026-09-30
 
 Added `brie.event-plan/1` and `brie.event-search/1`, versioned JSON documents for reading an event's plan and finding past or upcoming events (`0061_planning_contract.sql`, `src/app/data/planningContract.ts`). They carry the event, venue, booking summary, to-dos, run of show, and attendance totals, but no attendee or member names or emails. First-time and repeat counts are owner/organizer-only. Internal builders take the reader's role so the upcoming assistant server returns the same documents. This is the first slice of roadmap step 4; no app screen uses it yet.

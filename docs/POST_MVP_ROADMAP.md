@@ -57,6 +57,8 @@ After the core objects and permission policy settle, expose read-only event, tas
 
 **Planning contract slice:** `get_event_plan` and `search_events` return versioned documents (`brie.event-plan/1`, `brie.event-search/1`) with the event, venue, booking summary, to-dos, run of show, and attendance totals. They exclude attendee and member contact data and who is assigned (`0061_planning_contract.sql`).
 
+**Assistant access slice:** Owners and organizers create workspace-scoped assistant keys (read-only in the app for now). A key acts with its creator's current role and stops on removal, demotion, expiry, or revocation. Service-role-only `assistant_call` runs read tools through the app's own builders and logs every call; the Assistant access page shows keys and recent activity (`0062_assistant_access.sql`).
+
 ## First delivered slice in this pass
 
 An owner or organizer can export the event's **confirmed** attendance as CSV from the Attendance page. The export has one row per active attendee, with name, email, `attended` status, and every active file/row source. It follows batch reversion and is generated from a permission-checked database RPC. It is a bridge for manual CRM work, not a claim that RSVP or no-show data has been imported correctly. Before importing a mixed registration export, organizers must isolate checked-in attendees in the source file; the next slice removes that workaround.

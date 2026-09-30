@@ -113,6 +113,20 @@ export type EventBooking = {
   nextDeadline: string | null
 }
 
+export type BookingRequestItemKey =
+  | 'event_details' | 'date_time' | 'attendance' | 'accessibility'
+  | 'equipment' | 'restrictions' | 'submit_request'
+export type BookingRequestCheck = { itemKey: BookingRequestItemKey; checkedAt: string | null; version: number }
+export type BookingLogEntry = {
+  id: string
+  entryType: 'reply' | 'quote' | 'hold' | 'confirmation'
+  occurredAt: string
+  notes: string
+  createdBy: string
+  removedAt: string | null
+  version: number
+}
+
 export type TaskRecord = {
   id: string
   workspaceId: string

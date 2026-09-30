@@ -155,6 +155,9 @@ export function AppShell() {
         <NavLink className="app-nav-item" to={workspacePath(workspaceId, 'events')}>
           Events
         </NavLink>
+        <NavLink className="app-nav-item" to={workspacePath(workspaceId, 'venues')}>
+          Venues
+        </NavLink>
         {canSeeAttendance(role) ? (
           <NavLink className="app-nav-item" to={workspacePath(workspaceId, 'people')}>
             People

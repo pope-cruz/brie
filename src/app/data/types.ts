@@ -65,6 +65,29 @@ export type EventRecord = {
   attendanceCount: number | null
 }
 
+export type Venue = {
+  id: string
+  workspaceId: string
+  name: string
+  venueType: 'nyu_room' | 'outside'
+  capacity: number | null
+  address: string
+  costNotes: string
+  accessibility: string
+  equipment: string
+  bookingContact: string
+  bookingLink: string
+  leadTimeDays: number
+  restrictions: string
+  notes: string
+  removedAt: string | null
+  version: number
+}
+
+export type VenueDetail = Venue & {
+  pastEvents: Array<{ id: string; title: string; startsAt: string; timezone: string; location: string }>
+}
+
 export type TaskRecord = {
   id: string
   workspaceId: string

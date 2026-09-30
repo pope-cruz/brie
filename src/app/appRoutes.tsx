@@ -16,6 +16,9 @@ import { HomePage } from './features/workspaces/HomePage'
 import { InvitePage } from './features/workspaces/InvitePage'
 import { NewWorkspacePage } from './features/workspaces/NewWorkspacePage'
 import { SettingsPage } from './features/workspaces/SettingsPage'
+import { VenueDetailPage } from './features/venues/VenueDetailPage'
+import { VenueFormPage } from './features/venues/VenueFormPage'
+import { VenueListPage } from './features/venues/VenueListPage'
 
 function NewEventPage() {
   return <EventFormPage mode="new" />
@@ -60,6 +63,10 @@ export const appChildren = [
     children: [
       { path: 'home', Component: HomePage },
       { path: 'events', Component: EventListPage },
+      { path: 'venues', Component: VenueListPage },
+      { path: 'venues/new', Component: VenueFormPage },
+      { path: 'venues/:venueId', Component: VenueDetailPage },
+      { path: 'venues/:venueId/edit', Component: VenueFormPage },
       { path: 'events/new', Component: NewEventPage },
       { path: 'events/:eventId/edit', Component: EditDetailsRedirect },
       { path: 'events/:eventId/duplicate', Component: DuplicateEventPage },

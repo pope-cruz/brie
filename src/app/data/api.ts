@@ -17,6 +17,8 @@ import type {
   TaskStatus,
   TeamInvitation,
   Workspace,
+  Venue,
+  VenueDetail,
 } from './types'
 
 export type WorkspaceSummary = Workspace & {
@@ -112,6 +114,47 @@ export async function listEvents(workspaceId: string, filter: string, query: str
 
 export async function getEvent(workspaceId: string, eventId: string) {
   return rpc<EventRecord>('get_event', { p_workspace_id: workspaceId, p_event_id: eventId })
+}
+
+export async function listVenues(workspaceId: string, includeArchived = false) {
+  return rpc<Venue[]>('list_venues', { p_workspace_id: workspaceId, p_include_archived: includeArchived })
+}
+
+export async function getVenue(workspaceId: string, venueId: string) {
+  return rpc<VenueDetail>('get_venue', { p_workspace_id: workspaceId, p_venue_id: venueId })
+}
+
+export async function saveVenue(workspaceId: string, venueId: string | null, venue: Omit<Venue, 'id' | 'workspaceId' | 'removedAt' | 'version'>, expectedVersion: number | null) {
+  return rpc<Venue>('save_venue', {
+    p_workspace_id: workspaceId, p_venue_id: venueId, p_name: venue.name,
+    p_venue_type: venue.venueType, p_capacity: venue.capacity, p_address: venue.address,
+    p_cost_notes: venue.costNotes, p_accessibility: venue.accessibility,
+    p_equipment: venue.equipment, p_booking_contact: venue.bookingContact,
+    p_booking_link: venue.bookingLink, p_lead_time_days: venue.leadTimeDays,
+    p_restrictions: venue.restrictions, p_notes: venue.notes,
+    p_expected_version: expectedVersion,
+  })
+}
+
+export async function archiveVenue(workspaceId: string, venueId: string, expectedVersion: number) {
+  return rpc<Venue>('archive_venue', { p_workspace_id: workspaceId, p_venue_id: venueId, p_expected_version: expectedVersion })
+}
+
+export async function restoreVenue(workspaceId: string, venueId: string, expectedVersion: number) {
+  return rpc<Venue>('restore_venue', { p_workspace_id: workspaceId, p_venue_id: venueId, p_expected_version: expectedVersion })
+}
+
+export async function getEventVenue(workspaceId: string, eventId: string) {
+  return rpc<{ venueId: string | null; venueName: string | null; version: number }>('get_event_venue', {
+    p_workspace_id: workspaceId, p_event_id: eventId,
+  })
+}
+
+export async function setEventVenue(workspaceId: string, eventId: string, venueId: string | null, expectedVersion: number) {
+  return rpc<{ venueId: string | null; version: number }>('set_event_venue', {
+    p_workspace_id: workspaceId, p_event_id: eventId, p_venue_id: venueId,
+    p_expected_version: expectedVersion,
+  })
 }
 
 export async function saveTeamBriefing(

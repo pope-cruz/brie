@@ -124,6 +124,19 @@ export type AttendanceExportRow = {
   sources: Array<{ fileLabel: string; rowNumber: number; recordedAt: string }>
 }
 
+export type WorkspaceAttendanceField =
+  | 'name' | 'email' | 'eventsAttended' | 'firstAttended' | 'lastAttended' | 'eventTitles' | 'sources'
+
+export type WorkspaceAttendanceRow = {
+  name?: string | null
+  email?: string
+  eventsAttended?: number
+  firstAttended?: string | null
+  lastAttended?: string | null
+  eventTitles?: string[]
+  sources?: Array<{ fileLabel: string; rowNumber: number }>
+}
+
 export type ImportReceipt = {
   id: string
   eventId: string

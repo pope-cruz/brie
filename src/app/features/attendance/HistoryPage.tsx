@@ -9,6 +9,7 @@ import { SEARCH_DEBOUNCE_MS } from '../../lib/search'
 import { useDebouncedValue } from '../../lib/useDebouncedValue'
 import { useCurrentWorkspace } from '../workspaces/workspaceContext'
 import { eventLocalDate } from '../../lib/timezone'
+import { WorkspaceAttendanceExport } from './WorkspaceAttendanceExport'
 
 export function HistoryPage() {
   const workspace = useCurrentWorkspace()
@@ -26,6 +27,14 @@ export function HistoryPage() {
   const debounced = useDebouncedValue(draft, SEARCH_DEBOUNCE_MS)
 
   const allowed = canSeeAttendance(workspace.role)
+  const filters = {
+    ...(from ? { from } : {}), ...(to ? { to } : {}),
+    ...(attendedEventId ? { attendedEventId } : {}),
+    ...(anyEventIds.length ? { anyEventIds } : {}),
+    ...(firstEventId ? { firstEventId } : {}),
+    ...(minEvents ? { minEvents: Number(minEvents) } : {}),
+    ...(notSeenSince ? { notSeenSince } : {}),
+  }
   const events = useQuery({
     queryKey: ['attendance-events', workspace.id],
     queryFn: () => listEventAttendanceGroups(workspace.id),
@@ -33,14 +42,7 @@ export function HistoryPage() {
   })
   const history = useQuery({
     queryKey: ['history', workspace.id, debounced, from, to, attendedEventId, anyEventIds.join(','), firstEventId, minEvents, notSeenSince, page],
-    queryFn: () => listAttendanceGroups(workspace.id, debounced, {
-      ...(from ? { from } : {}), ...(to ? { to } : {}),
-      ...(attendedEventId ? { attendedEventId } : {}),
-      ...(anyEventIds.length ? { anyEventIds } : {}),
-      ...(firstEventId ? { firstEventId } : {}),
-      ...(minEvents ? { minEvents: Number(minEvents) } : {}),
-      ...(notSeenSince ? { notSeenSince } : {}),
-    }, page),
+    queryFn: () => listAttendanceGroups(workspace.id, debounced, filters, page),
     enabled: allowed,
   })
 
@@ -152,6 +154,7 @@ export function HistoryPage() {
       {history.data ? (
         <Pagination page={history.data.page} total={history.data.total} onPage={(next) => update({ page: String(next) })} />
       ) : null}
+      <WorkspaceAttendanceExport workspaceId={workspace.id} filters={filters} />
     </div>
   )
 }

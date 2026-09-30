@@ -1,5 +1,9 @@
 # Slice completion ledger
 
+## Workspace attendance CSV — 2026-09-30
+
+Owners and organizers can choose from seven attendance fields and download one CSV using keyset pages of up to 1,000 people. The download applies the People page's attendance filters, escapes spreadsheet formulas, and records one audit entry with the selected fields and filters. No extra contact fields or sync were added.
+
 ## Person attendance sources — 2026-09-30
 
 The person page now identifies the file, row, import date, importer, and receipt for every contribution, including reverted sources. Confirmed attendance totals still count only events with an active source. Database tests cover overlapping and fully reverted sources plus role isolation.

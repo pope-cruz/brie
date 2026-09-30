@@ -65,7 +65,8 @@ jobs:
           supabase functions serve > functions.log 2>&1 &
           for attempt in $(seq 1 60); do
             status=$(curl -s -o /dev/null -w '%{http_code}' -X POST "$VITE_SUPABASE_URL/functions/v1/mcp" -d '{}' || true)
-            [ "$status" = "401" ] && break
+            # Wait for this server, not the runtime `supabase start` may have launched.
+            grep -q "Serving functions on" functions.log && [ "$status" = "401" ] && break
             sleep 2
           done
           npm run test:mcp || { cat functions.log; exit 1; }

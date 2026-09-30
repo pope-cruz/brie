@@ -8,6 +8,7 @@ import {
 } from '../../data/api'
 import { toAppError } from '../../data/errors'
 import { canManageEvents, type EventBookingStep, type EventRecord } from '../../data/types'
+import { BookingRequestPreparation } from './BookingRequestPreparation'
 
 export function EventBookingSummary({ workspace, event }: { workspace: WorkspaceSummary; event: EventRecord }) {
   const booking = useQuery({ queryKey: ['event-booking', workspace.id, event.id], queryFn: () => getEventBooking(workspace.id, event.id) })
@@ -71,6 +72,7 @@ export function EventBookingPanel({ workspace, event }: { workspace: WorkspaceSu
           <option value="blocked">Blocked</option><option value="complete">Complete</option>
         </select> : <span className="app-meta">{step.status.replace('_', ' ')}</span>}
       </div>)}
+      <BookingRequestPreparation workspace={workspace} event={event} booking={booking.data} />
       {canEdit ? <Button variant="quiet" busy={busy} onClick={() => {
         if (window.confirm('Archive this booking? Its dated steps remain available to restore.')) {
           void run(() => archiveEventBooking(workspace.id, booking.data!.id, booking.data!.version))

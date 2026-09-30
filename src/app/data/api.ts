@@ -23,6 +23,9 @@ import type {
   VenueBookingStepTemplate,
   VenueBookingSteps,
   EventBooking,
+  BookingRequestItemKey,
+  BookingRequestCheck,
+  BookingLogEntry,
   WorkspaceAttendanceField,
   WorkspaceAttendanceRow,
 } from './types'
@@ -197,6 +200,63 @@ export async function archiveEventBooking(workspaceId: string, bookingId: string
 
 export async function restoreEventBooking(workspaceId: string, bookingId: string, version: number) {
   return rpc<EventBooking>('restore_event_booking', { p_workspace_id: workspaceId, p_booking_id: bookingId, p_expected_version: version })
+}
+
+export async function getBookingRequestChecks(workspaceId: string, bookingId: string) {
+  return rpc<BookingRequestCheck[]>('get_booking_request_checks', { p_workspace_id: workspaceId, p_booking_id: bookingId })
+}
+
+export async function setBookingRequestCheck(
+  workspaceId: string, bookingId: string, itemKey: BookingRequestItemKey,
+  checked: boolean, version: number | null,
+) {
+  return rpc<BookingRequestCheck>('set_booking_request_check', {
+    p_workspace_id: workspaceId, p_booking_id: bookingId, p_item_key: itemKey,
+    p_checked: checked, p_expected_version: version,
+  })
+}
+
+export async function getBookingRequestDraft(workspaceId: string, bookingId: string) {
+  return rpc<{ draft: string; updatedAt: string | null; version: number }>('get_booking_request_draft', {
+    p_workspace_id: workspaceId, p_booking_id: bookingId,
+  })
+}
+
+export async function saveBookingRequestDraft(workspaceId: string, bookingId: string, draft: string, version: number) {
+  return rpc<{ draft: string; updatedAt: string; version: number }>('save_booking_request_draft', {
+    p_workspace_id: workspaceId, p_booking_id: bookingId,
+    p_draft: draft, p_expected_version: version,
+  })
+}
+
+export async function listBookingLogEntries(workspaceId: string, bookingId: string, includeArchived = false) {
+  return rpc<BookingLogEntry[]>('list_booking_log_entries', {
+    p_workspace_id: workspaceId, p_booking_id: bookingId, p_include_archived: includeArchived,
+  })
+}
+
+export async function saveBookingLogEntry(
+  workspaceId: string, bookingId: string, entryId: string | null,
+  entryType: BookingLogEntry['entryType'], occurredAt: string, notes: string,
+  version: number | null,
+) {
+  return rpc<BookingLogEntry>('save_booking_log_entry', {
+    p_workspace_id: workspaceId, p_booking_id: bookingId, p_entry_id: entryId,
+    p_entry_type: entryType, p_occurred_at: occurredAt, p_notes: notes,
+    p_expected_version: version,
+  })
+}
+
+export async function archiveBookingLogEntry(workspaceId: string, entryId: string, version: number) {
+  return rpc<Pick<BookingLogEntry, 'id' | 'removedAt' | 'version'>>('archive_booking_log_entry', {
+    p_workspace_id: workspaceId, p_entry_id: entryId, p_expected_version: version,
+  })
+}
+
+export async function restoreBookingLogEntry(workspaceId: string, entryId: string, version: number) {
+  return rpc<Pick<BookingLogEntry, 'id' | 'removedAt' | 'version'>>('restore_booking_log_entry', {
+    p_workspace_id: workspaceId, p_entry_id: entryId, p_expected_version: version,
+  })
 }
 
 export async function saveTeamBriefing(

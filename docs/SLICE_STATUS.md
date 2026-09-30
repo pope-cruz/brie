@@ -1,5 +1,9 @@
 # Slice completion ledger
 
+## Venue request preparation — 2026-09-30
+
+Added a manual NYU room request checklist, an editable and copyable outside-venue email draft, and dated booking entries for replies, quotes, holds, and confirmations. Drafts and notes stay in Brie; no email is sent and no external booking API is called.
+
 ## Venue booking tracker — 2026-09-30
 
 Added configurable venue booking steps and per-event bookings with dated status changes, lead-time-based deadlines, archive/restore, and role-checked audit entries. The event page shows the current booking status and next deadline.

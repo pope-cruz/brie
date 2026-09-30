@@ -57,18 +57,18 @@ jobs:
           echo "VITE_SUPABASE_ANON_KEY=$(jq -r '.ANON_KEY' <<< "$status")" >> "$GITHUB_ENV"
       - run: npm run test:e2e:public
       - run: npm run test:e2e:release
-      # Brie's MCP server, driven by the official MCP SDK client.
-      - name: Serve Edge Functions
+      # Brie's MCP server, driven by the official MCP SDK client. The server
+      # and the tests share one step: a background process started in an
+      # earlier step is stopped when that step ends.
+      - name: MCP server with the official SDK client
         run: |
-          nohup supabase functions serve > functions.log 2>&1 &
+          supabase functions serve > functions.log 2>&1 &
           for attempt in $(seq 1 60); do
             status=$(curl -s -o /dev/null -w '%{http_code}' -X POST "$VITE_SUPABASE_URL/functions/v1/mcp" -d '{}' || true)
-            [ "$status" = "401" ] && exit 0
+            [ "$status" = "401" ] && break
             sleep 2
           done
-          cat functions.log
-          exit 1
-      - run: npm run test:mcp
+          npm run test:mcp || { cat functions.log; exit 1; }
       - uses: actions/upload-artifact@v4
         if: failure()
         with:

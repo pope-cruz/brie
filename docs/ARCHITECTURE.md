@@ -147,6 +147,15 @@ Compute impact under the same event revision: count people whose only active con
 
 `compare_venues(workspace, include_archived, event)` (migration 0060) returns every venue with its past use: the count of past, non-canceled linked events, the most recent event-local date, and the largest confirmed attendance among them. Given an event, each venue also gets a request-by date (the event's local day minus the venue lead time), whether that date has passed, whether the event already links it, and the other active, non-canceled events linked to it at an overlapping time. Members can call it, as they can read the directory. The expected headcount is a filter on the page, not a stored event field. Filtering, ranking, and the reasons a venue fits or needs checking are computed in the browser (`src/app/lib/venueFit.ts`) so unsuitable venues stay listed with their reasons.
 
+### Planning read contract
+
+Migration 0061 defines a versioned read contract for assistants and other readers outside the app. Its TypeScript shape is `src/app/data/planningContract.ts`, which has no imports so the assistant server can share it.
+
+- `get_event_plan(workspace, event)` returns `brie.event-plan/1`: the event (with its local date and team briefing), the linked venue, a booking summary (current status, next deadline, and step titles, statuses, and deadlines), open and done to-dos with due dates also expressed as days before the event, the run of show with minutes from the start and durations, and attendance.
+- `search_events(workspace, query, when, venue, limit)` returns `brie.event-search/1`: past, upcoming, or all events whose title, description, or location contain every query word, newest first, capped at 25. Each result carries its venue, a description excerpt, confirmed attendance, and to-do and schedule counts. Archived and canceled events are included and labeled, because they are history.
+
+The contract carries plans, not people. It never includes attendee names or emails, member names or emails, or who is assigned: only whether a to-do is assigned and how many people a schedule item has. Members get confirmed attendance totals, as in the app; first-time and repeat counts are for owners and organizers. Each RPC is a thin signed-in wrapper around an internal builder (`event_plan_json`, `event_search_json`) that takes the reader's role explicitly and is not callable by browser roles. Assistant access calls the same builders after resolving its own credential, so both paths return identical documents. Fixtures captured from the RPCs (`tests/fixtures/event-plan-v1.json`, `event-search-v1.json`) lock each field and its type; a breaking change needs a new contract version.
+
 ## Queries, caching, and performance
 
 - Query keys always include workspace, entity, filters, and page. On workspace switch/sign-out/removal clear scoped queries; do not show previous workspace data while loading the next. Refetch on window focus and after relevant writes; no live-collaboration claims.

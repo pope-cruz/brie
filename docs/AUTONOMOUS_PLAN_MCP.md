@@ -30,7 +30,7 @@ Drafted 2026-09-30 against `main` at `5f14b42`. This covers roadmap step 3's rem
 
 ### S2 — Planning read contract
 
-- A versioned JSON contract (`contract: "brie.event-plan/1"`) from security-definer RPCs: `get_event_plan(event_id)` (event, venue and booking status, to-dos without assignee emails, run of show, attendance totals and first-time/repeat counts only) and `search_prior_events(workspace_id, query, limit)` (title/description match plus venue and date filters, returning event summaries).
+- A versioned JSON contract (`contract: "brie.event-plan/1"`) from security-definer RPCs: `get_event_plan(event_id)` (event, venue and booking status, to-dos without assignee emails, run of show, attendance totals and first-time/repeat counts only) and `search_events(workspace_id, query, when, venue_id, limit)` (every query word in title, description, or location; `past`, `upcoming`, or `any`; optional venue; newest first, returning event summaries). The MCP `list_events` tool reuses it with an empty query.
 - No attendee names or emails. Members get the same read access they already have in the app (no attendance detail).
 - Tests: stable key set (a unit test that locks the TypeScript type against a fixture), role matrix (owner, organizer, member, non-member), archived events, and cross-workspace denial.
 - Document the contract in `docs/ARCHITECTURE.md`.
@@ -46,7 +46,7 @@ Drafted 2026-09-30 against `main` at `5f14b42`. This covers roadmap step 3's rem
 ### S4 — Read-only MCP server
 
 - Supabase Edge Function `supabase/functions/mcp/` using the MCP TypeScript SDK's stateless Streamable HTTP transport. `Authorization: Bearer <assistant token>`.
-- Tools: `list_events`, `get_event_plan`, `search_prior_events`, `list_venues`, `get_venue`, `get_attendance_summary` (totals only, owner/organizer tokens only). Each call resolves the token, checks scope and current role, calls the S2 RPCs, and writes an `assistant_actions` row.
+- Tools: `list_events`, `get_event_plan`, `search_events`, `list_venues`, `get_venue`, `get_attendance_summary` (totals only, owner/organizer tokens only). Each call resolves the token, checks scope and current role, calls the S2 RPCs, and writes an `assistant_actions` row.
 - Tool descriptions state the workspace boundary and that contact data is unavailable.
 - Tests: Deno tests for the handler (bad or missing token, scope denial, tool listing), plus an integration script that runs `supabase functions serve` against the local stack and calls each tool as owner/member/other-workspace tokens. Add it to the CI `browser` job (or a new `functions` job).
 - Docs: connecting from Claude Code with `claude mcp add --transport http brie <url>/functions/v1/mcp --header "Authorization: Bearer …"`, and the Operations notes for deploying the function later (a maintainer step).
@@ -60,7 +60,7 @@ Drafted 2026-09-30 against `main` at `5f14b42`. This covers roadmap step 3's rem
 
 ### S6 — Acceptance scenario and wrap-up
 
-- Seed two fictional past "founder dinner" events with to-dos, run of show, venue, and attendance. A scripted MCP client asks for "Plan a 40-person founder dinner based on our last two dinners" by calling `search_prior_events`, `get_event_plan` ×2, then `create_event_plan_draft`. The release browser suite then reviews and accepts the draft and checks the resulting event, cited events, and activity log.
+- Seed two fictional past "founder dinner" events with to-dos, run of show, venue, and attendance. A scripted MCP client asks for "Plan a 40-person founder dinner based on our last two dinners" by calling `search_events`, `get_event_plan` ×2, then `create_event_plan_draft`. The release browser suite then reviews and accepts the draft and checks the resulting event, cited events, and activity log.
 - Cross-workspace and member-role tests across the whole MCP surface.
 - Mark roadmap step 4 complete, with the production deploy steps (migrations, function deploy, secrets) listed as maintainer actions.
 

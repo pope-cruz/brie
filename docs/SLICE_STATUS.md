@@ -1,5 +1,11 @@
 # Slice completion ledger
 
+## Planning read contract — 2026-09-30
+
+Added `brie.event-plan/1` and `brie.event-search/1`, versioned JSON documents for reading an event's plan and finding past or upcoming events (`0061_planning_contract.sql`, `src/app/data/planningContract.ts`). They carry the event, venue, booking summary, to-dos, run of show, and attendance totals, but no attendee or member names or emails. First-time and repeat counts are owner/organizer-only. Internal builders take the reader's role so the upcoming assistant server returns the same documents. This is the first slice of roadmap step 4; no app screen uses it yet.
+
+Verification: 281 app tests (5 new), 371 database checks (25 new: role matrix, archived history, cross-workspace denial, search windows and limits, no email or attendee name in a plan), lint, and production build pass. Fixtures were captured from the real RPCs, not written by hand.
+
 ## Venue comparison — 2026-09-30
 
 The venue list now filters by text, type, and minimum capacity, sorts by name, capacity, or recent use, and shows each venue's past events and largest confirmed attendance. Two to four venues can be compared detail by detail (a table on desktop, one section per detail on phones). From an event, **Find a venue** checks each venue against the expected headcount, its lead time (request-by date), and other events linked to it at the same time; venues that need checking stay listed with the reason, and organizers can link one directly. `0060_venue_comparison.sql` adds the read-only `compare_venues` RPC. This completes roadmap step 3.

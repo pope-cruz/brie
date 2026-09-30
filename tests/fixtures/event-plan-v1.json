@@ -1,0 +1,101 @@
+{
+    "event": {
+        "id": "f7000000-0000-4000-8000-0000000000e1",
+        "title": "Spring founder dinner",
+        "endsAt": "2026-04-11T02:00:00+00:00",
+        "status": "completed",
+        "archived": false,
+        "location": "Loft",
+        "startsAt": "2026-04-10T23:00:00+00:00",
+        "timezone": "America/New_York",
+        "localDate": "2026-04-10",
+        "description": "A seated dinner for student founders.",
+        "teamBriefing": "Greet at the door."
+    },
+    "todos": [
+        {
+            "notes": "Vegetarian options",
+            "title": "Book caterer",
+            "status": "done",
+            "dueDate": "2026-03-27",
+            "assigned": true,
+            "dueDaysBeforeEvent": 14
+        },
+        {
+            "notes": "",
+            "title": "Print name cards",
+            "status": "todo",
+            "dueDate": null,
+            "assigned": false,
+            "dueDaysBeforeEvent": null
+        }
+    ],
+    "venue": {
+        "id": "f7000000-0000-4000-8000-0000000000d1",
+        "name": "Loft",
+        "notes": "",
+        "address": "",
+        "archived": false,
+        "capacity": 50,
+        "costNotes": "",
+        "equipment": "",
+        "venueType": "outside",
+        "leadTimeDays": 21,
+        "restrictions": "",
+        "accessibility": ""
+    },
+    "booking": {
+        "steps": [
+            {
+                "title": "Inquiry",
+                "status": "not_started",
+                "deadline": "2026-03-20"
+            },
+            {
+                "title": "Quote",
+                "status": "not_started",
+                "deadline": "2026-03-27"
+            },
+            {
+                "title": "Hold",
+                "status": "not_started",
+                "deadline": "2026-04-03"
+            },
+            {
+                "title": "Confirmed",
+                "status": "not_started",
+                "deadline": "2026-04-10"
+            }
+        ],
+        "venueName": "Loft",
+        "nextDeadline": "2026-03-20",
+        "currentStatus": "Not started",
+        "currentStepTitle": "Inquiry"
+    },
+    "contract": "brie.event-plan/1",
+    "schedule": [
+        {
+            "title": "Doors",
+            "endsAt": "2026-04-10T23:30:00+00:00",
+            "startsAt": "2026-04-10T23:00:00+00:00",
+            "peopleCount": 1,
+            "instructions": "Check names",
+            "durationMinutes": 30,
+            "minutesFromStart": 0
+        },
+        {
+            "title": "Dinner",
+            "endsAt": "2026-04-11T01:00:00+00:00",
+            "startsAt": "2026-04-10T23:30:00+00:00",
+            "peopleCount": 0,
+            "instructions": "",
+            "durationMinutes": 90,
+            "minutesFromStart": 30
+        }
+    ],
+    "attendance": {
+        "repeat": 1,
+        "confirmed": 2,
+        "firstTime": 1
+    }
+}

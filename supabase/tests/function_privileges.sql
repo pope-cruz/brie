@@ -22,7 +22,7 @@ select is(
     where n.nspname = 'public' and p.prosecdef
       and has_function_privilege('authenticated', p.oid, 'execute')
       and p.proname <> all (array[
-        'accept_invitation', 'archive_booking_log_entry', 'archive_event', 'archive_event_booking', 'archive_venue', 'begin_workspace_attendance_export', 'change_member_role', 'commit_attendance_import', 'compare_venues',
+        'accept_invitation', 'archive_booking_log_entry', 'archive_event', 'archive_event_booking', 'archive_venue', 'begin_workspace_attendance_export', 'change_member_role', 'commit_attendance_import', 'compare_venues', 'get_event_plan', 'search_events',
         'create_event', 'create_invitation', 'create_workspace', 'delete_import_source', 'duplicate_event', 'export_event_attendance', 'export_workspace_attendance',
         'get_attendee_detail', 'get_booking_request_checks', 'get_booking_request_draft', 'get_event', 'get_event_attendance_groups', 'get_event_booking', 'get_event_venue', 'get_import_preview', 'get_import_receipt', 'get_import_source', 'get_venue', 'get_venue_booking_steps',
         'get_workspace', 'list_archived_event_bookings', 'list_attendance_groups', 'list_attendance_history', 'list_booking_log_entries', 'list_event_attendance_groups', 'list_event_imports', 'list_event_people',

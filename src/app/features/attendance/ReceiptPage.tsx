@@ -2,10 +2,17 @@ import { useState } from 'react'
 import { Link, useOutletContext, useParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Button, ConfirmDialog, ErrorRetry, StatusBadge } from '../../components/ui'
-import { getImportReceipt, previewRevertImport, revertAttendanceImport } from '../../data/api'
+import {
+  deleteImportSource,
+  getImportReceipt,
+  getImportSource,
+  previewRevertImport,
+  revertAttendanceImport,
+} from '../../data/api'
 import type { WorkspaceSummary } from '../../data/api'
 import { toAppError } from '../../data/errors'
 import type { EventRecord } from '../../data/types'
+import { sourceRowsCsv } from '../../lib/attendanceExport'
 
 export function ReceiptPage() {
   const { workspace, event } = useOutletContext<{ workspace: WorkspaceSummary; event: EventRecord }>()
@@ -14,6 +21,8 @@ export function ReceiptPage() {
   const [confirm, setConfirm] = useState(false)
   const [pending, setPending] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [confirmDeleteSource, setConfirmDeleteSource] = useState(false)
+  const [sourceBusy, setSourceBusy] = useState(false)
   const receipt = useQuery({
     queryKey: ['receipt', workspace.id, batchId],
     queryFn: () => getImportReceipt(workspace.id, batchId),
@@ -23,6 +32,29 @@ export function ReceiptPage() {
     queryFn: () => previewRevertImport(workspace.id, batchId),
     enabled: confirm,
   })
+
+  async function downloadSource() {
+    if (!receipt.data) return
+    setSourceBusy(true)
+    setError(null)
+    try {
+      const source = await getImportSource(workspace.id, batchId)
+      const url = URL.createObjectURL(
+        new Blob([sourceRowsCsv(source.headers, source.rows)], { type: 'text/csv;charset=utf-8' }),
+      )
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `original-${receipt.data.fileLabel.replace(/\.csv$/i, '')}.csv`
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      window.setTimeout(() => URL.revokeObjectURL(url), 0)
+    } catch (caught) {
+      setError(toAppError(caught).message)
+    } finally {
+      setSourceBusy(false)
+    }
+  }
 
   if (receipt.isError) {
     return <ErrorRetry message={toAppError(receipt.error).message} onRetry={() => receipt.refetch()} />
@@ -45,6 +77,45 @@ export function ReceiptPage() {
       <p className="app-meta">
         Imported by {receipt.data.importedBy} at {new Date(receipt.data.committedAt).toLocaleString()}
       </p>
+      {receipt.data.sourceRowCount != null && receipt.data.sourceDeleteAfter ? (
+        <div className="app-field">
+          <p className="app-meta">
+            {receipt.data.sourceRowCount} original rows kept until{' '}
+            {new Date(receipt.data.sourceDeleteAfter).toLocaleDateString()}. Only owners and organizers can download them.
+          </p>
+          <div className="app-toolbar">
+            <Button variant="secondary" busy={sourceBusy} onClick={downloadSource}>
+              Download original rows
+            </Button>
+            <Button variant="secondary" onClick={() => setConfirmDeleteSource(true)}>
+              Delete original rows
+            </Button>
+          </div>
+        </div>
+      ) : null}
+      {confirmDeleteSource ? (
+        <ConfirmDialog
+          title="Delete the original rows?"
+          body="The kept copy of this file’s rows is deleted now. Attendance and this receipt don’t change."
+          actionLabel="Delete original rows"
+          danger
+          pending={sourceBusy}
+          onCancel={() => setConfirmDeleteSource(false)}
+          onConfirm={async () => {
+            setSourceBusy(true)
+            setError(null)
+            try {
+              await deleteImportSource(workspace.id, batchId)
+              setConfirmDeleteSource(false)
+              queryClient.invalidateQueries({ queryKey: ['receipt'] })
+            } catch (caught) {
+              setError(toAppError(caught).message)
+            } finally {
+              setSourceBusy(false)
+            }
+          }}
+        />
+      ) : null}
       {receipt.data.status === 'active' ? (
         <Button variant="secondary" onClick={() => setConfirm(true)}>
           Revert import

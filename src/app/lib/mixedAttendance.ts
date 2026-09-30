@@ -217,10 +217,11 @@ export function classifyMixedRows(
   })
 }
 
-// Rows for prepare_mixed_attendance_import. Unmapped columns are left out.
-export function mixedImportRows(rows: Row[], mapping: ColumnMapping) {
+// Rows for prepare_mixed_attendance_import. Unmapped columns are left out unless
+// the organizer chose to keep the original rows, which sends every cell as values.
+export function mixedImportRows(rows: Row[], mapping: ColumnMapping, keepSource = false) {
   return rows.map((row) => {
-    const item: Record<string, string | number> = {
+    const item: Record<string, string | number | string[]> = {
       rowNumber: row.rowNumber,
       email: cellAt(row, mapping.email),
       name: cellAt(row, mapping.name),
@@ -228,6 +229,7 @@ export function mixedImportRows(rows: Row[], mapping: ColumnMapping) {
     for (const field of ['rsvp', 'attendance', 'timestamp', 'phone', 'affiliation'] as const) {
       if (mapping[field] != null) item[field] = cellAt(row, mapping[field])
     }
+    if (keepSource) item.values = row.values
     return item
   })
 }

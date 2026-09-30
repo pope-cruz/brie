@@ -219,3 +219,30 @@ describe('repeat import review', () => {
     expect([...host.querySelectorAll('button')].map((el) => el.textContent)).not.toContain('Apply')
   })
 })
+
+describe('keeping original rows', () => {
+  it('sends every cell and the original headers only when the organizer opts in', async () => {
+    api.prepareMixedAttendanceImport.mockResolvedValue(lumaPreview)
+    await mount()
+    await upload('mixed-attendance-luma.csv', fixture('mixed-attendance-luma.csv'))
+    await choose(byAria('What each attendance value means: any value'), 'attended')
+    const keep = [...host.querySelectorAll('label')].find((el) => el.textContent?.startsWith('Keep the original rows'))!
+      .querySelector('input')!
+    expect(keep.checked).toBe(false)
+    await click('Review')
+    const plain = api.prepareMixedAttendanceImport.mock.calls[0][0]
+    expect(plain.mapping.keepSource).toBeUndefined()
+    expect(plain.mapping.headers).toBeUndefined()
+    expect(plain.rows[0].values).toBeUndefined()
+
+    await click('Back')
+    const keepAgain = [...host.querySelectorAll('label')].find((el) => el.textContent?.startsWith('Keep the original rows'))!
+      .querySelector('input')!
+    await act(async () => keepAgain.click())
+    await click('Review')
+    const kept = api.prepareMixedAttendanceImport.mock.calls[1][0]
+    expect(kept.mapping.keepSource).toBe(true)
+    expect(kept.mapping.headers).toEqual(['name', 'email', 'phone_number', 'approval_status', 'checked_in_at', 'created_at'])
+    expect(kept.rows[7].values).toEqual(['Sasha Quinn', '', '+12125550188', 'approved', '2026-09-12 18:30:00', '2026-09-06 10:05:00'])
+  })
+})

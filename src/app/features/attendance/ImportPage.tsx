@@ -256,6 +256,8 @@ export function ImportPage() {
   const [fileLabel, setFileLabel] = useState('attendance.csv')
   const [fileHash, setFileHash] = useState('')
   const [headers, setHeaders] = useState<string[]>([])
+  const [originalHeaders, setOriginalHeaders] = useState<string[]>([])
+  const [keepSource, setKeepSource] = useState(false)
   const [rows, setRows] = useState<Row[]>([])
   const [blankCount, setBlankCount] = useState(0)
   const [columns, setColumns] = useState<ColumnMapping>(NO_COLUMNS)
@@ -294,6 +296,8 @@ export function ImportPage() {
       setFileLabel(file.name.slice(0, 120) || 'attendance.csv')
       setFileHash(await fileSha256Hex(buffer))
       setHeaders(parsed.headerLabels)
+      setOriginalHeaders(parsed.headers)
+      setKeepSource(false)
       setRows(parsed.rows)
       setBlankCount(parsed.blankRowCount)
       const guess = guessColumns(parsed.headerLabels)
@@ -356,9 +360,10 @@ export function ImportPage() {
               timestampIndex: mixedColumns.timestamp,
               phoneIndex: mixedColumns.phone,
               affiliationIndex: mixedColumns.affiliation,
+              ...(keepSource ? { keepSource: true, headers: originalHeaders } : {}),
             },
             statusMap,
-            rows: mixedImportRows(rows, mixedColumns),
+            rows: mixedImportRows(rows, mixedColumns, keepSource),
             blankCount,
           })
         : await prepareAttendanceImport({
@@ -543,6 +548,16 @@ export function ImportPage() {
                 emptyLabel="Ignore"
                 onChange={(value) => setColumn('affiliation', value)}
               />
+              <label className="app-field" style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+                <input type="checkbox" checked={keepSource} onChange={(event) => setKeepSource(event.target.checked)} />
+                <span>
+                  Keep the original rows with this import
+                  <span className="app-meta" style={{ display: 'block' }}>
+                    Every column of every row, for organizers to download from the import receipt. They’re deleted after
+                    180 days, when the import is reverted, or when you delete them. Leave this off if you don’t need them.
+                  </span>
+                </span>
+              </label>
               {!ruleMarksAttended(attendanceRule) ? (
                 <p className="app-banner app-banner-warning">
                   No value is marked Attended yet, so nobody in this file will be counted.
@@ -580,6 +595,9 @@ export function ImportPage() {
           <p className="app-meta">
             {preview.counts.newAttendance} new · {preview.counts.alreadyRecorded} already recorded at this event
           </p>
+          {preview.keepSource ? (
+            <p className="app-meta">The original rows will be kept with this import for 180 days.</p>
+          ) : null}
           <ProposedChanges rows={preview.rows} />
           {PREVIEW_GROUPS.filter((group) => (grouped.get(group)?.length ?? 0) > 0).map((group) => (
             <PreviewGroupSection key={group} group={group} rows={grouped.get(group) ?? []} />

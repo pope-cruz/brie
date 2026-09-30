@@ -414,7 +414,7 @@ export async function prepareMixedAttendanceImport(input: {
   fileHash: string
   mapping: Record<string, unknown>
   statusMap: StatusMap
-  rows: Array<Record<string, string | number>>
+  rows: Array<Record<string, string | number | string[]>>
   blankCount: number
 }) {
   return rpc<ImportPreview>('prepare_mixed_attendance_import', {
@@ -485,6 +485,20 @@ export async function listEventImports(workspaceId: string, eventId: string) {
 
 export async function getImportReceipt(workspaceId: string, batchId: string) {
   return rpc<ImportReceipt>('get_import_receipt', {
+    p_workspace_id: workspaceId,
+    p_batch_id: batchId,
+  })
+}
+
+export async function getImportSource(workspaceId: string, batchId: string) {
+  return rpc<{ headers: string[]; rows: string[][]; deleteAfter: string }>('get_import_source', {
+    p_workspace_id: workspaceId,
+    p_batch_id: batchId,
+  })
+}
+
+export async function deleteImportSource(workspaceId: string, batchId: string) {
+  return rpc<ImportReceipt>('delete_import_source', {
     p_workspace_id: workspaceId,
     p_batch_id: batchId,
   })

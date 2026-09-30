@@ -137,6 +137,9 @@ export type ImportReceipt = {
   skipped: number
   status: ImportBatchStatus
   revertedAt: string | null
+  // Set while the import's original rows are kept (mixed imports, opt-in).
+  sourceRowCount?: number | null
+  sourceDeleteAfter?: string | null
 }
 
 export type PreviewOutcome =
@@ -158,6 +161,7 @@ export type ImportPreview = {
   existingReceiptId: string | null
   // Null for previews made by prepare_attendance_import (every valid row attended).
   statusMap?: StatusMap | null
+  keepSource?: boolean
   counts: {
     newAttendance: number
     alreadyRecorded: number

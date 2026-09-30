@@ -1,3 +1,5 @@
+import type { AttendanceStatus, RsvpStatus, StatusMap } from '../lib/mixedAttendance'
+
 export type MemberRole = 'owner' | 'organizer' | 'member'
 export type EventStatus = 'draft' | 'planned' | 'completed' | 'canceled'
 export type TaskStatus = 'todo' | 'done'
@@ -143,6 +145,8 @@ export type PreviewOutcome =
   | 'duplicate'
   | 'invalid'
   | 'blank_ignored'
+  | 'not_counted'
+  | 'unresolved'
 
 export type ImportPreview = {
   id: string
@@ -152,6 +156,8 @@ export type ImportPreview = {
   fileLabel: string
   fileHash: string
   existingReceiptId: string | null
+  // Null for previews made by prepare_attendance_import (every valid row attended).
+  statusMap?: StatusMap | null
   counts: {
     newAttendance: number
     alreadyRecorded: number
@@ -159,6 +165,8 @@ export type ImportPreview = {
     invalid: number
     blank: number
     accepted: number
+    notCounted?: number
+    unresolved?: number
   }
   rows: Array<{
     rowNumber: number
@@ -166,6 +174,13 @@ export type ImportPreview = {
     email: string
     outcome: PreviewOutcome
     reason: string
+    rsvp?: RsvpStatus
+    attendance?: AttendanceStatus
+    rsvpSource?: string | null
+    attendanceSource?: string | null
+    timestamp?: string | null
+    phone?: string | null
+    affiliation?: string | null
   }>
 }
 

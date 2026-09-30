@@ -1,4 +1,4 @@
--- Mixed attendance imports. PR 2 checks run; later PRs stay skipped.
+-- Mixed attendance imports. PR 2 and PR 3 checks run; later PRs stay skipped.
 -- Fixtures (the database cannot read these files during supabase test db, so the
 -- rows are copied below with the organizer's source columns sent as rsvp/attendance):
 --   tests/fixtures/mixed-attendance-luma.csv
@@ -17,7 +17,7 @@
 -- Pending tests use skip(), not todo(). A failing TODO is still reported as a
 -- failure line, and tests/reliability/run.py treats that line as a failed file.
 begin;
-select plan(54);
+select plan(58);
 
 insert into auth.users (id, email) values
  ('e5000000-0000-4000-8000-000000000001', 'mixed-owner@example.test'),
@@ -160,6 +160,30 @@ select is(pg_temp.staged(current_setting('test.luma_id'), 7), 'mira.okonkwo@exam
 select is(pg_temp.staged(current_setting('test.google_id'), 6), 'elio.marquez@example.test/yes/no_show/duplicate',
   'Google row 6 repeats elio.marquez@example.test and is a duplicate');
 
+-- PR 3. Timestamp, phone, and affiliation are staged for review only.
+select is((select concat_ws('/', phone_source, timestamp_source, affiliation_source) from public.import_preview_rows
+    where preview_id = current_setting('test.luma_id')::uuid and source_row_number = 9), '+12125550188',
+  'The email-less Luma row keeps its phone for review; unmapped context columns stay empty');
+select is((select x->>'phone' from jsonb_array_elements(current_setting('test.luma')::jsonb->'rows') x
+    where (x->>'rowNumber')::integer = 9), '+12125550188',
+  'The preview response carries the phone of the row that needs review');
+set local role authenticated;
+select set_config('test.context_id', public.prepare_mixed_attendance_import(
+  'e5000000-0000-4000-8000-0000000000aa', 'e5000000-0000-4000-8000-0000000000e1',
+  'context.csv', 'hash-context', 'brie-csv-1', '{}',
+  '{"attendance": {"otherNonBlank": "attended"}}',
+  '[{"rowNumber": 2, "email": "sasha.quinn@example.test", "name": "Sasha Quinn", "attendance": "x", "phone": "+12125550184", "affiliation": "Lumen Lab", "timestamp": "2026-09-06 10:01:00"},
+    {"rowNumber": 3, "email": "", "name": "Sasha Quinn", "attendance": "x", "phone": "+12125550184", "affiliation": "Lumen Lab", "timestamp": "2026-09-06 10:01:00"},
+    {"rowNumber": 4, "email": "noor.elsayed@example.test", "name": "Noor El-Sayed", "phone": "+12125550163", "timestamp": "yes"}]', 0)->>'id', true);
+reset role;
+select is(array(select outcome || '/' || attendance_status from public.import_preview_rows
+    where preview_id = current_setting('test.context_id')::uuid order by position),
+  array['new/attended', 'unresolved/attended', 'not_counted/unknown'],
+  'A matching phone, affiliation, or timestamp never resolves a row or sets attendance');
+select is((select affiliation_source || ' ' || timestamp_source from public.import_preview_rows
+    where preview_id = current_setting('test.context_id')::uuid and source_row_number = 2), 'Lumen Lab 2026-09-06 10:01:00',
+  'Affiliation and timestamp are staged as source text');
+
 select is(current_setting('test.luma')::jsonb->'counts',
   '{"newAttendance":3,"alreadyRecorded":0,"duplicates":1,"invalid":0,"blank":0,"accepted":3,"notCounted":3,"unresolved":1}'::jsonb,
   'Luma preview counts partition all eight rows; only three will count');
@@ -195,7 +219,8 @@ select is((select jsonb_agg(x->>'email') from jsonb_array_elements(public.export
 reset role;
 select is((select array_agg(c.source_row_number order by c.source_row_number)
     from public.attendance_contributions c join public.attendees a on a.id = c.attendee_id
-    where a.email_normalized = 'mira.okonkwo@example.test'), array[2],
+    where a.workspace_id = 'e5000000-0000-4000-8000-0000000000aa'
+      and a.email_normalized = 'mira.okonkwo@example.test'), array[2],
   'The duplicate Mira row adds no second contribution');
 select is((select count(*)::integer from public.attendees
     where workspace_id = 'e5000000-0000-4000-8000-0000000000aa'

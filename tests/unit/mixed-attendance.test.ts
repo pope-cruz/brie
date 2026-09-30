@@ -1,10 +1,20 @@
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import { parseAttendanceCsv, type ParsedCsv } from '../../src/app/lib/csv'
+import {
+  applyStatusRule,
+  classifyMixedRows,
+  guessColumns,
+  looksLikeTimes,
+  mixedImportRows,
+  sampleSourceValues as sampleValues,
+  suggestRsvpRule,
+  type StatusMap,
+} from '../../src/app/lib/mixedAttendance'
 
 /**
  * Target contract for mixed attendance imports. Outcome tests stay skipped
- * until the PR named in each title. Database storage, contribution counts,
+ * until the PR named in each title; PR 3 tests run against src/app/lib/mixedAttendance.ts. Database storage, contribution counts,
  * unresolved identity, and privileges are checked in
  * supabase/tests/attendance_mixed.sql (PR 2); rollback stays pending there.
  *
@@ -45,18 +55,50 @@ function cell(parsed: ParsedCsv, rowNumber: number, header: string): string {
   return row.values[index] ?? ''
 }
 
+const FIXTURE_FILES: Record<string, string> = {
+  luma: 'mixed-attendance-luma.csv',
+  'google-form': 'mixed-attendance-google-form.csv',
+}
+
+// The organizer map described at the top of this file.
+const ORGANIZER_MAPS: Record<string, StatusMap> = {
+  luma: {
+    rsvp: { values: { approved: 'yes', declined: 'no' }, otherNonBlank: null },
+    attendance: { values: {}, otherNonBlank: 'attended' },
+  },
+  'google-form': {
+    rsvp: { values: { Yes: 'yes', No: 'no' }, otherNonBlank: null },
+    attendance: { values: { Yes: 'attended', No: 'no_show' }, otherNonBlank: null },
+  },
+}
+
 function classifyRow(fixture: string, rowNumber: number, attendanceMapped: boolean): ClassifiedRow {
-  throw new Error(
-    `Pending classification for ${fixture} row ${rowNumber} (attendance mapped: ${attendanceMapped}). Unskip only in the PR named on the test.`,
+  const parsed = readFixture(FIXTURE_FILES[fixture])
+  const guessed = guessColumns(parsed.headerLabels)
+  const mapping = { ...guessed, attendance: attendanceMapped ? guessed.attendance : null }
+  const row = classifyMixedRows(parsed.rows, mapping, ORGANIZER_MAPS[fixture]).find(
+    (item) => item.rowNumber === rowNumber,
   )
+  if (!row) throw new Error(`Missing ${fixture} row ${rowNumber}`)
+  return row as unknown as ClassifiedRow
 }
 
 function sampleSourceValues(fixture: string, header: string): string[] {
-  throw new Error(`Pending sample values for ${fixture} column ${header}. Enabled by PR 3.`)
+  const parsed = readFixture(FIXTURE_FILES[fixture])
+  return sampleValues(parsed.rows, parsed.headerLabels.indexOf(header))
 }
 
 function mappedColumns(fixture: string): Record<string, string | null> {
-  throw new Error(`Pending column mapping for ${fixture}. Enabled by PR 3.`)
+  const parsed = readFixture(FIXTURE_FILES[fixture])
+  const guessed = guessColumns(parsed.headerLabels)
+  const label = (index: number | null) => (index == null ? null : parsed.headerLabels[index])
+  return {
+    rsvp: label(guessed.rsvp),
+    attendance: label(guessed.attendance),
+    timestamp: label(guessed.timestamp),
+    phone: label(guessed.phone),
+    affiliation: label(guessed.affiliation),
+  }
 }
 
 function repeatLumaImport(scenario: string): {
@@ -137,8 +179,8 @@ describe('mixed attendance fixtures', () => {
 })
 
 describe('mixed attendance target outcomes', () => {
-  // Enabled by PR 3: mapping UI. Unskip when the organizer map is applied.
-  it.skip('PR 3: checked-in rows keep RSVP yes separate from attendance attended', () => {
+  // PR 3: mapping UI with the organizer map applied.
+  it('PR 3: checked-in rows keep RSVP yes separate from attendance attended', () => {
     expect(classifyRow('luma', 2, true)).toMatchObject({
       email: 'mira.okonkwo@example.test',
       name: 'Mira Okonkwo',
@@ -153,8 +195,8 @@ describe('mixed attendance target outcomes', () => {
     })
   })
 
-  // Enabled by PR 3. A blank check-in is unknown, not attended.
-  it.skip('PR 3: RSVP yes with a blank check-in stays attendance unknown', () => {
+  // PR 3. A blank check-in is unknown, not attended.
+  it('PR 3: RSVP yes with a blank check-in stays attendance unknown', () => {
     expect(classifyRow('luma', 3, true)).toMatchObject({
       email: 'jules.navarro@example.test',
       rsvp: 'yes',
@@ -167,8 +209,8 @@ describe('mixed attendance target outcomes', () => {
     })
   })
 
-  // Enabled by PR 3. Declined / RSVP no does not set attendance.
-  it.skip('PR 3: RSVP no stays separate and does not set attendance', () => {
+  // PR 3. Declined / RSVP no does not set attendance.
+  it('PR 3: RSVP no stays separate and does not set attendance', () => {
     expect(classifyRow('luma', 4, true)).toMatchObject({
       email: 'ren.sato@example.test',
       rsvp: 'no',
@@ -181,8 +223,8 @@ describe('mixed attendance target outcomes', () => {
     })
   })
 
-  // Enabled by PR 3. The organizer explicitly mapped check-in "No" to no-show.
-  it.skip('PR 3: an explicit no-show value stays no-show while RSVP stays yes', () => {
+  // PR 3. The organizer explicitly mapped check-in "No" to no-show.
+  it('PR 3: an explicit no-show value stays no-show while RSVP stays yes', () => {
     expect(classifyRow('google-form', 3, true)).toMatchObject({
       email: 'elio.marquez@example.test',
       rsvp: 'yes',
@@ -196,8 +238,8 @@ describe('mixed attendance target outcomes', () => {
     })
   })
 
-  // Enabled by PR 3. Blank RSVP and blank attendance are unknown.
-  it.skip('PR 3: a blank status is unknown for both RSVP and attendance', () => {
+  // PR 3. Blank RSVP and blank attendance are unknown.
+  it('PR 3: a blank status is unknown for both RSVP and attendance', () => {
     expect(classifyRow('luma', 5, true)).toMatchObject({
       email: 'noor.elsayed@example.test',
       rsvp: 'unknown',
@@ -210,8 +252,8 @@ describe('mixed attendance target outcomes', () => {
     })
   })
 
-  // Enabled by PR 3. Unrecognized attendance values default to unknown.
-  it.skip('PR 3: an unrecognized attendance value defaults to unknown', () => {
+  // PR 3. Unrecognized attendance values default to unknown.
+  it('PR 3: an unrecognized attendance value defaults to unknown', () => {
     expect(classifyRow('google-form', 9, true)).toMatchObject({
       email: 'niall.berg@example.test',
       rsvp: 'yes',
@@ -219,8 +261,8 @@ describe('mixed attendance target outcomes', () => {
     })
   })
 
-  // Enabled by PR 3. Unmapped attendance defaults to unknown, including a check-in timestamp.
-  it.skip('PR 3: an unmapped attendance column defaults every row to unknown', () => {
+  // PR 3. Unmapped attendance defaults to unknown, including a check-in timestamp.
+  it('PR 3: an unmapped attendance column defaults every row to unknown', () => {
     expect(classifyRow('luma', 2, false)).toMatchObject({
       email: 'mira.okonkwo@example.test',
       rsvp: 'yes',
@@ -233,8 +275,8 @@ describe('mixed attendance target outcomes', () => {
     })
   })
 
-  // Enabled by PR 3. Distinct non-blank source values, first-seen order.
-  it.skip('PR 3: mapping shows sample source values for RSVP and attendance columns', () => {
+  // PR 3. Distinct non-blank source values, first-seen order.
+  it('PR 3: mapping shows sample source values for RSVP and attendance columns', () => {
     expect(sampleSourceValues('luma', 'approval_status')).toEqual(['approved', 'declined'])
     expect(sampleSourceValues('luma', 'checked_in_at')).toEqual([
       '2026-09-12 18:04:00',
@@ -246,8 +288,8 @@ describe('mixed attendance target outcomes', () => {
     expect(sampleSourceValues('google-form', 'Checked in at the door?')).toEqual(['Yes', 'No', 'Maybe'])
   })
 
-  // Enabled by PR 3. These columns are optional context, not identity or attendance.
-  it.skip('PR 3: phone, timestamp, and affiliation columns are optional and do not set attendance', () => {
+  // PR 3. These columns are optional context, not identity or attendance.
+  it('PR 3: phone, timestamp, and affiliation columns are optional and do not set attendance', () => {
     expect(mappedColumns('luma')).toEqual({
       rsvp: 'approval_status',
       attendance: 'checked_in_at',
@@ -369,6 +411,83 @@ describe('mixed attendance target outcomes', () => {
       additions: [],
       changes: [{ email: 'mira.okonkwo@example.test', field: 'name', from: 'Mira Okonkwo', to: 'Mira O.' }],
       attendanceCount: 3,
+    })
+  })
+})
+
+describe('mixed attendance mapping helpers', () => {
+  it('guesses no status columns for a plain name and email file', () => {
+    expect(guessColumns(['name', 'email'])).toEqual({
+      email: 1,
+      name: 0,
+      rsvp: null,
+      attendance: null,
+      timestamp: null,
+      phone: null,
+      affiliation: null,
+    })
+  })
+
+  it('matches the server: blank is unknown, values compare trimmed and case-insensitively', () => {
+    expect(applyStatusRule('  YES ', { values: { yes: 'attended' }, otherNonBlank: null })).toBe('attended')
+    expect(applyStatusRule('', { values: {}, otherNonBlank: 'attended' })).toBe('unknown')
+    expect(applyStatusRule('   ', { values: {}, otherNonBlank: 'attended' })).toBe('unknown')
+    expect(applyStatusRule('late', { values: { yes: 'attended' }, otherNonBlank: null })).toBe('unknown')
+    expect(applyStatusRule('late', { values: { yes: 'attended' }, otherNonBlank: 'no_show' })).toBe('no_show')
+    expect(applyStatusRule('yes', null)).toBe('unknown')
+  })
+
+  it('suggests obvious RSVP values but never attendance', () => {
+    expect(suggestRsvpRule(['approved', 'declined', 'waitlist']).values).toEqual({
+      approved: 'yes',
+      declined: 'no',
+      waitlist: 'unknown',
+    })
+  })
+
+  it('treats a column of check-in times as one choice', () => {
+    expect(looksLikeTimes(sampleValues(readFixture('mixed-attendance-luma.csv').rows, 4))).toBe(true)
+    expect(looksLikeTimes(['Yes', 'No', 'Maybe'])).toBe(false)
+    expect(looksLikeTimes([])).toBe(false)
+  })
+
+  it('agrees with the database preview counts for both fixtures', () => {
+    for (const [fixture, expected] of [
+      ['luma', { new: 3, not_counted: 3, duplicate: 1, invalid: 0, unresolved: 1 }],
+      ['google-form', { new: 1, not_counted: 6, duplicate: 1, invalid: 0, unresolved: 1 }],
+    ] as const) {
+      const parsed = readFixture(FIXTURE_FILES[fixture])
+      const counts = { new: 0, not_counted: 0, duplicate: 0, invalid: 0, unresolved: 0 }
+      for (const row of classifyMixedRows(parsed.rows, guessColumns(parsed.headerLabels), ORGANIZER_MAPS[fixture])) {
+        counts[row.outcome] += 1
+      }
+      expect(counts).toEqual(expected)
+    }
+  })
+
+  it('never uses phone, timestamp, or affiliation to set attendance or identity', () => {
+    const parsed = readFixture('mixed-attendance-google-form.csv')
+    const guessed = guessColumns(parsed.headerLabels)
+    const withContext = classifyMixedRows(parsed.rows, guessed, ORGANIZER_MAPS['google-form'])
+    const withoutContext = classifyMixedRows(
+      parsed.rows,
+      { ...guessed, timestamp: null, phone: null, affiliation: null },
+      ORGANIZER_MAPS['google-form'],
+    )
+    expect(withContext).toEqual(withoutContext)
+  })
+
+  it('sends only mapped columns to the server', () => {
+    const parsed = readFixture('mixed-attendance-luma.csv')
+    const [first] = mixedImportRows(parsed.rows, { ...guessColumns(parsed.headerLabels), affiliation: null })
+    expect(first).toEqual({
+      rowNumber: 2,
+      email: 'mira.okonkwo@example.test',
+      name: 'Mira Okonkwo',
+      rsvp: 'approved',
+      attendance: '2026-09-12 18:04:00',
+      timestamp: '2026-09-01 09:12:00',
+      phone: '+12125550148',
     })
   })
 })

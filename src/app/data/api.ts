@@ -1,6 +1,7 @@
 import { FunctionsHttpError } from '@supabase/supabase-js'
 import { getSupabase, rpc } from './client'
 import { toAppError } from './errors'
+import type { StatusMap } from '../lib/mixedAttendance'
 import type {
   AttendanceExportRow,
   EventRecord,
@@ -401,6 +402,29 @@ export async function prepareAttendanceImport(input: {
     p_file_hash: input.fileHash,
     p_parser_version: 'brie-csv-1',
     p_mapping: input.mapping,
+    p_rows: input.rows,
+    p_blank_count: input.blankCount,
+  })
+}
+
+export async function prepareMixedAttendanceImport(input: {
+  workspaceId: string
+  eventId: string
+  fileLabel: string
+  fileHash: string
+  mapping: Record<string, unknown>
+  statusMap: StatusMap
+  rows: Array<Record<string, string | number>>
+  blankCount: number
+}) {
+  return rpc<ImportPreview>('prepare_mixed_attendance_import', {
+    p_workspace_id: input.workspaceId,
+    p_event_id: input.eventId,
+    p_file_label: input.fileLabel,
+    p_file_hash: input.fileHash,
+    p_parser_version: 'brie-csv-1',
+    p_mapping: input.mapping,
+    p_status_map: input.statusMap,
     p_rows: input.rows,
     p_blank_count: input.blankCount,
   })

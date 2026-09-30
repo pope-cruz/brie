@@ -143,6 +143,10 @@ Migration 0031 lets an organizer keep a mixed import's original rows. It is off 
 
 Compute impact under the same event revision: count people whose only active contribution is the target batch; count those supported by another batch. Confirmation submits that revision and batch version. Lock, recheck permission/archive state and versions, set reverted timestamp/actor, increment event revision, append audit entry, commit. Do not delete people or other contributions. History uses active contributions immediately. A subsequent correction is a new import; there is no unrevert command.
 
+### Venue comparison
+
+`compare_venues(workspace, include_archived, event)` (migration 0060) returns every venue with its past use: the count of past, non-canceled linked events, the most recent event-local date, and the largest confirmed attendance among them. Given an event, each venue also gets a request-by date (the event's local day minus the venue lead time), whether that date has passed, whether the event already links it, and the other active, non-canceled events linked to it at an overlapping time. Members can call it, as they can read the directory. The expected headcount is a filter on the page, not a stored event field. Filtering, ranking, and the reasons a venue fits or needs checking are computed in the browser (`src/app/lib/venueFit.ts`) so unsuitable venues stay listed with their reasons.
+
 ## Queries, caching, and performance
 
 - Query keys always include workspace, entity, filters, and page. On workspace switch/sign-out/removal clear scoped queries; do not show previous workspace data while loading the next. Refetch on window focus and after relevant writes; no live-collaboration claims.

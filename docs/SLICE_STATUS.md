@@ -1,5 +1,11 @@
 # Slice completion ledger
 
+## Venue comparison — 2026-09-30
+
+The venue list now filters by text, type, and minimum capacity, sorts by name, capacity, or recent use, and shows each venue's past events and largest confirmed attendance. Two to four venues can be compared detail by detail (a table on desktop, one section per detail on phones). From an event, **Find a venue** checks each venue against the expected headcount, its lead time (request-by date), and other events linked to it at the same time; venues that need checking stay listed with the reason, and organizers can link one directly. `0060_venue_comparison.sql` adds the read-only `compare_venues` RPC. This completes roadmap step 3.
+
+Verification: 276 app tests (18 new), 346 database checks (14 new), lint, and production build pass. In the local browser, the list, event fit, linking, and comparison were checked at desktop width and 375px with no horizontal scroll or console errors, using a fictional workspace `Venue QA Sep 30`. The local database was dumped to the session scratchpad and rebuilt from migrations because `0042` and `0050` had been applied by hand without migration records; its fictional data was restored. No production migration or deployment was performed.
+
 ## Venue request preparation — 2026-09-30
 
 Added a manual NYU room request checklist, an editable and copyable outside-venue email draft, and dated booking entries for replies, quotes, holds, and confirmations. Drafts and notes stay in Brie; no email is sent and no external booking API is called.

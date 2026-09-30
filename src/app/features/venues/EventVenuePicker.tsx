@@ -58,6 +58,7 @@ export function EventVenuePicker({ workspace, event }: { workspace: WorkspaceSum
           </option>)}
         </select>
         <Button variant="secondary" busy={busy} disabled={value === (current.data?.venueId ?? '')} onClick={() => void save()}>Save venue</Button>
+        <Link className="app-btn app-btn-quiet" to={`/app/w/${workspace.id}/venues?event=${event.id}`}>Find a venue</Link>
       </div> : null}
       {error ? <p className="app-error-text" role="alert">{error}</p> : null}
       {current.isError ? <p className="app-error-text" role="alert">{toAppError(current.error).message}</p> : null}

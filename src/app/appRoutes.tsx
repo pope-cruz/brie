@@ -16,6 +16,7 @@ import { HomePage } from './features/workspaces/HomePage'
 import { InvitePage } from './features/workspaces/InvitePage'
 import { NewWorkspacePage } from './features/workspaces/NewWorkspacePage'
 import { SettingsPage } from './features/workspaces/SettingsPage'
+import { VenueComparePage } from './features/venues/VenueComparePage'
 import { VenueDetailPage } from './features/venues/VenueDetailPage'
 import { VenueFormPage } from './features/venues/VenueFormPage'
 import { VenueListPage } from './features/venues/VenueListPage'
@@ -65,6 +66,7 @@ export const appChildren = [
       { path: 'events', Component: EventListPage },
       { path: 'venues', Component: VenueListPage },
       { path: 'venues/new', Component: VenueFormPage },
+      { path: 'venues/compare', Component: VenueComparePage },
       { path: 'venues/:venueId', Component: VenueDetailPage },
       { path: 'venues/:venueId/edit', Component: VenueFormPage },
       { path: 'events/new', Component: NewEventPage },

@@ -10,21 +10,24 @@ import {
 } from '../../data/api'
 import type { WorkspaceSummary } from '../../data/api'
 import { toAppError } from '../../data/errors'
-import type { EventRecord, ImportPreview, PreviewOutcome } from '../../data/types'
+import type { EventRecord, ImportPreview } from '../../data/types'
 import { CSV_MAX_BYTES, exampleCsv, parseAttendanceCsv } from '../../lib/csv'
 import { fileSha256Hex, getRequestKey } from '../../lib/idempotency'
 import {
   MAX_LISTED_VALUES,
+  PREVIEW_GROUPS,
   classifyMixedRows,
   emptyRule,
   guessColumns,
   looksLikeTimes,
   mixedImportRows,
+  previewGroup,
   ruleMarksAttended,
   sampleSourceValues,
   suggestRsvpRule,
   type AttendanceStatus,
   type ColumnMapping,
+  type PreviewGroup,
   type RsvpStatus,
   type StatusRule,
 } from '../../lib/mixedAttendance'
@@ -155,6 +158,64 @@ function StatusValues<S extends string>({
   )
 }
 
+type PreviewRow = ImportPreview['rows'][number]
+
+const GROUP_TEXT: Record<PreviewGroup, { title: string; body: string; tone: 'done' | 'neutral' | 'warning' }> = {
+  'will-count': { title: 'Will count as attended', body: 'Only these rows are recorded.', tone: 'done' },
+  'wont-count': {
+    title: 'Won’t count',
+    body: 'RSVPs, no-shows, and unknown attendance. They are not recorded as attended.',
+    tone: 'neutral',
+  },
+  'needs-review': {
+    title: 'Can’t be matched',
+    body: 'No email or an invalid email, so Brie can’t tell who this is. These rows are skipped; fix the file and import it again to count them.',
+    tone: 'warning',
+  },
+  duplicate: { title: 'Duplicates', body: 'Later rows for an email already in this file. Only the first row is used.', tone: 'neutral' },
+}
+
+const ROWS_SHOWN = 20
+
+function statusLine(row: PreviewRow) {
+  if (!row.rsvp) return null
+  const attendance = row.attendance === 'no_show' ? 'no-show' : row.attendance
+  const source = row.attendanceSource ? ` (“${row.attendanceSource}”)` : ''
+  return `RSVP ${row.rsvp} · attendance ${attendance}${source}`
+}
+
+function contextLine(row: PreviewRow) {
+  return [row.phone, row.affiliation, row.timestamp].filter(Boolean).join(' · ')
+}
+
+function PreviewGroupSection({ group, rows }: { group: PreviewGroup; rows: PreviewRow[] }) {
+  const [showAll, setShowAll] = useState(false)
+  const text = GROUP_TEXT[group]
+  const shown = showAll ? rows : rows.slice(0, ROWS_SHOWN)
+  return (
+    <section aria-labelledby={`preview-${group}`} style={{ marginTop: 16 }}>
+      <h3 className="app-section-title" id={`preview-${group}`}>
+        {text.title} <StatusBadge tone={text.tone}>{rows.length}</StatusBadge>
+      </h3>
+      <p className="app-meta">{text.body}</p>
+      {shown.map((row) => (
+        <div key={`${row.rowNumber}-${row.email}`} style={{ padding: '8px 0', borderBottom: '1px solid var(--app-border)' }}>
+          <strong>Row {row.rowNumber}</strong> · {row.name || 'Name not provided'}
+          {row.email ? ` · ${row.email}` : ''}
+          {statusLine(row) ? <p className="app-meta">{statusLine(row)}</p> : null}
+          {group === 'needs-review' && contextLine(row) ? <p className="app-meta">{contextLine(row)}</p> : null}
+          <p className="app-meta">{row.reason}</p>
+        </div>
+      ))}
+      {rows.length > shown.length ? (
+        <Button variant="secondary" onClick={() => setShowAll(true)}>
+          Show all {rows.length}
+        </Button>
+      ) : null}
+    </section>
+  )
+}
+
 export function ImportPage() {
   const { workspace, event } = useOutletContext<{ workspace: WorkspaceSummary; event: EventRecord }>()
   const navigate = useNavigate()
@@ -173,7 +234,6 @@ export function ImportPage() {
   const [attendanceRule, setAttendanceRule] = useState<StatusRule<AttendanceStatus>>(emptyRule())
   const [preview, setPreview] = useState<ImportPreview | null>(null)
   const [skipAck, setSkipAck] = useState(false)
-  const [filter, setFilter] = useState<PreviewOutcome | 'all'>('all')
   const recoveredId = params.get('preview')
 
   useEffect(() => {
@@ -320,21 +380,25 @@ export function ImportPage() {
     }
   }
 
-  const filteredRows = (preview?.rows ?? []).filter((row) => filter === 'all' || row.outcome === filter)
-  const unresolvedCount = preview?.counts.unresolved ?? 0
-  const needsAck = (preview?.counts.invalid ?? 0) > 0 || unresolvedCount > 0
+  const grouped = new Map<PreviewGroup, PreviewRow[]>(PREVIEW_GROUPS.map((group) => [group, []]))
+  for (const row of preview?.rows ?? []) grouped.get(row.group ?? previewGroup(row.outcome))?.push(row)
+  const reviewCount = (preview?.counts.invalid ?? 0) + (preview?.counts.unresolved ?? 0)
+  const needsAck = reviewCount > 0
 
   return (
     <div className="app-page-import" style={{ marginTop: 16 }}>
       <p className="app-meta">
-        {event.title} · This file records people who attended.
+        {event.title} · Only people you confirm as attended are counted.
       </p>
       <p className="app-meta">Choose file → Map columns → Review → Result</p>
       {step === 'choose' ? (
         <>
           <h2 className="app-section-title">Choose file</h2>
           <p>UTF-8 comma-delimited CSV, up to 2 MB and 5,000 data rows. Email is required for matching.</p>
-          <p className="app-banner app-banner-warning">Import only people confirmed as attended. Brie currently counts every valid row in the file as attended, including rows marked RSVP or no-show.</p>
+          <p>
+            Registration and check-in exports are fine: RSVP, no-show, and blank statuses are kept separate, and only the
+            values you mark Attended are counted.
+          </p>
           <input
             className="app-input"
             type="file"
@@ -479,42 +543,24 @@ export function ImportPage() {
             </p>
           ) : null}
           <p>
-            {preview.counts.newAttendance} new · {preview.counts.alreadyRecorded} already recorded ·{' '}
-            {preview.counts.duplicates} duplicates · {preview.counts.invalid} invalid
-            {preview.statusMap ? ` · ${preview.counts.notCounted ?? 0} not counted · ${unresolvedCount} without email` : ''}
+            {preview.counts.accepted} will count · {grouped.get('wont-count')?.length ?? 0} won’t count · {reviewCount} can’t
+            be matched · {preview.counts.duplicates} duplicates
           </p>
-          <select className="app-select" style={{ maxWidth: 220 }} value={filter} onChange={(event) => setFilter(event.target.value as PreviewOutcome | 'all')}>
-            <option value="all">All outcomes</option>
-            <option value="new">New</option>
-            <option value="already_recorded">Already recorded</option>
-            <option value="duplicate">Duplicates</option>
-            <option value="invalid">Invalid</option>
-            {preview.statusMap ? <option value="not_counted">Not counted</option> : null}
-            {preview.statusMap ? <option value="unresolved">Without email</option> : null}
-          </select>
-          {filteredRows.slice(0, 50).map((row) => (
-            <div key={`${row.rowNumber}-${row.email}`} style={{ padding: '8px 0', borderBottom: '1px solid var(--app-border)' }}>
-              <strong>Row {row.rowNumber}</strong> · {row.name || 'Name not provided'} · {row.email}{' '}
-              <StatusBadge tone={row.outcome === 'invalid' ? 'danger' : row.outcome === 'new' ? 'done' : 'warning'}>
-                {row.outcome.replace('_', ' ')}
-              </StatusBadge>
-              {row.rsvp ? (
-                <p className="app-meta">
-                  RSVP {row.rsvp} · attendance {row.attendance?.replace('_', '-')}
-                </p>
-              ) : null}
-              <p className="app-meta">{row.reason}</p>
-            </div>
+          <p className="app-meta">
+            {preview.counts.newAttendance} new · {preview.counts.alreadyRecorded} already recorded at this event
+          </p>
+          {PREVIEW_GROUPS.filter((group) => (grouped.get(group)?.length ?? 0) > 0).map((group) => (
+            <PreviewGroupSection key={group} group={group} rows={grouped.get(group) ?? []} />
           ))}
+          {preview.counts.accepted === 0 ? (
+            <p className="app-banner app-banner-warning">
+              Nobody in this file is marked attended. Go back and choose which values mean Attended.
+            </p>
+          ) : null}
           {needsAck ? (
-            <label className="app-meta">
+            <label className="app-meta" style={{ display: 'block', marginTop: 16 }}>
               <input type="checkbox" checked={skipAck} onChange={(event) => setSkipAck(event.target.checked)} /> Skip{' '}
-              {[
-                preview.counts.invalid > 0 ? `${preview.counts.invalid} invalid rows` : '',
-                unresolvedCount > 0 ? `${unresolvedCount} rows without an email` : '',
-              ]
-                .filter(Boolean)
-                .join(' and ')}
+              {reviewCount} {reviewCount === 1 ? 'row that can’t' : 'rows that can’t'} be matched
             </label>
           ) : null}
           <div className="app-toolbar">
@@ -525,7 +571,6 @@ export function ImportPage() {
               Record attendance for {preview.counts.accepted} people
             </Button>
           </div>
-          <p className="app-meta">{preview.counts.newAttendance} newly counted attendees.</p>
         </>
       ) : null}
       {error ? <p className="app-error-text">{error}</p> : null}

@@ -32,6 +32,18 @@ export type ColumnMapping = {
 
 export type MixedOutcome = 'new' | 'not_counted' | 'duplicate' | 'invalid' | 'unresolved'
 
+// Review groups, as in preview_group (0029). Only will-count rows are recorded.
+export type PreviewGroup = 'will-count' | 'wont-count' | 'needs-review' | 'duplicate'
+
+export const PREVIEW_GROUPS: PreviewGroup[] = ['will-count', 'wont-count', 'needs-review', 'duplicate']
+
+export function previewGroup(outcome: string): PreviewGroup {
+  if (outcome === 'new' || outcome === 'already_recorded') return 'will-count'
+  if (outcome === 'not_counted') return 'wont-count'
+  if (outcome === 'duplicate') return 'duplicate'
+  return 'needs-review'
+}
+
 export type ClassifiedRow = {
   rowNumber: number
   email: string
@@ -39,6 +51,8 @@ export type ClassifiedRow = {
   rsvp: RsvpStatus
   attendance: AttendanceStatus
   outcome: MixedOutcome
+  group: PreviewGroup
+  contributes: boolean
 }
 
 type Row = { rowNumber: number; values: string[] }
@@ -181,6 +195,8 @@ export function classifyMixedRows(rows: Row[], mapping: ColumnMapping, statusMap
       rsvp,
       attendance,
       outcome,
+      group: previewGroup(outcome),
+      contributes: outcome === 'new',
     }
   })
 }

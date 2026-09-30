@@ -1,4 +1,4 @@
--- Mixed attendance imports. PR 2 and PR 3 checks run; later PRs stay skipped.
+-- Mixed attendance imports. PR 2–4 checks run; later PRs stay skipped.
 -- Fixtures (the database cannot read these files during supabase test db, so the
 -- rows are copied below with the organizer's source columns sent as rsvp/attendance):
 --   tests/fixtures/mixed-attendance-luma.csv
@@ -17,7 +17,7 @@
 -- Pending tests use skip(), not todo(). A failing TODO is still reported as a
 -- failure line, and tests/reliability/run.py treats that line as a failed file.
 begin;
-select plan(58);
+select plan(59);
 
 insert into auth.users (id, email) values
  ('e5000000-0000-4000-8000-000000000001', 'mixed-owner@example.test'),
@@ -291,10 +291,39 @@ select throws_ok($$select public.get_import_preview(current_setting('test.review
   'P0001', 'FORBIDDEN', 'Another organizer cannot read a preview they did not make');
 reset role;
 
--- PR 4. Preview groups. Enabled once PR 2 stores the statuses.
-select skip('PR 4: Luma groups will-count as mira.okonkwo@example.test, guest.desk@example.test, and sasha.quinn@example.test; wont-count as jules.navarro@example.test, ren.sato@example.test, and noor.elsayed@example.test; needs-review as the email-less Sasha Quinn row; the second Mira row is a duplicate', 1);
+-- PR 4. Preview groups, from the preview responses made before commit.
+create function pg_temp.groups(p_preview jsonb)
+returns jsonb
+language sql
+as $$
+  select jsonb_object_agg(g, people)
+  from (
+    select x->>'group' as g,
+      jsonb_agg(coalesce(nullif(x->>'email', ''), 'no email: ' || (x->>'name')) order by (x->>'rowNumber')::integer) as people
+    from jsonb_array_elements(p_preview->'rows') x
+    group by 1
+  ) s;
+$$;
+select is(pg_temp.groups(current_setting('test.luma')::jsonb), '{
+    "will-count": ["mira.okonkwo@example.test", "guest.desk@example.test", "sasha.quinn@example.test"],
+    "wont-count": ["jules.navarro@example.test", "ren.sato@example.test", "noor.elsayed@example.test"],
+    "needs-review": ["no email: Sasha Quinn"],
+    "duplicate": ["mira.okonkwo@example.test"]
+  }'::jsonb,
+  'PR 4: Luma groups will-count as mira.okonkwo@example.test, guest.desk@example.test, and sasha.quinn@example.test; wont-count as jules.navarro@example.test, ren.sato@example.test, and noor.elsayed@example.test; needs-review as the email-less Sasha Quinn row; the second Mira row is a duplicate');
 
-select skip('PR 4: Google groups will-count as priya.raman@example.test only; wont-count as elio.marquez@example.test, casey.adebayo@example.test, rowan.kim@example.test, samira.costa@example.test, niall.berg@example.test, and quinn.ibarra@example.test; needs-review as the email-less Quinn Ibarra row; the second Elio row is a duplicate', 1);
+select is(pg_temp.groups(current_setting('test.google')::jsonb), '{
+    "will-count": ["priya.raman@example.test"],
+    "wont-count": ["elio.marquez@example.test", "casey.adebayo@example.test", "rowan.kim@example.test",
+      "samira.costa@example.test", "niall.berg@example.test", "quinn.ibarra@example.test"],
+    "needs-review": ["no email: Quinn Ibarra"],
+    "duplicate": ["elio.marquez@example.test"]
+  }'::jsonb,
+  'PR 4: Google groups will-count as priya.raman@example.test only; wont-count as elio.marquez@example.test, casey.adebayo@example.test, rowan.kim@example.test, samira.costa@example.test, niall.berg@example.test, and quinn.ibarra@example.test; needs-review as the email-less Quinn Ibarra row; the second Elio row is a duplicate');
+
+select is((select count(*)::integer from jsonb_array_elements(current_setting('test.luma')::jsonb->'rows') x
+    where x->>'group' = 'will-count' and x->>'attendance' <> 'attended'), 0,
+  'PR 4: every will-count row is confirmed attended');
 
 -- PR 5. Repeat import shows proposals and does not double-count or overwrite.
 select skip('PR 5: importing the Luma fixture again proposes no additions, creates no second contribution, and leaves the attendance count at 3', 1);

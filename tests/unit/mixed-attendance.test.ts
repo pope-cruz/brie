@@ -14,7 +14,7 @@ import {
 
 /**
  * Target contract for mixed attendance imports. Outcome tests stay skipped
- * until the PR named in each title; PR 3 tests run against src/app/lib/mixedAttendance.ts. Database storage, contribution counts,
+ * until the PR named in each title; PR 3 and PR 4 tests run against src/app/lib/mixedAttendance.ts. Database storage, contribution counts,
  * unresolved identity, and privileges are checked in
  * supabase/tests/attendance_mixed.sql (PR 2); rollback stays pending there.
  *
@@ -306,8 +306,8 @@ describe('mixed attendance target outcomes', () => {
     })
   })
 
-  // Enabled by PR 4. The email-less row stays in needs-review and is not merged by name.
-  it.skip('PR 4: a missing email is needs-review and is not grouped with the same name', () => {
+  // PR 4. The email-less row stays in needs-review and is not merged by name.
+  it('PR 4: a missing email is needs-review and is not grouped with the same name', () => {
     expect(classifyRow('luma', 8, true)).toMatchObject({
       email: 'sasha.quinn@example.test',
       name: 'Sasha Quinn',
@@ -338,8 +338,8 @@ describe('mixed attendance target outcomes', () => {
     })
   })
 
-  // Enabled by PR 4. The later row is a duplicate and does not contribute again.
-  it.skip('PR 4: a duplicate email is one will-count or wont-count person, not two', () => {
+  // PR 4. The later row is a duplicate and does not contribute again.
+  it('PR 4: a duplicate email is one will-count or wont-count person, not two', () => {
     expect(classifyRow('luma', 2, true)).toMatchObject({
       email: 'mira.okonkwo@example.test',
       group: 'will-count',
@@ -362,8 +362,8 @@ describe('mixed attendance target outcomes', () => {
     })
   })
 
-  // Enabled by PR 4. Only explicitly confirmed attendance is in will-count.
-  it.skip('PR 4: will-count contains only explicitly confirmed attendance', () => {
+  // PR 4. Only explicitly confirmed attendance is in will-count.
+  it('PR 4: will-count contains only explicitly confirmed attendance', () => {
     const luma = [2, 3, 4, 5, 6, 7, 8, 9].map((rowNumber) => classifyRow('luma', rowNumber, true))
     const google = [2, 3, 4, 5, 6, 7, 8, 9, 10].map((rowNumber) => classifyRow('google-form', rowNumber, true))
     expect(luma.filter((row) => row.group === 'will-count').map((row) => row.email)).toEqual([
@@ -390,8 +390,8 @@ describe('mixed attendance target outcomes', () => {
     expect([...luma, ...google].filter((row) => row.contributes).every((row) => row.attendance === 'attended')).toBe(true)
   })
 
-  // Enabled by PR 4. The import screen stops telling organizers that every valid row counts.
-  it.skip('PR 4: removes the mixed-list warning from the import screen', () => {
+  // PR 4. The import screen stops telling organizers that every valid row counts.
+  it('PR 4: removes the mixed-list warning from the import screen', () => {
     const source = readFileSync(new URL('../../src/app/features/attendance/ImportPage.tsx', import.meta.url), 'utf8')
     expect(source).not.toContain('counts every valid row in the file as attended')
   })

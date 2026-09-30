@@ -1,4 +1,4 @@
-import type { AttendanceStatus, RsvpStatus, StatusMap } from '../lib/mixedAttendance'
+import type { AttendanceStatus, PreviewGroup, RsvpStatus, StatusMap } from '../lib/mixedAttendance'
 
 export type MemberRole = 'owner' | 'organizer' | 'member'
 export type EventStatus = 'draft' | 'planned' | 'completed' | 'canceled'
@@ -174,6 +174,8 @@ export type ImportPreview = {
     email: string
     outcome: PreviewOutcome
     reason: string
+    // Mixed previews only; legacy rows are grouped by outcome on the client.
+    group?: PreviewGroup
     rsvp?: RsvpStatus
     attendance?: AttendanceStatus
     rsvpSource?: string | null

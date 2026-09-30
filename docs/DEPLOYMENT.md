@@ -111,9 +111,10 @@ In the Supabase dashboard, create a daily **Integrations → Cron** SQL job that
 
 ```sql
 select public.purge_expired_previews();
+select public.purge_expired_import_sources();
 ```
 
-This function is restricted from browser roles. Monitor job failures. Configure database backups and retention appropriate to the real data, and rehearse a restore into a separate project or instance with actual email-code sign-in. [OPERATIONS.md](OPERATIONS.md) has the data recovery and scoped erasure notes.
+These functions are restricted from browser roles. Monitor job failures. Configure database backups and retention appropriate to the real data, and rehearse a restore into a separate project or instance with actual email-code sign-in. [OPERATIONS.md](OPERATIONS.md) has the data recovery and scoped erasure notes.
 
 Before inviting real users, run the [release demonstration](TESTING.md) on the deployed origin with fictional data: new owner sign-in and workspace creation; organizer/member invitations; member permission boundaries; event/task/schedule; attendance import and reversion; direct deep links; sign-out and return. Verify the production SMTP sender and final domain, and record the deployed Git commit plus migration list. The local CI workflow checks code and migrations but does not deploy them.
 

@@ -33,7 +33,7 @@ Add first-time/repeat attendance and event-based segments using distinct confirm
 
 **Done when:** first-time/repeat counts agree with person histories across overlapping imports and reversion; exports contain only permitted, explicitly selected fields; an organizer can explain the origin of each exported attendance fact.
 
-**Progress:** The first slice adds confirmed first-time/repeat event counts and organizer History filters. It counts distinct attendee/event pairs from active batches, includes archived events, and recalculates when a batch is reverted. The person page now includes every file and source row for each event, import date, importer, receipt link, and a reverted label. Reverted-only events stay visible as provenance but do not add to confirmed attendance totals. The workspace CSV remains the next slice; RSVP and no-show status remain part of step 1.
+**Progress:** First-time/repeat event counts and organizer History filters count distinct attendee/event pairs from active batches, include archived events, and recalculate after reversion. The person page shows every file and source row, import date, importer, receipt link, and reverted label. Reverted-only events remain visible as provenance without adding to confirmed totals. A workspace CSV now exports only explicitly selected fields, applies the History group filters, uses keyset pages of at most 1,000 people, and writes one audit entry for the chosen fields and filters. RSVP and no-show status remain part of step 1.
 
 ### 3. Add a workspace venue directory and booking tracker
 

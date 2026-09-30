@@ -18,6 +18,8 @@ import type {
   TaskStatus,
   TeamInvitation,
   Workspace,
+  WorkspaceAttendanceField,
+  WorkspaceAttendanceRow,
 } from './types'
 
 export type WorkspaceSummary = Workspace & {
@@ -584,6 +586,25 @@ export async function getEventAttendanceGroups(workspaceId: string, eventId: str
   return rpc<{ firstTime: number; repeat: number }>('get_event_attendance_groups', {
     p_workspace_id: workspaceId, p_event_id: eventId,
   })
+}
+
+export async function beginWorkspaceAttendanceExport(
+  workspaceId: string, fields: WorkspaceAttendanceField[], filters: AttendanceGroupFilters,
+) {
+  return rpc<{ id: string }>('begin_workspace_attendance_export', {
+    p_workspace_id: workspaceId, p_fields: fields, p_filters: filters,
+  })
+}
+
+export async function exportWorkspaceAttendancePage(
+  workspaceId: string, exportId: string, afterAttendeeId: string | null,
+) {
+  return rpc<{ rows: WorkspaceAttendanceRow[]; nextAfter: string | null; count: number }>(
+    'export_workspace_attendance', {
+      p_workspace_id: workspaceId, p_export_id: exportId,
+      p_after_attendee_id: afterAttendeeId, p_limit: 1000,
+    },
+  )
 }
 
 export async function getAttendeeDetail(workspaceId: string, attendeeId: string) {

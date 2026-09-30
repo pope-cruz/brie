@@ -44,9 +44,10 @@ Schedule this daily:
 
 ```sql
 select public.purge_expired_previews();
+select public.purge_expired_import_sources();
 ```
 
-Expired preview payloads are hidden from reads immediately; this command deletes unused rows.
+Expired preview payloads and kept original rows past their 180-day limit are hidden from reads immediately; these commands delete them.
 
 ## Scoped erasure
 
@@ -56,6 +57,8 @@ Product MVP has no workspace or account deletion screen. An operator purge must:
 2. Export or retain a backup according to the operator’s retention policy.
 3. Delete only that workspace’s rows. Do not delete an `auth.users` row if the person still belongs to another workspace.
 4. Record that this is permanent erasure, not attendance reversion.
+
+To remove one person's kept original import rows in a workspace (for example, on request), run `select public.erase_import_source_rows('<workspace id>', '<email>');`. It returns the number of rows removed. Kept rows without an email cannot be matched to a person; delete that import's kept rows from its receipt instead. This removes only kept source rows, not the person's attendance or identity.
 
 ## License decision checklist
 

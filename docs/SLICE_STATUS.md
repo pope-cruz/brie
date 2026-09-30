@@ -1,5 +1,9 @@
 # Slice completion ledger
 
+## Person attendance sources — 2026-09-30
+
+The person page now identifies the file, row, import date, importer, and receipt for every contribution, including reverted sources. Confirmed attendance totals still count only events with an active source. Database tests cover overlapping and fully reverted sources plus role isolation.
+
 ## Attendance history groups — 2026-09-30
 
 Added owner/organizer first-time and repeat counts per event and event-based People filters. Both derive from active distinct attendee/event contributions, including archived events, so reversion changes the results. Database tests cover overlapping batches, reversion, person-detail agreement, and role isolation.

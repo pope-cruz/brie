@@ -56,12 +56,15 @@ export function PersonPage() {
           <Link to={`/app/w/${workspace.id}/events/${item.eventId}`}>{item.title}</Link>
           <p className="app-meta app-tabular">
             {formatTimeRange(item.startsAt, item.startsAt, item.timezone)} · {statusLabel(item.status)}
+            {!item.active ? ' · Attendance reverted' : ''}
           </p>
           {item.batches?.map((batch) => (
             <p key={batch.id} className="app-meta">
               <Link to={`/app/w/${workspace.id}/events/${item.eventId}/attendance/imports/${batch.id}`}>
-                {batch.fileLabel}
+                {batch.fileLabel} · row {batch.rowNumber}
               </Link>
+              {' · '}Imported {new Date(batch.committedAt).toLocaleString()} by {batch.importedBy}
+              {batch.status === 'reverted' ? ' · Reverted' : ''}
             </p>
           ))}
         </div>

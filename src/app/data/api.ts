@@ -563,7 +563,16 @@ export async function getAttendeeDetail(workspaceId: string, attendeeId: string)
       timezone: string
       status: EventStatus
       archivedAt: string | null
-      batches: Array<{ id: string; fileLabel: string; committedAt: string }>
+      active: boolean
+      batches: Array<{
+        id: string
+        fileLabel: string
+        rowNumber: number
+        committedAt: string
+        importedBy: string
+        status: 'active' | 'reverted'
+        revertedAt: string | null
+      }>
     }>
   }>('get_attendee_detail', {
     p_workspace_id: workspaceId,

@@ -7,14 +7,16 @@ import {
   guessColumns,
   looksLikeTimes,
   mixedImportRows,
+  proposeChanges,
   sampleSourceValues as sampleValues,
   suggestRsvpRule,
   type StatusMap,
+  type StoredPerson,
 } from '../../src/app/lib/mixedAttendance'
 
 /**
  * Target contract for mixed attendance imports. Outcome tests stay skipped
- * until the PR named in each title; PR 3 and PR 4 tests run against src/app/lib/mixedAttendance.ts. Database storage, contribution counts,
+ * until the PR named in each title; PR 3–5 tests run against src/app/lib/mixedAttendance.ts. Database storage, contribution counts,
  * unresolved identity, and privileges are checked in
  * supabase/tests/attendance_mixed.sql (PR 2); rollback stays pending there.
  *
@@ -101,12 +103,31 @@ function mappedColumns(fixture: string): Record<string, string | null> {
   }
 }
 
+function parseText(text: string): ParsedCsv {
+  const parsed = parseAttendanceCsv(text)
+  if ('error' in parsed) throw new Error(parsed.error.message)
+  return parsed
+}
+
+// Imports the Luma fixture, then a second file into the same event, as the
+// server would: the first import's attended rows become the stored people.
 function repeatLumaImport(scenario: string): {
   additions: string[]
   changes: Array<{ email: string; field: string; from: string; to: string }>
   attendanceCount: number
 } {
-  throw new Error(`Pending repeat-import check (${scenario}). Enabled by PR 5.`)
+  const text = readFileSync(new URL('../fixtures/mixed-attendance-luma.csv', import.meta.url), 'utf8')
+  const first = parseText(text)
+  const mapping = guessColumns(first.headerLabels)
+  const stored = new Map<string, StoredPerson>()
+  for (const row of classifyMixedRows(first.rows, mapping, ORGANIZER_MAPS.luma)) {
+    if (row.contributes) stored.set(row.email, { name: row.name || null, attendedHere: true })
+  }
+  const secondText =
+    scenario === 'Mira Okonkwo renamed to Mira O.' ? text.replace(/^Mira Okonkwo,/gm, 'Mira O.,') : text
+  const second = classifyMixedRows(parseText(secondText).rows, mapping, ORGANIZER_MAPS.luma, stored)
+  const recorded = new Set([...stored.keys(), ...second.filter((row) => row.contributes).map((row) => row.email)])
+  return { ...proposeChanges(second, stored), attendanceCount: recorded.size }
 }
 
 describe('mixed attendance fixtures', () => {
@@ -396,8 +417,8 @@ describe('mixed attendance target outcomes', () => {
     expect(source).not.toContain('counts every valid row in the file as attended')
   })
 
-  // Enabled by PR 5. A second import of the same file adds no attendance.
-  it.skip('PR 5: importing the Luma fixture again proposes no additions and does not count anyone twice', () => {
+  // PR 5. A second import of the same file adds no attendance.
+  it('PR 5: importing the Luma fixture again proposes no additions and does not count anyone twice', () => {
     expect(repeatLumaImport('same file')).toEqual({
       additions: [],
       changes: [],
@@ -405,8 +426,21 @@ describe('mixed attendance target outcomes', () => {
     })
   })
 
-  // Enabled by PR 5. A different display name is a proposed change, not a silent overwrite.
-  it.skip('PR 5: a renamed repeat row is a proposed change and does not overwrite the stored name', () => {
+  // PR 5. A different display name is a proposed change, not a silent overwrite.
+  // PR 5. A no-show in a later file does not remove attendance an earlier import recorded.
+  it('PR 5: a later no-show is a proposed change and keeps the recorded attendance', () => {
+    const parsed = readFixture('mixed-attendance-google-form.csv')
+    const mapping = guessColumns(parsed.headerLabels)
+    const stored = new Map<string, StoredPerson>([['elio.marquez@example.test', { name: 'Elio Marquez', attendedHere: true }]])
+    const rows = classifyMixedRows(parsed.rows, mapping, ORGANIZER_MAPS['google-form'], stored)
+    expect(rows.find((row) => row.rowNumber === 3)).toMatchObject({ outcome: 'not_counted', contributes: false })
+    expect(proposeChanges(rows, stored)).toEqual({
+      additions: ['priya.raman@example.test'],
+      changes: [{ email: 'elio.marquez@example.test', field: 'attendance', from: 'attended', to: 'no_show' }],
+    })
+  })
+
+  it('PR 5: a renamed repeat row is a proposed change and does not overwrite the stored name', () => {
     expect(repeatLumaImport('Mira Okonkwo renamed to Mira O.')).toEqual({
       additions: [],
       changes: [{ email: 'mira.okonkwo@example.test', field: 'name', from: 'Mira Okonkwo', to: 'Mira O.' }],
@@ -453,11 +487,11 @@ describe('mixed attendance mapping helpers', () => {
 
   it('agrees with the database preview counts for both fixtures', () => {
     for (const [fixture, expected] of [
-      ['luma', { new: 3, not_counted: 3, duplicate: 1, invalid: 0, unresolved: 1 }],
-      ['google-form', { new: 1, not_counted: 6, duplicate: 1, invalid: 0, unresolved: 1 }],
+      ['luma', { new: 3, already_recorded: 0, not_counted: 3, duplicate: 1, invalid: 0, unresolved: 1 }],
+      ['google-form', { new: 1, already_recorded: 0, not_counted: 6, duplicate: 1, invalid: 0, unresolved: 1 }],
     ] as const) {
       const parsed = readFixture(FIXTURE_FILES[fixture])
-      const counts = { new: 0, not_counted: 0, duplicate: 0, invalid: 0, unresolved: 0 }
+      const counts = { new: 0, already_recorded: 0, not_counted: 0, duplicate: 0, invalid: 0, unresolved: 0 }
       for (const row of classifyMixedRows(parsed.rows, guessColumns(parsed.headerLabels), ORGANIZER_MAPS[fixture])) {
         counts[row.outcome] += 1
       }

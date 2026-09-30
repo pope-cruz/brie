@@ -30,7 +30,16 @@ export type ColumnMapping = {
   affiliation: number | null
 }
 
-export type MixedOutcome = 'new' | 'not_counted' | 'duplicate' | 'invalid' | 'unresolved'
+export type MixedOutcome = 'new' | 'already_recorded' | 'not_counted' | 'duplicate' | 'invalid' | 'unresolved'
+
+// What the workspace already holds for an email: the stored name and whether an
+// active import already records the person at this event.
+export type StoredPerson = { name: string | null; attendedHere: boolean }
+
+// A difference between the file and what is stored. Brie never applies these on
+// import: stored names are kept and earlier attendance stays until its import is
+// reverted.
+export type ProposedChange = { email: string; field: 'name' | 'attendance'; from: string; to: string }
 
 // Review groups, as in preview_group (0029). Only will-count rows are recorded.
 export type PreviewGroup = 'will-count' | 'wont-count' | 'needs-review' | 'duplicate'
@@ -166,8 +175,13 @@ export function ruleMarksAttended(rule: StatusRule<AttendanceStatus> | null): bo
 
 // Same order of checks as prepare_mixed_attendance_import: a missing email is
 // unresolved, then invalid, then a repeat of an earlier email, then anything not
-// attended is not counted.
-export function classifyMixedRows(rows: Row[], mapping: ColumnMapping, statusMap: StatusMap): ClassifiedRow[] {
+// attended is not counted, then attendance already recorded at this event.
+export function classifyMixedRows(
+  rows: Row[],
+  mapping: ColumnMapping,
+  statusMap: StatusMap,
+  stored: Map<string, StoredPerson> = new Map(),
+): ClassifiedRow[] {
   const seen = new Set<string>()
   return rows.map((row) => {
     const email = normalizeEmail(cellAt(row, mapping.email))
@@ -187,7 +201,9 @@ export function classifyMixedRows(rows: Row[], mapping: ColumnMapping, statusMap
             ? 'duplicate'
             : attendance !== 'attended'
               ? 'not_counted'
-              : 'new'
+              : stored.get(email)?.attendedHere
+                ? 'already_recorded'
+                : 'new'
     return {
       rowNumber: row.rowNumber,
       email,
@@ -196,7 +212,7 @@ export function classifyMixedRows(rows: Row[], mapping: ColumnMapping, statusMap
       attendance,
       outcome,
       group: previewGroup(outcome),
-      contributes: outcome === 'new',
+      contributes: outcome === 'new' || outcome === 'already_recorded',
     }
   })
 }
@@ -214,4 +230,23 @@ export function mixedImportRows(rows: Row[], mapping: ColumnMapping) {
     }
     return item
   })
+}
+
+// Mirrors the "changes" on staged preview rows (0030): additions are people this
+// file newly records at the event; changes are differences it would not apply.
+export function proposeChanges(rows: ClassifiedRow[], stored: Map<string, StoredPerson>) {
+  const additions: string[] = []
+  const changes: ProposedChange[] = []
+  for (const row of rows) {
+    const person = stored.get(row.email)
+    if (row.outcome === 'new') additions.push(row.email)
+    if (!person) continue
+    if ((row.outcome === 'new' || row.outcome === 'already_recorded') && row.name !== '' && row.name !== (person.name ?? '')) {
+      changes.push({ email: row.email, field: 'name', from: person.name ?? '', to: row.name })
+    }
+    if (row.outcome === 'not_counted' && row.attendance === 'no_show' && person.attendedHere) {
+      changes.push({ email: row.email, field: 'attendance', from: 'attended', to: 'no_show' })
+    }
+  }
+  return { additions, changes }
 }

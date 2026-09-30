@@ -195,3 +195,27 @@ describe('import review groups', () => {
     expect(api.commitAttendanceImport).toHaveBeenCalledWith('preview', true, expect.any(String))
   })
 })
+
+describe('repeat import review', () => {
+  it('lists differences from what is recorded without offering to apply them', async () => {
+    api.prepareMixedAttendanceImport.mockResolvedValue({
+      ...lumaPreview,
+      existingReceiptId: 'batch',
+      counts: { ...lumaPreview.counts, newAttendance: 0, alreadyRecorded: 3 },
+      rows: [
+        { ...lumaPreview.rows[0], outcome: 'already_recorded', changes: [{ field: 'name', from: 'Mira Okonkwo', to: 'Mira O.' }] },
+        { ...lumaPreview.rows[1], outcome: 'not_counted', attendance: 'no_show', recordedAttended: true, changes: [{ field: 'attendance', from: 'attended', to: 'no_show' }] },
+      ],
+    })
+    await mount()
+    await upload('mixed-attendance-luma.csv', fixture('mixed-attendance-luma.csv'))
+    await choose(byAria('What each attendance value means: any value'), 'attended')
+    await click('Review')
+    expect(host.textContent).toContain('0 new · 3 already recorded at this event')
+    expect(host.textContent).toContain('Recording it again adds no attendance')
+    expect(host.textContent).toContain('Differences from what’s recorded')
+    expect(host.textContent).toContain('Name in file “Mira O.”, stored as “Mira Okonkwo”. The stored name is kept.')
+    expect(host.textContent).toContain('This file says no-show, but an earlier import recorded this person as attended.')
+    expect([...host.querySelectorAll('button')].map((el) => el.textContent)).not.toContain('Apply')
+  })
+})

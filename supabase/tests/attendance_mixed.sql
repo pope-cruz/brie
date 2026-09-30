@@ -1,4 +1,4 @@
--- Mixed attendance imports. PR 2–4 checks run; later PRs stay skipped.
+-- Mixed attendance imports: PR 2–5 checks.
 -- Fixtures (the database cannot read these files during supabase test db, so the
 -- rows are copied below with the organizer's source columns sent as rsvp/attendance):
 --   tests/fixtures/mixed-attendance-luma.csv
@@ -14,10 +14,8 @@
 -- RSVP never implies attendance. Identity stays normalized email.
 -- A missing email is staged unresolved and is not merged by name or phone.
 --
--- Pending tests use skip(), not todo(). A failing TODO is still reported as a
--- failure line, and tests/reliability/run.py treats that line as a failed file.
 begin;
-select plan(59);
+select plan(73);
 
 insert into auth.users (id, email) values
  ('e5000000-0000-4000-8000-000000000001', 'mixed-owner@example.test'),
@@ -325,12 +323,108 @@ select is((select count(*)::integer from jsonb_array_elements(current_setting('t
     where x->>'group' = 'will-count' and x->>'attendance' <> 'attended'), 0,
   'PR 4: every will-count row is confirmed attended');
 
--- PR 5. Repeat import shows proposals and does not double-count or overwrite.
-select skip('PR 5: importing the Luma fixture again proposes no additions, creates no second contribution, and leaves the attendance count at 3', 1);
+-- PR 5. Repeat imports show proposals and never double-count or overwrite.
+select set_config('test.people_before', (select count(*) from public.attendees
+  where workspace_id = 'e5000000-0000-4000-8000-0000000000aa')::text, true);
+set local role authenticated;
+select set_config('request.jwt.claim.sub', 'e5000000-0000-4000-8000-000000000002', true);
+select set_config('test.repeat', public.prepare_mixed_attendance_import(
+  'e5000000-0000-4000-8000-0000000000aa', 'e5000000-0000-4000-8000-0000000000e1',
+  'luma-guests.csv', 'hash-luma', 'brie-csv-1', '{}',
+  current_setting('test.luma_map')::jsonb, current_setting('test.luma_rows')::jsonb, 0)::text, true);
+select is(current_setting('test.repeat')::jsonb->'counts'->>'newAttendance' || '/'
+    || (current_setting('test.repeat')::jsonb->'counts'->>'alreadyRecorded'), '0/3',
+  'PR 5: importing the Luma fixture again proposes no additions; its three attendees are already recorded');
+select is((select count(*)::integer from jsonb_array_elements(current_setting('test.repeat')::jsonb->'rows') x
+    where jsonb_array_length(x->'changes') > 0), 0,
+  'PR 5: the same file proposes no changes');
+select isnt(current_setting('test.repeat')::jsonb->>'existingReceiptId', null,
+  'PR 5: the preview points out that an active import used this same file');
+select is(public.commit_attendance_import((current_setting('test.repeat')::jsonb->>'id')::uuid, true, 'mixed-luma-repeat-key')->>'added', '0',
+  'PR 5: recording the repeat adds nobody');
+select is(public.get_event('e5000000-0000-4000-8000-0000000000aa', 'e5000000-0000-4000-8000-0000000000e1')->>'attendanceCount', '3',
+  'PR 5: importing the Luma fixture again proposes no additions, creates no second attendance, and leaves the attendance count at 3');
+reset role;
+select is((select count(*) from public.attendees where workspace_id = 'e5000000-0000-4000-8000-0000000000aa')::text,
+  current_setting('test.people_before'), 'PR 5: the repeat creates no attendee');
 
-select skip('PR 5: a repeat row that renames Mira Okonkwo to Mira O. is reported as a proposed change and does not overwrite the stored name', 1);
+set local role authenticated;
+select set_config('test.rename', public.prepare_mixed_attendance_import(
+  'e5000000-0000-4000-8000-0000000000aa', 'e5000000-0000-4000-8000-0000000000e1',
+  'luma-renamed.csv', 'hash-luma-renamed', 'brie-csv-1', '{}',
+  current_setting('test.luma_map')::jsonb,
+  jsonb_set(current_setting('test.luma_rows')::jsonb, '{0,name}', '"Mira O."'), 0)::text, true);
+select is((select x->'changes' from jsonb_array_elements(current_setting('test.rename')::jsonb->'rows') x
+    where (x->>'rowNumber')::integer = 2),
+  '[{"field": "name", "from": "Mira Okonkwo", "to": "Mira O."}]'::jsonb,
+  'PR 5: a repeat row that renames Mira Okonkwo to Mira O. is reported as a proposed change');
+select is((select x->>'name' from jsonb_array_elements(current_setting('test.rename')::jsonb->'rows') x
+    where (x->>'rowNumber')::integer = 2), 'Mira Okonkwo',
+  'PR 5: the preview shows the stored name the import will keep');
+select is(public.commit_attendance_import((current_setting('test.rename')::jsonb->>'id')::uuid, true, 'mixed-luma-rename-key')->>'alreadyRecorded', '3',
+  'PR 5: the renamed file records the same three people');
+reset role;
+select is((select display_name from public.attendees where workspace_id = 'e5000000-0000-4000-8000-0000000000aa'
+    and email_normalized = 'mira.okonkwo@example.test'), 'Mira Okonkwo',
+  'PR 5: a repeat row that renames Mira Okonkwo to Mira O. does not overwrite the stored name');
 
-select skip('PR 5: a failed commit of a mixed preview rolls back contributions and unresolved rows together', 1);
+set local role authenticated;
+select set_config('test.no_show', public.prepare_mixed_attendance_import(
+  'e5000000-0000-4000-8000-0000000000aa', 'e5000000-0000-4000-8000-0000000000e1',
+  'door-list.csv', 'hash-door', 'brie-csv-1', '{}',
+  current_setting('test.google_map')::jsonb,
+  '[{"rowNumber": 2, "email": "mira.okonkwo@example.test", "name": "Mira Okonkwo", "attendance": "No"},
+    {"rowNumber": 3, "email": "jules.navarro@example.test", "name": "Jules Navarro", "attendance": "No"}]', 0)::text, true);
+select is((select jsonb_agg(x->'changes' order by (x->>'rowNumber')::integer)
+    from jsonb_array_elements(current_setting('test.no_show')::jsonb->'rows') x),
+  '[[{"field": "attendance", "from": "attended", "to": "no_show"}], []]'::jsonb,
+  'PR 5: a later no-show for someone recorded as attended is a proposed change; a new no-show is not');
+select is(public.get_event('e5000000-0000-4000-8000-0000000000aa', 'e5000000-0000-4000-8000-0000000000e1')->>'attendanceCount', '3',
+  'PR 5: previewing that no-show leaves the recorded attendance in place');
+reset role;
+
+-- PR 5. A failure late in a mixed commit, after some contributions were written,
+-- rolls back the batch, contributions, and revision, and keeps the staged rows.
+create function pg_temp.fail_on_sasha()
+returns trigger
+language plpgsql
+as $$
+begin
+  if exists (select 1 from public.attendees a
+    where a.id = new.attendee_id and a.email_normalized = 'sasha.quinn@example.test') then
+    raise exception 'late failure';
+  end if;
+  return new;
+end;
+$$;
+create trigger fail_on_sasha before insert on public.attendance_contributions
+  for each row execute function pg_temp.fail_on_sasha();
+set local role authenticated;
+select set_config('test.rollback_id', public.prepare_mixed_attendance_import(
+  'e5000000-0000-4000-8000-0000000000aa', 'e5000000-0000-4000-8000-0000000000e2',
+  'luma-guests.csv', 'hash-luma', 'brie-csv-1', '{}',
+  current_setting('test.luma_map')::jsonb, current_setting('test.luma_rows')::jsonb, 0)->>'id', true);
+reset role;
+select set_config('test.rollback_version', (select version from public.event_attendance_revisions
+  where event_id = 'e5000000-0000-4000-8000-0000000000e2')::text, true);
+set local role authenticated;
+select throws_ok($$select public.commit_attendance_import(current_setting('test.rollback_id')::uuid, true, 'mixed-rollback-key')$$,
+  'P0001', 'late failure', 'The commit fails after Mira and guest.desk were written and before Sasha');
+reset role;
+select is((select count(*)::integer from public.attendance_batches where preview_id = current_setting('test.rollback_id')::uuid)
+    + (select count(*)::integer from public.attendance_contributions where event_id = 'e5000000-0000-4000-8000-0000000000e2'
+      and batch_id not in (select id from public.attendance_batches where file_label = 'form-responses.csv')), 0,
+  'PR 5: a failed commit of a mixed preview rolls back contributions and unresolved rows together (no batch, no contributions)');
+select is((select version from public.event_attendance_revisions where event_id = 'e5000000-0000-4000-8000-0000000000e2')::text,
+  current_setting('test.rollback_version'), 'The failed commit leaves the attendance revision unchanged');
+select is((select count(*)::integer from public.import_preview_rows where preview_id = current_setting('test.rollback_id')::uuid
+    and outcome = 'unresolved'), 1,
+  'The staged rows, including the unresolved one, are still there to retry');
+drop trigger fail_on_sasha on public.attendance_contributions;
+set local role authenticated;
+select is(public.commit_attendance_import(current_setting('test.rollback_id')::uuid, true, 'mixed-rollback-key')->>'added', '3',
+  'Retrying the same commit after the failure records the three attendees once');
+reset role;
 
 select * from finish();
 rollback;

@@ -183,6 +183,11 @@ export type ImportPreview = {
     timestamp?: string | null
     phone?: string | null
     affiliation?: string | null
+    storedName?: string | null
+    // Active attendance at this event from an earlier import.
+    recordedAttended?: boolean
+    // Differences from what is stored. Never applied by the import.
+    changes?: Array<{ field: 'name' | 'attendance'; from: string; to: string }>
   }>
 }
 

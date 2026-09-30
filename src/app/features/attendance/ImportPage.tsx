@@ -188,6 +188,36 @@ function contextLine(row: PreviewRow) {
   return [row.phone, row.affiliation, row.timestamp].filter(Boolean).join(' · ')
 }
 
+function changeText(change: NonNullable<PreviewRow['changes']>[number]) {
+  if (change.field === 'name') {
+    return `Name in file “${change.to}”, stored as “${change.from || 'no name'}”. The stored name is kept.`
+  }
+  return 'This file says no-show, but an earlier import recorded this person as attended. That record is kept; revert the earlier import to remove it.'
+}
+
+function ProposedChanges({ rows }: { rows: PreviewRow[] }) {
+  const changed = rows.filter((row) => (row.changes?.length ?? 0) > 0)
+  if (changed.length === 0) return null
+  return (
+    <section aria-labelledby="preview-changes" style={{ marginTop: 16 }}>
+      <h3 className="app-section-title" id="preview-changes">
+        Differences from what’s recorded <StatusBadge tone="warning">{changed.length}</StatusBadge>
+      </h3>
+      <p className="app-meta">Recording this file doesn’t change any of these.</p>
+      {changed.map((row) => (
+        <div key={`change-${row.rowNumber}`} style={{ padding: '8px 0', borderBottom: '1px solid var(--app-border)' }}>
+          <strong>Row {row.rowNumber}</strong> · {row.email}
+          {row.changes?.map((change) => (
+            <p key={change.field} className="app-meta">
+              {changeText(change)}
+            </p>
+          ))}
+        </div>
+      ))}
+    </section>
+  )
+}
+
 function PreviewGroupSection({ group, rows }: { group: PreviewGroup; rows: PreviewRow[] }) {
   const [showAll, setShowAll] = useState(false)
   const text = GROUP_TEXT[group]
@@ -286,7 +316,7 @@ export function ImportPage() {
   }
   const draftOutcomes = useMemo(() => {
     if (!mixed || columns.email == null) return null
-    const counts = { new: 0, not_counted: 0, duplicate: 0, invalid: 0, unresolved: 0 }
+    const counts = { new: 0, already_recorded: 0, not_counted: 0, duplicate: 0, invalid: 0, unresolved: 0 }
     const statuses = { rsvp: columns.rsvp == null ? null : rsvpRule, attendance: attendanceRule }
     const mapped = { ...columns, attendance: attendanceChoice }
     for (const row of classifyMixedRows(rows, mapped, statuses)) counts[row.outcome] += 1
@@ -539,7 +569,8 @@ export function ImportPage() {
           <h2 className="app-section-title">Review</h2>
           {preview.existingReceiptId ? (
             <p className="app-banner-warning app-banner">
-              An active import used this same file. You can still record it as additional evidence.
+              An active import used this same file. Recording it again adds no attendance; it only adds this file as
+              another source for the people already recorded.
             </p>
           ) : null}
           <p>
@@ -549,6 +580,7 @@ export function ImportPage() {
           <p className="app-meta">
             {preview.counts.newAttendance} new · {preview.counts.alreadyRecorded} already recorded at this event
           </p>
+          <ProposedChanges rows={preview.rows} />
           {PREVIEW_GROUPS.filter((group) => (grouped.get(group)?.length ?? 0) > 0).map((group) => (
             <PreviewGroupSection key={group} group={group} rows={grouped.get(group) ?? []} />
           ))}

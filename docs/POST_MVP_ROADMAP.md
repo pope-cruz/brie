@@ -41,6 +41,8 @@ Create workspace-scoped venues with capacity, location, cost, accessibility, equ
 
 **Directory slice:** Workspace venues now record capacity, location, cost, accessibility, equipment, booking details, lead time, restrictions, and notes. Owners and organizers can edit and archive/restore them; members can read them. Events can link a venue without changing their typed location, and venue detail shows past linked events.
 
+**Booking tracker slice:** Each venue has configurable ordered steps with offsets from its lead-time deadline. Starting a booking snapshots those steps for the event; owners and organizers date each status update. The event shows the current step and next deadline, while archived bookings retain their steps for restoration.
+
 ### 4. Expose a scoped MCP planning surface
 
 After the core objects and permission policy settle, expose read-only event, task, run-of-show, venue, link, template/previous-event, and authorized attendance-summary resources. Then allow creation of a **draft** event plan, with assumptions and a reviewable change summary in Brie. Any assignment, contact, booking, or publication requires explicit organizer review; all assistant actions use workspace permission checks and an audit entry. Do not expose attendee contact data by default.

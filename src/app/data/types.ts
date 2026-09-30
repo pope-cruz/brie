@@ -88,6 +88,31 @@ export type VenueDetail = Venue & {
   pastEvents: Array<{ id: string; title: string; startsAt: string; timezone: string; location: string }>
 }
 
+export type VenueBookingStepTemplate = { title: string; offsetDays: number }
+export type VenueBookingSteps = { steps: VenueBookingStepTemplate[]; customized: boolean; version: number }
+export type EventBookingStep = VenueBookingStepTemplate & {
+  id: string
+  position: number
+  status: 'not_started' | 'in_progress' | 'blocked' | 'complete'
+  statusAt: string
+  version: number
+  deadline: string
+}
+export type EventBooking = {
+  id: string
+  eventId: string
+  venueId: string
+  venueName: string
+  venueMismatch: boolean
+  leadTimeDays: number
+  removedAt: string | null
+  version: number
+  steps: EventBookingStep[]
+  currentStatus: string
+  currentStepTitle: string | null
+  nextDeadline: string | null
+}
+
 export type TaskRecord = {
   id: string
   workspaceId: string

@@ -6,6 +6,7 @@ import { eventPhase, type EventSectionId } from '../../lib/eventPhase'
 import { formatInZone, timeZoneLabel } from '../../lib/timezone'
 import { RunOfShowPage } from '../schedule/RunOfShowPage'
 import { EventTasksPage } from '../tasks/TasksPage'
+import { EventBookingPanel } from '../venues/EventBookingPanel'
 
 const SECTIONS: Array<{ id: EventSectionId; label: string }> = [
   { id: 'before', label: 'Before' },
@@ -57,6 +58,7 @@ export function EventPage() {
         ))}
       </nav>
       <EventSection id="before" label="Before" summary={summaries.before} open={expanded.has('before')} onToggle={toggle}>
+        <EventBookingPanel workspace={workspace} event={event} />
         <EventTasksPage />
       </EventSection>
       <EventSection id="day-of" label="Day of" summary={summaries['day-of']} open={expanded.has('day-of')} onToggle={toggle}>

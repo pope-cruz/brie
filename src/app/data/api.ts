@@ -19,6 +19,9 @@ import type {
   Workspace,
   Venue,
   VenueDetail,
+  VenueBookingStepTemplate,
+  VenueBookingSteps,
+  EventBooking,
 } from './types'
 
 export type WorkspaceSummary = Workspace & {
@@ -155,6 +158,42 @@ export async function setEventVenue(workspaceId: string, eventId: string, venueI
     p_workspace_id: workspaceId, p_event_id: eventId, p_venue_id: venueId,
     p_expected_version: expectedVersion,
   })
+}
+
+export async function getVenueBookingSteps(workspaceId: string, venueId: string) {
+  return rpc<VenueBookingSteps>('get_venue_booking_steps', { p_workspace_id: workspaceId, p_venue_id: venueId })
+}
+
+export async function setVenueBookingSteps(workspaceId: string, venueId: string, steps: VenueBookingStepTemplate[], version: number) {
+  return rpc<VenueBookingSteps>('set_venue_booking_steps', {
+    p_workspace_id: workspaceId, p_venue_id: venueId, p_steps: steps, p_expected_version: version,
+  })
+}
+
+export async function getEventBooking(workspaceId: string, eventId: string) {
+  return rpc<EventBooking | null>('get_event_booking', { p_workspace_id: workspaceId, p_event_id: eventId })
+}
+
+export async function listArchivedEventBookings(workspaceId: string, eventId: string) {
+  return rpc<EventBooking[]>('list_archived_event_bookings', { p_workspace_id: workspaceId, p_event_id: eventId })
+}
+
+export async function startEventBooking(workspaceId: string, eventId: string) {
+  return rpc<EventBooking>('start_event_booking', { p_workspace_id: workspaceId, p_event_id: eventId })
+}
+
+export async function setBookingStepStatus(workspaceId: string, stepId: string, status: EventBooking['steps'][number]['status'], version: number) {
+  return rpc<EventBooking>('set_booking_step_status', {
+    p_workspace_id: workspaceId, p_step_id: stepId, p_status: status, p_expected_version: version,
+  })
+}
+
+export async function archiveEventBooking(workspaceId: string, bookingId: string, version: number) {
+  return rpc<EventBooking>('archive_event_booking', { p_workspace_id: workspaceId, p_booking_id: bookingId, p_expected_version: version })
+}
+
+export async function restoreEventBooking(workspaceId: string, bookingId: string, version: number) {
+  return rpc<EventBooking>('restore_event_booking', { p_workspace_id: workspaceId, p_booking_id: bookingId, p_expected_version: version })
 }
 
 export async function saveTeamBriefing(

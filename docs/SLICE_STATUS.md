@@ -1,5 +1,9 @@
 # Slice completion ledger
 
+## Venue booking tracker — 2026-09-30
+
+Added configurable venue booking steps and per-event bookings with dated status changes, lead-time-based deadlines, archive/restore, and role-checked audit entries. The event page shows the current booking status and next deadline.
+
 ## Venue directory — 2026-09-30
 
 Added workspace-scoped venues with versioned edits, archive/restore, role-checked RPCs, and audit entries. Events can link a venue independently of their free-text location; venue details list past linked events. Database tests cover cross-workspace isolation and member write denial.

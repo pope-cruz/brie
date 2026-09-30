@@ -2,28 +2,10 @@
 // on the local stack. Fixtures are fictional rows written through psql in the
 // local database container, with a fresh suffix per run; keys are created by
 // the same `create_assistant_token` RPC the app uses.
-import { execFileSync } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { Client } from '@modelcontextprotocol/sdk/client/index.js'
-import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js'
-
-const API = process.env.VITE_SUPABASE_URL ?? 'http://127.0.0.1:54321'
-const SERVER = new URL(`${API}/functions/v1/mcp`)
-const CONTAINER = process.env.SUPABASE_DB_CONTAINER ?? 'supabase_db_brie'
-
-function sql(statement: string): string {
-  return execFileSync('docker', ['exec', '-i', CONTAINER, 'psql', '-XqAt', '-v', 'ON_ERROR_STOP=1', '-U', 'postgres'], { input: statement, encoding: 'utf8' }).trim()
-}
-
-async function reachable() {
-  try {
-    const response = await fetch(SERVER, { method: 'POST', body: '{}' })
-    return response.status === 401
-  } catch {
-    return false
-  }
-}
+import type { Client } from '@modelcontextprotocol/sdk/client/index.js'
+import { connect as open, createKey, requireServer, sql, structured } from './helpers'
 
 const id = () => randomUUID()
 const run = randomUUID().slice(0, 8)
@@ -35,30 +17,13 @@ const ids = {
 const keys: Record<string, { id: string; secret: string }> = {}
 const clients: Client[] = []
 
-function createKey(user: string, workspace: string, label: string, scope: 'read' | 'read_draft' = 'read') {
-  const out = sql(`begin; set local role authenticated; select set_config('request.jwt.claim.sub', '${user}', true);
-    select public.create_assistant_token('${workspace}', '${label}', '${scope}', 7)::text; commit;`)
-  const created = JSON.parse(out.split('\n').filter((line) => line.startsWith('{')).at(-1)!)
-  return { id: created.id as string, secret: created.secret as string }
-}
-
-async function connect(secret: string) {
-  const client = new Client({ name: 'brie-integration-test', version: '1.0.0' })
-  await client.connect(new StreamableHTTPClientTransport(SERVER, { requestInit: { headers: { Authorization: `Bearer ${secret}` } } }))
-  clients.push(client)
-  return client
-}
-
-const structured = (result: Awaited<ReturnType<Client['callTool']>>) => result.structuredContent as Record<string, any>
+const connect = (secret: string) => open(secret, clients)
 
 let available = false
 
 beforeAll(async () => {
-  available = await reachable()
-  if (!available) {
-    if (process.env.CI) throw new Error(`Brie's MCP function is not reachable at ${SERVER}`)
-    return
-  }
+  available = await requireServer()
+  if (!available) return
   sql(`
     insert into auth.users (id, email) values
       ('${ids.ownerA}', 'mcp-owner-${run}@example.test'),

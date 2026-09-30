@@ -33,6 +33,8 @@ Add first-time/repeat attendance and event-based segments using distinct confirm
 
 **Done when:** first-time/repeat counts agree with person histories across overlapping imports and reversion; exports contain only permitted, explicitly selected fields; an organizer can explain the origin of each exported attendance fact.
 
+**Progress:** The first slice adds confirmed first-time/repeat event counts and organizer History filters. It counts distinct attendee/event pairs from active batches, includes archived events, and recalculates when a batch is reverted. Person source detail and the workspace CSV remain in the next two slices.
+
 ### 3. Add a workspace venue directory and booking tracker
 
 Create workspace-scoped venues with capacity, location, cost, accessibility, equipment, booking contact/link, lead time, restrictions, and event notes. Associate an event with a venue without removing its free-text location. Add configurable booking steps and dated statuses. For NYU rooms, prepare requirements and track the manual request. For external spaces, draft an editable email using event details and track replies, quotes, holds, confirmation, and deadlines. Keep sending or booking behind organizer review and a documented process.

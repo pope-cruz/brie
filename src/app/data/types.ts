@@ -98,6 +98,33 @@ export type VenueComparison = Venue & {
   fit: { requestBy: string; requestByPassed: boolean; linkedToEvent: boolean; conflicts: VenueConflict[] } | null
 }
 
+export type AssistantScope = 'read' | 'read_draft'
+
+export type AssistantToken = {
+  id: string
+  label: string
+  scope: AssistantScope
+  /** The first characters of the key, to tell keys apart. */
+  prefix: string
+  createdAt: string
+  expiresAt: string
+  lastUsedAt: string | null
+  revokedAt: string | null
+  status: 'active' | 'expired' | 'revoked'
+  createdBy: string
+  createdByName: string
+}
+
+export type AssistantAction = {
+  id: number
+  tool: string
+  arguments: Record<string, string | number | boolean>
+  outcome: string
+  createdAt: string
+  tokenId: string
+  tokenLabel: string
+}
+
 export type VenueBookingStepTemplate = { title: string; offsetDays: number }
 export type VenueBookingSteps = { steps: VenueBookingStepTemplate[]; customized: boolean; version: number }
 export type EventBookingStep = VenueBookingStepTemplate & {

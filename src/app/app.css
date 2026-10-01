@@ -992,3 +992,14 @@
 }
 .brie-app .app-venue-compare-sticky { position: sticky; bottom: 0; padding: 12px 0; background: var(--app-canvas); border-top: 1px solid var(--app-border); }
 .brie-app .app-venue-compare-sticky .app-btn { width: 100%; }
+
+/* Assistant access keys and activity. */
+.brie-app .app-mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 13px; overflow-wrap: anywhere; }
+.brie-app .app-assistant-secret { margin-top: 24px; padding: 16px; border: 1px solid var(--app-border); border-radius: 8px; background: var(--app-subtle); max-width: 720px; }
+.brie-app .app-assistant-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; padding: 12px 0; border-bottom: 1px solid var(--app-border); }
+.brie-app .app-assistant-row-main { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.brie-app .app-assistant-activity { list-style: none; margin: 0; padding: 0; }
+.brie-app .app-assistant-activity li { padding: 8px 0; border-bottom: 1px solid var(--app-border); overflow-wrap: anywhere; }
+@media (max-width: 767px) {
+  .brie-app .app-assistant-row { flex-direction: column; }
+}

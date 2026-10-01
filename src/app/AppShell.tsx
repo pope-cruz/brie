@@ -4,7 +4,7 @@ import { Link, Navigate, NavLink, Outlet, useLocation, useNavigate, useParams } 
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { getWorkspace, listMyWorkspaces, type WorkspaceSummary } from './data/api'
 import { toAppError } from './data/errors'
-import { canAdminWorkspace, canSeeAttendance } from './data/types'
+import { canAdminWorkspace, canManageEvents, canSeeAttendance } from './data/types'
 import { useSession } from './features/auth/SessionProvider'
 import { InviteDialog } from './features/workspaces/InviteDialog'
 import { rememberWorkspace, workspacePath } from './lib/paths'
@@ -165,6 +165,11 @@ export function AppShell() {
         ) : null}
       </nav>
       <div className="app-sidebar-footer">
+        {canManageEvents(role) ? (
+          <NavLink className="app-nav-item" to={workspacePath(workspaceId, 'assistant')}>
+            Assistant access
+          </NavLink>
+        ) : null}
         {canAdminWorkspace(role) ? (
           <NavLink className="app-nav-item" to={workspacePath(workspaceId, 'settings')}>
             Settings

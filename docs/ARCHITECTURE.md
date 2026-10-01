@@ -156,6 +156,15 @@ Migration 0061 defines a versioned read contract for assistants and other reader
 
 The contract carries plans, not people. It never includes attendee names or emails, member names or emails, or who is assigned: only whether a to-do is assigned and how many people a schedule item has. Members get confirmed attendance totals, as in the app; first-time and repeat counts are for owners and organizers. Each RPC is a thin signed-in wrapper around an internal builder (`event_plan_json`, `event_search_json`) that takes the reader's role explicitly and is not callable by browser roles. Assistant access calls the same builders after resolving its own credential, so both paths return identical documents. Fixtures captured from the RPCs (`tests/fixtures/event-plan-v1.json`, `event-search-v1.json`) lock each field and its type; a breaking change needs a new contract version.
 
+### Assistant access keys
+
+Migration 0062 adds workspace-scoped assistant keys (`assistant_tokens`) and a call log (`assistant_actions`); browser roles cannot read either table.
+
+- **Keys.** Owners and organizers create keys on the Assistant access page (`create_assistant_token`). A key is `brie_` plus 64 hex characters from `gen_random_bytes(32)`. Brie stores only its SHA-256 hash and a 13-character prefix, and returns the key once. Keys expire after 7, 30, 90, or 365 days; a workspace can have at most 20 active keys. Owners list and revoke every key; organizers list and revoke their own. Creation and revocation are audited.
+- **Authority.** A key acts as its creator, with the creator's *current* role, re-checked on every call. It stops working when revoked, expired, when its creator is removed, or when the creator becomes a member. Scope `read` allows read tools; `read_draft` is reserved for proposing draft plans.
+- **Server entry points.** Only `service_role` can execute `assistant_check(key)` (resolves a key without logging, for rejecting bad keys up front) and `assistant_call(key, tool, args)`. `assistant_call` resolves the key and dispatches one tool through the same internal builders the app uses: `event_search_json`, `event_plan_json`, `venue_comparison_json`, and `venue_detail_json`. `compare_venues` and `get_venue` are now wrappers around those builders. It returns `{ok, result}` or `{ok: false, error: {code, message}}`. An unknown or invalid key raises `UNAUTHORIZED`.
+- **Call log.** Every resolved call is logged with its tool, its outcome (`ok` or the error code), and only known arguments (`eventId`, `venueId`, `query`, `when`, `limit`, `includeArchived`), with text cut to 120 characters. Failed calls are logged too. Owners see the whole workspace's recent activity; organizers see activity for their own keys.
+
 ## Queries, caching, and performance
 
 - Query keys always include workspace, entity, filters, and page. On workspace switch/sign-out/removal clear scoped queries; do not show previous workspace data while loading the next. Refetch on window focus and after relevant writes; no live-collaboration claims.

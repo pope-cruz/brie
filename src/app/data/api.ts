@@ -4,6 +4,9 @@ import { toAppError } from './errors'
 import type { StatusMap } from '../lib/mixedAttendance'
 import type { EventPlan, EventSearchResult, EventSearchWindow } from './planningContract'
 import type {
+  AssistantAction,
+  AssistantScope,
+  AssistantToken,
   AttendanceExportRow,
   EventRecord,
   EventStatus,
@@ -135,6 +138,25 @@ export async function compareVenues(workspaceId: string, includeArchived: boolea
   return rpc<VenueComparison[]>('compare_venues', {
     p_workspace_id: workspaceId, p_include_archived: includeArchived, p_event_id: eventId,
   })
+}
+
+export async function listAssistantTokens(workspaceId: string) {
+  return rpc<AssistantToken[]>('list_assistant_tokens', { p_workspace_id: workspaceId })
+}
+
+/** The returned secret is shown once; Brie keeps only its hash. */
+export async function createAssistantToken(workspaceId: string, label: string, scope: AssistantScope, expiresInDays: number) {
+  return rpc<AssistantToken & { secret: string }>('create_assistant_token', {
+    p_workspace_id: workspaceId, p_label: label, p_scope: scope, p_expires_in_days: expiresInDays,
+  })
+}
+
+export async function revokeAssistantToken(workspaceId: string, tokenId: string) {
+  return rpc<AssistantToken>('revoke_assistant_token', { p_workspace_id: workspaceId, p_token_id: tokenId })
+}
+
+export async function listAssistantActions(workspaceId: string, limit = 50) {
+  return rpc<AssistantAction[]>('list_assistant_actions', { p_workspace_id: workspaceId, p_limit: limit })
 }
 
 export async function getEventPlan(workspaceId: string, eventId: string) {

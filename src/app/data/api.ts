@@ -19,6 +19,7 @@ import type {
   TeamInvitation,
   Workspace,
   Venue,
+  VenueComparison,
   VenueDetail,
   VenueBookingStepTemplate,
   VenueBookingSteps,
@@ -127,6 +128,12 @@ export async function getEvent(workspaceId: string, eventId: string) {
 
 export async function listVenues(workspaceId: string, includeArchived = false) {
   return rpc<Venue[]>('list_venues', { p_workspace_id: workspaceId, p_include_archived: includeArchived })
+}
+
+export async function compareVenues(workspaceId: string, includeArchived: boolean, eventId: string | null) {
+  return rpc<VenueComparison[]>('compare_venues', {
+    p_workspace_id: workspaceId, p_include_archived: includeArchived, p_event_id: eventId,
+  })
 }
 
 export async function getVenue(workspaceId: string, venueId: string) {

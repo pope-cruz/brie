@@ -968,3 +968,27 @@
 .brie-app .ros-paste-sheet { overflow-y: auto; }
 .brie-app .ros-paste-preview ol { display: grid; gap: 8px; margin: 8px 0; padding-left: 24px; }
 .brie-app .ros-paste-preview li { display: grid; gap: 2px; }
+
+/* Venue filters, fit reasons, and side-by-side comparison. */
+.brie-app .app-venue-filters { align-items: flex-start; }
+.brie-app .app-venue-list th { white-space: nowrap; }
+.brie-app .app-venue-filter { display: flex; flex-direction: column; gap: 6px; flex: 0 1 160px; min-width: 0; }
+.brie-app .app-venue-filter-wide { flex: 1 1 240px; }
+.brie-app .app-venue-compare-bar { margin-top: 0; min-height: 44px; }
+.brie-app .app-venue-fit { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
+.brie-app .app-venue-reasons { margin: 0; padding-left: 16px; list-style: disc; }
+.brie-app .app-venue-card { padding: 12px 0; border-bottom: 1px solid var(--app-border); display: flex; flex-direction: column; gap: 4px; }
+.brie-app .app-venue-card-head { display: flex; align-items: center; gap: 12px; }
+.brie-app .app-venue-card-head input { width: 20px; height: 20px; }
+.brie-app .app-venue-compare table { table-layout: fixed; }
+.brie-app .app-venue-compare tbody th { width: 140px; text-align: left; vertical-align: top; background: none; }
+.brie-app .app-venue-compare td { vertical-align: top; }
+.brie-app .app-venue-compare-text { white-space: pre-wrap; overflow-wrap: anywhere; }
+.brie-app .app-venue-compare-section { padding: 12px 0; border-bottom: 1px solid var(--app-border); }
+.brie-app .app-venue-compare-item { margin-top: 8px; }
+.brie-app .app-venue-compare-item dd { margin: 0; overflow-wrap: anywhere; }
+@media (max-width: 767px) {
+  .brie-app .app-venue-filter, .brie-app .app-venue-filter-wide { flex: 1 1 100%; }
+}
+.brie-app .app-venue-compare-sticky { position: sticky; bottom: 0; padding: 12px 0; background: var(--app-canvas); border-top: 1px solid var(--app-border); }
+.brie-app .app-venue-compare-sticky .app-btn { width: 100%; }

@@ -90,6 +90,14 @@ export type VenueDetail = Venue & {
   pastEvents: Array<{ id: string; title: string; startsAt: string; timezone: string; location: string }>
 }
 
+export type VenueConflict = { id: string; title: string; startsAt: string; endsAt: string; timezone: string }
+
+export type VenueComparison = Venue & {
+  usage: { pastEventCount: number; lastUsedOn: string | null; largestAttendance: number | null }
+  /** Present only when compared for one event. */
+  fit: { requestBy: string; requestByPassed: boolean; linkedToEvent: boolean; conflicts: VenueConflict[] } | null
+}
+
 export type VenueBookingStepTemplate = { title: string; offsetDays: number }
 export type VenueBookingSteps = { steps: VenueBookingStepTemplate[]; customized: boolean; version: number }
 export type EventBookingStep = VenueBookingStepTemplate & {

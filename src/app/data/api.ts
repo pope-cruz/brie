@@ -2,6 +2,7 @@ import { FunctionsHttpError } from '@supabase/supabase-js'
 import { getSupabase, rpc } from './client'
 import { toAppError } from './errors'
 import type { StatusMap } from '../lib/mixedAttendance'
+import type { EventPlan, EventSearchResult, EventSearchWindow } from './planningContract'
 import type {
   AttendanceExportRow,
   EventRecord,
@@ -133,6 +134,16 @@ export async function listVenues(workspaceId: string, includeArchived = false) {
 export async function compareVenues(workspaceId: string, includeArchived: boolean, eventId: string | null) {
   return rpc<VenueComparison[]>('compare_venues', {
     p_workspace_id: workspaceId, p_include_archived: includeArchived, p_event_id: eventId,
+  })
+}
+
+export async function getEventPlan(workspaceId: string, eventId: string) {
+  return rpc<EventPlan>('get_event_plan', { p_workspace_id: workspaceId, p_event_id: eventId })
+}
+
+export async function searchEvents(workspaceId: string, query: string, when: EventSearchWindow, venueId: string | null = null, limit = 10) {
+  return rpc<EventSearchResult>('search_events', {
+    p_workspace_id: workspaceId, p_query: query, p_when: when, p_venue_id: venueId, p_limit: limit,
   })
 }
 

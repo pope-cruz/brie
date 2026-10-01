@@ -55,6 +55,8 @@ After the core objects and permission policy settle, expose read-only event, tas
 
 **Done when:** “Plan a 40-person founder dinner based on our last two dinners” produces a usable draft inside the correct workspace, with cited prior events and visible assumptions. Cross-workspace and member-role access tests must cover the MCP surface.
 
+**Planning contract slice:** `get_event_plan` and `search_events` return versioned documents (`brie.event-plan/1`, `brie.event-search/1`) with the event, venue, booking summary, to-dos, run of show, and attendance totals. They exclude attendee and member contact data and who is assigned (`0061_planning_contract.sql`).
+
 ## First delivered slice in this pass
 
 An owner or organizer can export the event's **confirmed** attendance as CSV from the Attendance page. The export has one row per active attendee, with name, email, `attended` status, and every active file/row source. It follows batch reversion and is generated from a permission-checked database RPC. It is a bridge for manual CRM work, not a claim that RSVP or no-show data has been imported correctly. Before importing a mixed registration export, organizers must isolate checked-in attendees in the source file; the next slice removes that workaround.

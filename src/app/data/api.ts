@@ -8,6 +8,8 @@ import type {
   AssistantScope,
   AssistantToken,
   AttendanceExportRow,
+  PlanDraft,
+  PlanDraftChanges,
   EventRecord,
   EventStatus,
   HomeScheduleRecord,
@@ -157,6 +159,25 @@ export async function revokeAssistantToken(workspaceId: string, tokenId: string)
 
 export async function listAssistantActions(workspaceId: string, limit = 50) {
   return rpc<AssistantAction[]>('list_assistant_actions', { p_workspace_id: workspaceId, p_limit: limit })
+}
+
+export async function listPlanDrafts(workspaceId: string, includeDecided = false) {
+  return rpc<PlanDraft[]>('list_event_plan_drafts', { p_workspace_id: workspaceId, p_include_decided: includeDecided })
+}
+
+export async function getPlanDraft(workspaceId: string, draftId: string) {
+  return rpc<PlanDraft>('get_event_plan_draft', { p_workspace_id: workspaceId, p_draft_id: draftId })
+}
+
+export async function acceptPlanDraft(workspaceId: string, draftId: string, changes: PlanDraftChanges, expectedVersion: number, requestKey: string) {
+  return rpc<{ eventId: string; todos: number; scheduleItems: number }>('accept_event_plan_draft', {
+    p_workspace_id: workspaceId, p_draft_id: draftId, p_changes: changes,
+    p_expected_version: expectedVersion, p_request_key: requestKey,
+  })
+}
+
+export async function discardPlanDraft(workspaceId: string, draftId: string, expectedVersion: number) {
+  return rpc<PlanDraft>('discard_event_plan_draft', { p_workspace_id: workspaceId, p_draft_id: draftId, p_expected_version: expectedVersion })
 }
 
 export async function getEventPlan(workspaceId: string, eventId: string) {

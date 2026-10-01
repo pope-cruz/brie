@@ -15,6 +15,7 @@ function fail(error: { message: string; details?: string | null }): never {
 }
 
 Deno.serve((request) => handleMcpRequest(request, {
+  appOrigin: Deno.env.get('APP_ORIGIN') ?? undefined,
   async check(key) {
     const { data, error } = await admin.rpc('assistant_check', { p_token: key })
     if (error) fail(error)

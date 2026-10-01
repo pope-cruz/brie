@@ -35,9 +35,9 @@ const ids = {
 const keys: Record<string, { id: string; secret: string }> = {}
 const clients: Client[] = []
 
-function createKey(user: string, workspace: string, label: string) {
+function createKey(user: string, workspace: string, label: string, scope: 'read' | 'read_draft' = 'read') {
   const out = sql(`begin; set local role authenticated; select set_config('request.jwt.claim.sub', '${user}', true);
-    select public.create_assistant_token('${workspace}', '${label}', 'read', 7)::text; commit;`)
+    select public.create_assistant_token('${workspace}', '${label}', '${scope}', 7)::text; commit;`)
   const created = JSON.parse(out.split('\n').filter((line) => line.startsWith('{')).at(-1)!)
   return { id: created.id as string, secret: created.secret as string }
 }
@@ -86,6 +86,7 @@ beforeAll(async () => {
   keys.owner = createKey(ids.ownerA, ids.workspaceA, 'Owner laptop')
   keys.organizer = createKey(ids.organizerA, ids.workspaceA, 'Organizer laptop')
   keys.other = createKey(ids.ownerB, ids.workspaceB, 'Other workspace')
+  keys.drafting = createKey(ids.ownerA, ids.workspaceA, 'Drafting laptop', 'read_draft')
 })
 
 afterAll(async () => {
@@ -139,6 +140,41 @@ describe('Brie MCP server with the official SDK client', () => {
     expect(search.events.map((event: { title: string }) => event.title)).toEqual(['Founder dinner elsewhere'])
   })
 
+  it('lets a draft key propose a plan that changes nothing until reviewed', async ({ skip }) => {
+    if (!available) skip()
+    const client = await connect(keys.drafting.secret)
+    const { tools } = await client.listTools()
+    const draftTool = tools.find((tool) => tool.name === 'create_event_plan_draft')
+    expect(draftTool?.annotations?.readOnlyHint).toBe(false)
+    const eventsBefore = sql(`select count(*) from public.events where workspace_id = '${ids.workspaceA}'`)
+    const proposal = {
+      title: 'Fall founder dinner',
+      startsAt: '2026-11-12T19:00:00-05:00', endsAt: '2026-11-12T22:00:00-05:00',
+      venueId: ids.venue, expectedAttendance: 40,
+      todos: [{ title: 'Book caterer', dueDaysBeforeEvent: 14 }],
+      schedule: [{ title: 'Doors', minutesFromStart: 0, durationMinutes: 30 }],
+      assumptions: ['40 people, like the spring dinner'],
+      citedEventIds: [ids.spring, ids.winter],
+    }
+    const saved = structured(await client.callTool({ name: 'create_event_plan_draft', arguments: proposal }))
+    expect(saved.status).toBe('pending')
+    expect(saved.reviewPath).toBe(`/app/w/${ids.workspaceA}/drafts/${saved.draftId}`)
+    expect(sql(`select count(*) from public.events where workspace_id = '${ids.workspaceA}'`)).toBe(eventsBefore)
+    expect(sql(`select status || ':' || array_length(cited_event_ids, 1) from public.event_plan_drafts where id = '${saved.draftId}'`)).toBe('pending:2')
+
+    const rejected = await client.callTool({ name: 'create_event_plan_draft', arguments: { ...proposal, citedEventIds: [ids.other] } })
+    expect(rejected.isError).toBe(true)
+    expect(JSON.stringify(rejected.content)).toContain('Every cited event must be an event in this workspace')
+  })
+
+  it('does not offer the draft tool to a read-only key', async ({ skip }) => {
+    if (!available) skip()
+    const client = await connect(keys.owner.secret)
+    const { tools } = await client.listTools()
+    expect(tools.map((tool) => tool.name)).not.toContain('create_event_plan_draft')
+    await expect(client.callTool({ name: 'create_event_plan_draft', arguments: {} })).rejects.toThrow()
+  })
+
   it('rejects an unknown key before a session starts', async ({ skip }) => {
     if (!available) skip()
     await expect(connect(`brie_${'0'.repeat(64)}`)).rejects.toThrow()
@@ -157,6 +193,7 @@ describe('Brie MCP server with the official SDK client', () => {
     if (!available) skip()
     const logged = Number(sql(`select count(*) from public.assistant_actions where token_id = '${keys.owner.id}'`))
     expect(logged).toBe(4)
+    expect(sql(`select string_agg(outcome, ',' order by id) from public.assistant_actions where token_id = '${keys.drafting.id}'`)).toBe('ok,VALIDATION')
     expect(sql(`select string_agg(outcome, ',' order by outcome) from (select distinct outcome from public.assistant_actions where token_id = '${keys.other.id}') o`).split(',').sort()).toEqual(['UNAVAILABLE', 'ok'])
   })
 })

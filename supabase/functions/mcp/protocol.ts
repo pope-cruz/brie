@@ -29,6 +29,8 @@ export class UnauthorizedError extends Error {}
 export type McpDeps = {
   check: (key: string) => Promise<KeyContext>
   call: (key: string, tool: string, args: Record<string, unknown>) => Promise<ToolOutcome>
+  /** The app's public origin, used to turn a draft's review path into a link. */
+  appOrigin?: string
 }
 
 type JsonSchema = Record<string, unknown>
@@ -107,6 +109,63 @@ export const TOOLS: ToolDefinition[] = [
     inputSchema: { type: 'object', properties: { venueId: uuid }, required: ['venueId'], additionalProperties: false },
     annotations: { title: 'Venue', ...readOnly },
     scope: 'read',
+  },
+  {
+    name: 'create_event_plan_draft',
+    title: 'Propose a draft plan',
+    description: [
+      'Propose a new event plan for an organizer to review. Nothing is created in the workspace until an owner or organizer accepts it in Brie, where they can adjust the title and times or drop items.',
+      'Base it on past events: use search_events and get_event_plan, and list the IDs you used in citedEventIds.',
+      'State every assumption you made (headcount, budget, lead times, anything not in the cited plans) in assumptions; at least one is required.',
+      'Times are ISO 8601 with an offset. To-do due dates are days before the event day (negative means after). Schedule items are minutes from the event start (negative for setup) with a duration.',
+      'You cannot assign people, contact anyone, book a venue, or publish anything.',
+    ].join(' '),
+    inputSchema: {
+      type: 'object',
+      properties: {
+        title: { type: 'string', minLength: 1, maxLength: 120 },
+        description: { type: 'string', maxLength: 2000 },
+        location: { type: 'string', maxLength: 200 },
+        startsAt: { type: 'string', format: 'date-time' },
+        endsAt: { type: 'string', format: 'date-time' },
+        timezone: { type: 'string', description: 'IANA time zone; defaults to the workspace time zone.' },
+        venueId: { ...uuid, description: 'An active venue from list_venues.' },
+        expectedAttendance: { type: 'integer', minimum: 0, maximum: 100000 },
+        teamBriefing: { type: 'string', maxLength: 4000 },
+        todos: {
+          type: 'array', maxItems: 60,
+          items: {
+            type: 'object',
+            properties: {
+              title: { type: 'string', minLength: 1, maxLength: 200 },
+              notes: { type: 'string', maxLength: 2000 },
+              dueDaysBeforeEvent: { type: 'integer', minimum: -60, maximum: 365 },
+            },
+            required: ['title'],
+          },
+        },
+        schedule: {
+          type: 'array', maxItems: 60,
+          items: {
+            type: 'object',
+            properties: {
+              title: { type: 'string', minLength: 1, maxLength: 120 },
+              minutesFromStart: { type: 'integer', minimum: -1440, maximum: 2880 },
+              durationMinutes: { type: 'integer', minimum: 1, maximum: 1440 },
+              instructions: { type: 'string', maxLength: 4000 },
+            },
+            required: ['title', 'minutesFromStart', 'durationMinutes'],
+          },
+        },
+        assumptions: { type: 'array', minItems: 1, maxItems: 20, items: { type: 'string', minLength: 1, maxLength: 300 } },
+        citedEventIds: { type: 'array', maxItems: 10, items: uuid },
+        summary: { type: 'string', maxLength: 1000, description: 'One or two sentences on how this plan was put together.' },
+      },
+      required: ['title', 'startsAt', 'endsAt', 'assumptions'],
+      additionalProperties: false,
+    },
+    annotations: { title: 'Propose a draft plan', readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
+    scope: 'read_draft',
   },
 ]
 
@@ -195,9 +254,13 @@ async function handleMessage(message: JsonRpcMessage, key: string, context: KeyC
           isError: true,
         })
       }
-      const structured = isRecord(outcome.result) ? outcome.result : { value: outcome.result }
+      let result = outcome.result
+      if (isRecord(result) && typeof result.reviewPath === 'string' && deps.appOrigin) {
+        result = { ...result, reviewUrl: `${deps.appOrigin.replace(/\/+$/, '')}${result.reviewPath}` }
+      }
+      const structured = isRecord(result) ? result : { value: result }
       return rpcResult(id, {
-        content: [{ type: 'text', text: JSON.stringify(outcome.result) }],
+        content: [{ type: 'text', text: JSON.stringify(result) }],
         structuredContent: structured,
         isError: false,
       })

@@ -161,7 +161,7 @@ The contract carries plans, not people. It never includes attendee names or emai
 Migration 0062 adds workspace-scoped assistant keys (`assistant_tokens`) and a call log (`assistant_actions`); browser roles cannot read either table.
 
 - **Keys.** Owners and organizers create keys on the Assistant access page (`create_assistant_token`). A key is `brie_` plus 64 hex characters from `gen_random_bytes(32)`. Brie stores only its SHA-256 hash and a 13-character prefix, and returns the key once. Keys expire after 7, 30, 90, or 365 days; a workspace can have at most 20 active keys. Owners list and revoke every key; organizers list and revoke their own. Creation and revocation are audited.
-- **Authority.** A key acts as its creator, with the creator's *current* role, re-checked on every call. It stops working when revoked, expired, when its creator is removed, or when the creator becomes a member. Scope `read` allows read tools; `read_draft` is reserved for proposing draft plans.
+- **Authority.** A key acts as its creator, with the creator's *current* role, re-checked on every call. It stops working when revoked, expired, when its creator is removed, or when the creator becomes a member. Scope `read` allows read tools; `read_draft` also allows proposing draft plans (migration 0063).
 - **Server entry points.** Only `service_role` can execute `assistant_check(key)` (resolves a key without logging, for rejecting bad keys up front) and `assistant_call(key, tool, args)`. `assistant_call` resolves the key and dispatches one tool through the same internal builders the app uses: `event_search_json`, `event_plan_json`, `venue_comparison_json`, and `venue_detail_json`. `compare_venues` and `get_venue` are now wrappers around those builders. It returns `{ok, result}` or `{ok: false, error: {code, message}}`. An unknown or invalid key raises `UNAUTHORIZED`.
 - **Call log.** Every resolved call is logged with its tool, its outcome (`ok` or the error code), and only known arguments (`eventId`, `venueId`, `query`, `when`, `limit`, `includeArchived`), with text cut to 120 characters. Failed calls are logged too. Owners see the whole workspace's recent activity; organizers see activity for their own keys.
 
@@ -172,6 +172,24 @@ Migration 0062 adds workspace-scoped assistant keys (`assistant_tokens`) and a c
 Every POST first calls `assistant_check`; a missing or rejected key gets HTTP 401 with `WWW-Authenticate: Bearer`. `tools/list` shows only the tools the key's scope allows, all marked read-only. `tools/call` goes through `assistant_call`, so the database resolves the key again and enforces workspace, scope, and role on every call. A revoked key stops a connected assistant on its next request. Tool failures come back as MCP tool errors (`isError`, with the Brie error code and message); unexpected failures return a generic retryable error without internal detail. Successful results carry the JSON as text and as `structuredContent`. The gateway's JWT check is off for this function (`verify_jwt = false`, deployed with `--no-verify-jwt`).
 
 `npm run test:mcp` connects the official MCP TypeScript SDK client to the function on the local stack. It creates fictional fixtures and keys through the app's own RPCs, then checks initialization, every read tool, workspace isolation, rejection of an unknown key, revocation during a session, and the call log. CI runs it after the browser suites.
+
+### Draft event plans
+
+Migration 0063 lets a `read_draft` key propose a plan through the MCP tool `create_event_plan_draft`. `normalize_plan_draft` validates the proposal:
+- event fields, with the same rules as `create_event`;
+- an optional active venue from the same workspace and an expected headcount;
+- up to 60 to-dos, each with a due date given in days before the event day;
+- up to 60 schedule items, each given as minutes from the start plus a duration;
+- a team briefing;
+- 1–20 assumptions (required);
+- up to 10 cited events, all from the same workspace;
+- a short summary.
+
+Unknown fields such as assignees are dropped. The draft is stored in `event_plan_drafts`, which browser roles cannot read directly. It creates nothing else. The tool returns a review path, and the MCP server turns it into a full link when `APP_ORIGIN` is set. A workspace can have at most 20 pending drafts.
+
+Owners and organizers review drafts under **Drafts**; members cannot see them. The review page shows the assumptions, links to the cited events, and where each to-do and schedule item lands. The reviewer can change the title and times or drop items before accepting.
+
+`accept_event_plan_draft` creates a Draft-status event with the kept to-dos (unassigned, due dates counted back from the new event day) and schedule items (offsets from the new start), plus the team briefing and the venue link (no booking). Acceptance is one transaction, is idempotent per request key, is guarded by the draft version, and is audited with the draft, the assistant key, and the cited events. `discard_event_plan_draft` keeps the record. After acceptance the event is ordinary Brie data, edited with the usual tools.
 
 ## Queries, caching, and performance
 

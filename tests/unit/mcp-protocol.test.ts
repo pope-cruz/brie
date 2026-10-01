@@ -118,6 +118,33 @@ describe('MCP tools', () => {
     }
   })
 
+  it('lists the draft tool only for draft keys, and it is not marked read-only', async () => {
+    const readTools = (await (await handleMcpRequest(post(rpc('tools/list')), deps())).json()).result.tools
+    expect(readTools.map((tool: { name: string }) => tool.name)).not.toContain('create_event_plan_draft')
+    const draftTools = (await (await handleMcpRequest(post(rpc('tools/list')), deps({ check: async () => ({ ...context, scope: 'read_draft' }) }))).json()).result.tools
+    const draft = draftTools.find((tool: { name: string }) => tool.name === 'create_event_plan_draft')
+    expect(draft.annotations.readOnlyHint).toBe(false)
+    expect(draft.inputSchema.required).toEqual(['title', 'startsAt', 'endsAt', 'assumptions'])
+    expect(draft.inputSchema.properties).not.toHaveProperty('assignee')
+  })
+
+  it('refuses the draft tool for read-only keys without calling the database', async () => {
+    const d = deps()
+    const body = await (await handleMcpRequest(post(rpc('tools/call', { name: 'create_event_plan_draft', arguments: {} })), d)).json()
+    expect(body.error.code).toBe(-32602)
+    expect(d.call).not.toHaveBeenCalled()
+  })
+
+  it('links a saved draft to its review page when the app origin is known', async () => {
+    const body = await (await handleMcpRequest(post(rpc('tools/call', { name: 'create_event_plan_draft', arguments: { title: 'x' } })), deps({
+      appOrigin: 'https://brie.example.test/',
+      check: async () => ({ ...context, scope: 'read_draft' }),
+      call: async () => ({ ok: true, result: { draftId: 'd1', status: 'pending', reviewPath: '/app/w/w/drafts/d1' } }),
+    }))).json()
+    expect(body.result.structuredContent.reviewUrl).toBe('https://brie.example.test/app/w/w/drafts/d1')
+    expect(JSON.parse(body.result.content[0].text).reviewUrl).toBe('https://brie.example.test/app/w/w/drafts/d1')
+  })
+
   it('shows draft tools only to draft keys', () => {
     const draft: ToolDefinition = { ...TOOLS[0], name: 'create_draft', scope: 'read_draft' }
     expect(toolsFor('read', [...TOOLS, draft]).map((tool) => tool.name)).not.toContain('create_draft')

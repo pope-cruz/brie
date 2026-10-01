@@ -128,6 +128,16 @@ Before inviting real users, run the [release demonstration](TESTING.md) on the d
 
 For later releases: back up production, apply and verify new migrations, deploy the matching frontend build, then repeat the focused sign-in and workflow checks. If a frontend deployment fails, use Vercel's deployment history to return to the previous build. A frontend rollback does not roll back database migrations, so keep migrations compatible with the previous build until the release is stable.
 
+## Catching production up (as of 2026-09-30)
+
+On 2026-09-30 the hosted project had migrations only through `0025`, while the repository had `0026`–`0063` (attendance export and mixed imports, attendance history, venues, venue comparison, planning contract, assistant keys, and draft plans). If Vercel deploys `main`, screens that call the newer RPCs fail until the schema catches up. Order matters, because a frontend rollback does not undo migrations:
+
+1. Back up production. Then run `supabase migration list --linked` and confirm that only `0026`–`0063` are pending.
+2. `supabase db push`, then run `supabase migration list --linked` again.
+3. Add `select public.purge_expired_import_sources();` to the daily cron job (section 5) if it isn't there yet.
+4. Deploy the assistant server with `supabase functions deploy mcp --no-verify-jwt`, and optionally set the `APP_ORIGIN` secret for review links.
+5. Deploy or promote the matching frontend. Then, with fictional data, sign in, open Venues, Drafts, and Assistant access, create and revoke a key, and check that a revoked key gets 401.
+
 ## References
 
 - [Supabase database migrations](https://supabase.com/docs/guides/deployment/database-migrations) and [deployment environment management](https://supabase.com/docs/guides/deployment)

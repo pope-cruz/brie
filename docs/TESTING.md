@@ -53,6 +53,10 @@ Both suites use Playwright and start the Vite dev server themselves (`playwright
 - CI runs both browser suites against a full local Supabase stack on each pull request and main-branch push.
 - Failures leave traces and screenshots under `test-results/`. Open one with `npx playwright show-trace <trace.zip>`.
 
+## Assistant (MCP) suite
+
+`npm run test:mcp` connects the official MCP TypeScript SDK client to the `mcp` Edge Function on the local stack. Run `supabase functions serve` alongside `supabase start` if Edge Functions aren't already served. The suite writes fictional rows through `docker exec` into the local database container (`supabase_db_brie`) with a fresh suffix per run, and creates keys through the app's own RPCs. It covers the tool list, every read tool, workspace isolation, unknown and revoked keys, the call log, and draft proposals. It also runs the roadmap scenario “Plan a 40-person founder dinner based on our last two dinners”: search, read both plans, propose a cited draft with assumptions, and accept it as an organizer. It skips locally when the function isn't reachable; CI fails instead.
+
 ## Next implementation priorities
 
 1. Database permission tests cover invitation mismatch/expiry/replay/revocation, member task-only permissions, removed memberships, cross-workspace IDs, attendance privacy, overlapping imports, stale and expired previews, receipt recovery, and version conflicts (`supabase/tests/*.sql`, run in CI). `npm run test:reliability` additionally exercises genuinely overlapping sessions, mid-commit connection termination, late transaction failure, 5,000-row imports, and a disposable database restore. See [DATA_RELIABILITY.md](DATA_RELIABILITY.md) for measured evidence and limits.

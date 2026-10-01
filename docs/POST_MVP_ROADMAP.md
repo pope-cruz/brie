@@ -63,6 +63,8 @@ After the core objects and permission policy settle, expose read-only event, tas
 
 **Draft plans slice:** A `read_draft` key can propose a draft event plan with required assumptions and cited past events. Owners and organizers review it under Drafts, can adjust the title and times or drop items, and accept it as a Draft event (unassigned to-dos, schedule, briefing, venue link without booking) in one audited transaction (`0063_event_plan_drafts.sql`). Nothing enters the workspace before acceptance.
 
+**Step complete (2026-09-30):** `tests/mcp/founder-dinner.test.ts` runs the “done when” scenario through the official MCP SDK client: the draft lands in the correct workspace, cites the last two dinners, states its assumptions, and becomes a usable Draft event only when an organizer accepts it. `supabase/tests/assistant_surface.sql` and the MCP suite cover cross-workspace and member-role access across every tool. Production still needs the migrations and function deployment listed in DEPLOYMENT.md.
+
 ## First delivered slice in this pass
 
 An owner or organizer can export the event's **confirmed** attendance as CSV from the Attendance page. The export has one row per active attendee, with name, email, `attended` status, and every active file/row source. It follows batch reversion and is generated from a permission-checked database RPC. It is a bridge for manual CRM work, not a claim that RSVP or no-show data has been imported correctly. Before importing a mixed registration export, organizers must isolate checked-in attendees in the source file; the next slice removes that workaround.

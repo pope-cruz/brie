@@ -2,7 +2,15 @@
 
 Drafted 2026-09-30 against `main` at `5f14b42`. This covers roadmap step 3's remaining gap and all of step 4 in [POST_MVP_ROADMAP.md](POST_MVP_ROADMAP.md).
 
-## Where things stand
+## Outcome (2026-09-30)
+
+All six slices were implemented as stacked pull requests: S1 pope-cruz/brie#23, S2 #24, S3 #25, S4 #26, S5 #27, and S6 (acceptance). Each has its verification in `docs/SLICE_STATUS.md`. Differences from the plan:
+- The venue-fit headcount is a filter on the page, not an event field.
+- `search_prior_events` became `search_events` with a `when` window.
+- The MCP transport is a small dependency-free implementation of stateless Streamable HTTP, tested against the official SDK client, rather than the SDK server.
+- The review-and-accept step in the scenario uses the Drafts page's RPC in the MCP suite. The browser flow was checked by hand and in component tests, not added to the Playwright release suite.
+
+## Where things stood at the start
 
 - Roadmap steps 1 (mixed attendance), 2 (history and export) and most of 3 (venue directory, booking tracker, request preparation) are merged. CI is green on `main`.
 - **Step 3 gap:** its "done when" says an organizer can *compare suitable venues*. The venue list is a plain list of names, types, capacities and addresses (`src/app/features/venues/VenueListPage.tsx`), with no filtering, comparison, or fit against an event.

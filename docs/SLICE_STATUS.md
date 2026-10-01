@@ -1,5 +1,28 @@
 # Slice completion ledger
 
+## Assistant acceptance and wrap-up — 2026-09-30
+
+Roadmap step 4 is complete in the repository. `tests/mcp/founder-dinner.test.ts` scripts the roadmap scenario “Plan a 40-person founder dinner based on our last two dinners” with the official MCP SDK client and a draft key:
+- The assistant finds the last two dinners (skipping an older dinner, an unrelated event, and another workspace's dinner) and reads both plans (38 and 31 confirmed; no guest data).
+- It proposes a draft that cites both dinners, states its assumptions (headcount against past attendance, copied run of show, venue not booked), merges their to-dos, and picks the venue that fits 40.
+- Nothing appears in the workspace until an organizer accepts. Members and other workspaces are denied.
+- Accepting creates a Draft event with unassigned to-dos (due dates counted from the new day), the run of show, the briefing, and the venue. The audit entry cites both dinners, and the call log shows exactly search, plan, plan, draft.
+
+`supabase/tests/assistant_surface.sql` calls every assistant tool with another workspace's event and venue IDs and confirms each stays inside the key's own workspace. It also confirms that demoting the key's creator to member removes every tool.
+
+Verification:
+- 319 app tests, lint, build, and `deno check` pass.
+- 455 database checks pass (12 new), and all 71 reliability assertions pass.
+- 10 MCP integration tests pass (1 new scenario).
+
+**Maintainer actions before production use**, all listed in DEPLOYMENT.md under “Catching production up”:
+1. Back up production and push migrations `0026`–`0063`; the hosted project stopped at `0025` on 2026-09-30.
+2. Deploy the `mcp` function with `--no-verify-jwt`.
+3. Optionally set `APP_ORIGIN` on the function.
+4. Deploy the matching frontend.
+
+None of these were performed in this session.
+
 ## Draft event plans — 2026-09-30
 
 An assistant key with **Read and propose drafts** access can call the MCP tool `create_event_plan_draft`. A proposal holds event details, to-dos with due dates relative to the event day, a run of show given as minutes from the start, a team briefing, an optional venue, **at least one assumption**, and the past events it was based on. Proposals are validated (cited events and venues must belong to the same workspace, and assignees are ignored) and saved as pending drafts that change nothing else (`0063_event_plan_drafts.sql`).

@@ -57,3 +57,9 @@ content_path = "./supabase/templates/magic_link.html"
 # who isn't the workspace owner, so the gateway's legacy JWT check is not needed.
 [functions.send-invitation]
 verify_jwt = false
+
+# The MCP server authenticates Brie assistant keys (not Supabase JWTs) through
+# the service-role-only `assistant_check` / `assistant_call`, so the gateway's
+# JWT check must be off. Deploy with `--no-verify-jwt`.
+[functions.mcp]
+verify_jwt = false

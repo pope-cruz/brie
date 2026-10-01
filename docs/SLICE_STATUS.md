@@ -1,5 +1,11 @@
 # Slice completion ledger
 
+## Read-only MCP server — 2026-09-30
+
+Added `supabase/functions/mcp`, Brie's MCP server for assistants. With a key from the Assistant access page, an assistant such as Claude Code can read workspace details, list and search events, read an event plan (`brie.event-plan/1`), and list or read venues. It can't write anything. The server uses the stateless subset of MCP Streamable HTTP, implemented in a dependency-free `protocol.ts`. Every request is authorized by the database through the service-role-only `assistant_check`/`assistant_call`, so a revoked key stops a connected assistant on its next request. `config.toml` turns off the gateway JWT check for this function. DEPLOYMENT.md lists the maintainer steps for production (`supabase functions deploy mcp --no-verify-jwt`). They were not run.
+
+Verification: 305 app tests (18 new protocol tests), lint, production build, and a Deno type check of the function pass. `npm run test:mcp` passes 7 integration tests that connect the official MCP TypeScript SDK client (`@modelcontextprotocol/sdk` 1.31.0, a new dev dependency) to the function served locally. They cover initialization, the tool list, every read tool, workspace isolation, rejection of an unknown key, revocation during a session, and the call log. CI now serves the function and runs that suite. Database checks are unchanged at 408.
+
 ## Assistant access keys — 2026-09-30
 
 Owners and organizers can create read-only assistant keys on a new **Assistant access** page. The page shows each key once, along with a ready-to-paste Claude Code command. It lists keys with their creator, status, last use, and expiry, supports revocation, and shows recent assistant activity. Keys are stored as hashes. Each key acts with its creator's current role, so removal, demotion to member, expiry, or revocation stops it immediately. `0062_assistant_access.sql` also adds the service-role-only `assistant_check` and `assistant_call`. `assistant_call` runs one read tool (workspace, event list and search, event plan, venue list and detail) through the app's own builders and logs every call, including failures. The MCP server that calls these arrives in the next slice.

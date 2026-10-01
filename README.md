@@ -19,3 +19,5 @@ npm test
 npm run lint
 npm run build
 ```
+
+With the local stack and Edge Functions running (`supabase functions serve`), `npm run test:mcp` drives Brie's MCP server with the official MCP SDK client.

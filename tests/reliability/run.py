@@ -126,13 +126,17 @@ def main():
     sql(f'create database {DB} template template0;', 'postgres')
     created.append(DB)
     # Copy schema only: never read/copy local accounts, sessions, or application rows.
-    schema = docker('pg_dump', '-U', 'postgres', '-d', 'postgres', '--schema-only', '--schema=auth',
-                    '--no-owner', '--no-privileges', '--exclude-table=auth.schema_migrations').stdout
+    # Storage's tables back event file uploads (0064); copy them the same way.
+    schema = docker('pg_dump', '-U', 'postgres', '-d', 'postgres', '--schema-only', '--schema=auth', '--schema=storage',
+                    '--no-owner', '--no-privileges', '--exclude-table=auth.schema_migrations',
+                    '--exclude-table=storage.migrations').stdout
     # The app's trigger is recreated by migration 0001, not by the auth bootstrap.
-    schema = '\n'.join(line for line in schema.splitlines() if not line.startswith('CREATE TRIGGER on_auth_user_created '))
+    # The app's storage policies are recreated by migration 0064 too.
+    schema = '\n'.join(line for line in schema.splitlines()
+                       if not line.startswith('CREATE TRIGGER on_auth_user_created ') and not line.startswith('CREATE POLICY '))
     sql('create schema extensions; create extension pgcrypto with schema extensions;')
     sql(schema)
-    sql('grant usage on schema public, auth, extensions to authenticated, anon, service_role; grant execute on function auth.uid() to authenticated, anon, service_role;')
+    sql('grant usage on schema public, auth, storage, extensions to authenticated, anon, service_role; grant execute on function auth.uid() to authenticated, anon, service_role;')
     for migration in sorted((ROOT / 'supabase/migrations').glob('*.sql')):
         if args.before and migration.name >= args.before:
             break

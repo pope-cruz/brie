@@ -10,6 +10,7 @@ import { DetailsPanel } from './EventPanels'
 import type { EventSectionId } from '../../lib/eventPhase'
 import { EventVenuePicker } from '../venues/EventVenuePicker'
 import { EventBookingSummary } from '../venues/EventBookingPanel'
+import { EventAttachments } from './EventAttachments'
 
 export function EventLayout() {
   const workspace = useCurrentWorkspace()
@@ -86,6 +87,7 @@ export function EventLayout() {
         {!subpage && event.data.description ? <p className="event-description">{event.data.description}</p> : null}
         <EventVenuePicker workspace={workspace} event={event.data} />
         <EventBookingSummary workspace={workspace} event={event.data} />
+        {!subpage ? <EventAttachments workspace={workspace} event={event.data} /> : null}
         {event.data.archivedAt ? <div className="app-banner">This event is archived. Restore it to edit the plan.</div> : null}
         {event.data.status === 'canceled' ? <div className="app-banner">This event is canceled. Previously recorded attendance stays in history.</div> : null}
       </header>

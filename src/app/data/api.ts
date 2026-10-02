@@ -1,6 +1,6 @@
 import { FunctionsHttpError } from '@supabase/supabase-js'
 import { getSupabase, rpc } from './client'
-import { toAppError } from './errors'
+import { AppError, toAppError } from './errors'
 import type { StatusMap } from '../lib/mixedAttendance'
 import type { EventPlan, EventSearchResult, EventSearchWindow } from './planningContract'
 import type {
@@ -10,6 +10,7 @@ import type {
   AttendanceExportRow,
   PlanDraft,
   PlanDraftChanges,
+  EventAttachment,
   EventRecord,
   EventStatus,
   HomeScheduleRecord,
@@ -885,4 +886,65 @@ export async function transferOwnership(
     p_expected_owner_version: ownerVersion,
     p_expected_target_version: targetVersion,
   })
+}
+
+const EVENT_FILES_BUCKET = 'event-files'
+/** Matches the bucket's limit in 0064_event_attachments.sql. */
+export const EVENT_FILE_MAX_BYTES = 25 * 1024 * 1024
+
+export async function listEventAttachments(workspaceId: string, eventId: string, includeRemoved = false) {
+  return rpc<EventAttachment[]>('list_event_attachments', {
+    p_workspace_id: workspaceId, p_event_id: eventId, p_include_removed: includeRemoved,
+  })
+}
+
+/** Storage keys allow a narrow character set; the original name is kept as the title. */
+function storageFileName(name: string) {
+  const cleaned = name.normalize('NFKD').replace(/[^\w.-]+/g, '-').replace(/-+/g, '-').replace(/^[-.]+|-+$/g, '')
+  return (cleaned || 'file').slice(-120)
+}
+
+/** Uploads the bytes under a fresh attachment id, then records it. Retrying the record is safe. */
+export async function addEventFile(workspaceId: string, eventId: string, file: File) {
+  const id = crypto.randomUUID()
+  const path = `${workspaceId}/${eventId}/${id}/${storageFileName(file.name)}`
+  const { error } = await getSupabase().storage.from(EVENT_FILES_BUCKET)
+    .upload(path, file, { contentType: file.type || 'application/octet-stream', upsert: false })
+  if (error) {
+    const status = Number((error as { statusCode?: string | number }).statusCode)
+    throw new AppError(status === 413 ? 'VALIDATION' : 'UNAVAILABLE', status === 413
+      ? 'Too large. Files can be up to 25 MB.'
+      : 'The upload didn’t finish. Check your connection and try again.')
+  }
+  return rpc<EventAttachment>('add_event_attachment', {
+    p_workspace_id: workspaceId, p_event_id: eventId, p_attachment_id: id, p_kind: 'file',
+    p_title: file.name.slice(0, 200) || 'File', p_url: null, p_storage_path: path,
+  })
+}
+
+export async function addEventLink(workspaceId: string, eventId: string, url: string, title: string) {
+  return rpc<EventAttachment>('add_event_attachment', {
+    p_workspace_id: workspaceId, p_event_id: eventId, p_attachment_id: crypto.randomUUID(), p_kind: 'link',
+    p_title: title, p_url: url, p_storage_path: null,
+  })
+}
+
+export async function removeEventAttachment(workspaceId: string, attachmentId: string, version: number) {
+  return rpc<EventAttachment>('remove_event_attachment', {
+    p_workspace_id: workspaceId, p_attachment_id: attachmentId, p_expected_version: version,
+  })
+}
+
+export async function restoreEventAttachment(workspaceId: string, attachmentId: string, version: number) {
+  return rpc<EventAttachment>('restore_event_attachment', {
+    p_workspace_id: workspaceId, p_attachment_id: attachmentId, p_expected_version: version,
+  })
+}
+
+/** Short-lived links for opening stored files; the bucket is private. */
+export async function signEventFiles(paths: string[]) {
+  if (paths.length === 0) return {} as Record<string, string>
+  const { data, error } = await getSupabase().storage.from(EVENT_FILES_BUCKET).createSignedUrls(paths, 60 * 60)
+  if (error) throw toAppError(error)
+  return Object.fromEntries((data ?? []).filter((item) => item.signedUrl && item.path).map((item) => [item.path!, item.signedUrl]))
 }

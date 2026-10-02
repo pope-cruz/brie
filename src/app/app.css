@@ -1078,3 +1078,37 @@
 @media (prefers-reduced-motion: reduce) {
   .brie-app .app-row-actions, .brie-app .todo-notes-toggle, .brie-app .ros-row-menu summary { transition: none; }
 }
+
+/* Event files and links. */
+.brie-app .event-files { margin-top: 24px; }
+.brie-app .event-files-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; min-height: 36px; }
+.brie-app .event-files-head h2 { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 14px; line-height: 20px; font-weight: 500; }
+.brie-app .event-files-count { color: var(--app-muted); font-weight: 400; font-variant-numeric: tabular-nums; }
+.brie-app .event-files-actions { display: flex; gap: 2px; margin-right: -8px; }
+.brie-app .event-files-actions .app-btn { min-height: 32px; padding: 0 8px; }
+.brie-app .event-files-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 24px; margin: 4px 0 0; padding: 0; list-style: none; border-top: 1px solid var(--app-border); }
+.brie-app .event-file { display: flex; align-items: center; gap: 10px; min-height: 52px; padding: 6px 0; border-bottom: 1px solid var(--app-border); }
+.brie-app .event-file-icon { flex: none; width: 16px; height: 16px; color: var(--app-muted); }
+.brie-app .event-file-body { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+.brie-app .event-file-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
+.brie-app a.event-file-title { color: var(--app-ink); text-decoration: none; }
+.brie-app a.event-file-title:hover { text-decoration: underline; text-underline-offset: 3px; }
+.brie-app .event-file-meta { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--app-muted); font-size: 12px; line-height: 18px; }
+.brie-app .event-file .app-error-text { margin: 0; font-size: 12px; line-height: 18px; }
+.brie-app .event-files-empty { margin: 4px 0 0; padding: 12px 16px; border: 1px dashed var(--app-control-border); border-radius: 6px; color: var(--app-muted); font-size: 13px; line-height: 20px; }
+.brie-app .event-files-link { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 4px 0 8px; }
+.brie-app .event-files-link .app-input { flex: 2 1 260px; width: auto; }
+.brie-app .event-files-link .app-input + .app-input { flex: 1 1 160px; }
+.brie-app .event-files-link .app-error-text { flex-basis: 100%; margin: 0; }
+.brie-app .event-files-removed { margin-top: 12px; }
+.brie-app .event-files-drop { position: fixed; inset: 0; z-index: 40; display: flex; align-items: center; justify-content: center; padding: 16px; background: rgb(255 255 255 / 0.88); pointer-events: none; }
+.brie-app .event-files-drop p { margin: 0; padding: 24px 32px; border: 2px dashed var(--app-ink); border-radius: 8px; background: var(--app-canvas); font-size: 16px; line-height: 24px; font-weight: 500; overflow-wrap: anywhere; }
+@media (hover: hover) {
+  .brie-app .event-file .ros-row-menu:not([open]) summary { opacity: 0; transition: opacity 120ms cubic-bezier(0.22,1,0.36,1); }
+  .brie-app .event-file:is(:hover, :focus-within) .ros-row-menu summary { opacity: 1; }
+}
+@media (max-width: 767px) {
+  .brie-app .event-files-list { grid-template-columns: minmax(0, 1fr); }
+  .brie-app .event-file { min-height: 56px; }
+  .brie-app .event-file-title { white-space: normal; overflow-wrap: anywhere; }
+}

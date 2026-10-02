@@ -36,6 +36,8 @@ A restore check is complete when:
 - Event, task, schedule, and active attendance counts match the backup source.
 - A reverted import stays reverted.
 
+Event files (`0064_event_attachments.sql`) are stored in the Storage bucket `event-files`, not in PostgreSQL, so `pg_dump` and the reliability rehearsal back up their records but not their bytes. Back up the bucket separately (for example, with the S3-compatible endpoint) on the same schedule. Removing a file in the app only hides it so it can be restored; the bytes stay in the bucket.
+
 Local migration 0016 was preceded by a custom-format PostgreSQL backup at `/tmp/brie-before-0016-20260914.dump` inside `supabase_db_brie`. This contains local data and should remain private. It is a local pre-migration recovery copy, not an off-host or durable production backup; removing the container can remove it.
 
 ## Expired preview cleanup
@@ -53,9 +55,9 @@ Expired preview payloads and kept original rows past their 180-day limit are hid
 
 Product MVP has no workspace or account deletion screen. An operator purge must:
 
-1. Preview impact: memberships, events, tasks, segments, attendees, contributions, previews, and audit IDs for one workspace.
+1. Preview impact: memberships, events, tasks, segments, event attachments, attendees, contributions, previews, and audit IDs for one workspace.
 2. Export or retain a backup according to the operator’s retention policy.
-3. Delete only that workspace’s rows. Do not delete an `auth.users` row if the person still belongs to another workspace.
+3. Delete only that workspace’s rows, and the Storage objects under `event-files/<workspace id>/`. Do not delete an `auth.users` row if the person still belongs to another workspace.
 4. Record that this is permanent erasure, not attendance reversion.
 
 To remove one person's kept original import rows in a workspace (for example, on request), run `select public.erase_import_source_rows('<workspace id>', '<email>');`. It returns the number of rows removed. Kept rows without an email cannot be matched to a person; delete that import's kept rows from its receipt instead. This removes only kept source rows, not the person's attendance or identity.

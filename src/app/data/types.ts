@@ -384,3 +384,18 @@ export function taskStatusLabel(status: TaskStatus): string {
   if (status === 'todo') return 'Todo'
   return 'Done'
 }
+
+export type EventAttachment = {
+  id: string
+  eventId: string
+  kind: 'file' | 'link'
+  title: string
+  url: string | null
+  storagePath: string | null
+  contentType: string
+  sizeBytes: number | null
+  createdAt: string
+  createdByName: string
+  removedAt: string | null
+  version: number
+}

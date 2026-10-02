@@ -138,6 +138,8 @@ On 2026-09-30 the hosted project had migrations only through `0025`, while the r
 4. Deploy the assistant server with `supabase functions deploy mcp --no-verify-jwt`, and optionally set the `APP_ORIGIN` secret for review links.
 5. Deploy or promote the matching frontend. Then, with fictional data, sign in, open Venues, Drafts, and Assistant access, create and revoke a key, and check that a revoked key gets 401.
 
+Migration `0064_event_attachments.sql` (event files and links) also creates the private Storage bucket `event-files` (25 MB per file) and its two `storage.objects` policies. Push it with the others. Afterward, confirm under Storage in the dashboard that the bucket exists and is not public, then upload a fictional file on an event and open it as a member.
+
 ## References
 
 - [Supabase database migrations](https://supabase.com/docs/guides/deployment/database-migrations) and [deployment environment management](https://supabase.com/docs/guides/deployment)

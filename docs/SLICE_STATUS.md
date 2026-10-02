@@ -1,5 +1,18 @@
 # Slice completion ledger
 
+## Event files and links — 2026-10-02
+
+Organizers can attach files and links to an event, so partnership docs, slides, orders, and receipts no longer go in the team briefing. **Files & links** sits under the event header:
+- **Upload files** or drop files anywhere on the event page. Pasting a file or an http(s) link outside a text field also attaches it.
+- **Add link** takes a URL and an optional name. Figma links are named from their file name, and Google, Canva, Notion, and Dropbox links show where they point.
+- Everyone in the workspace sees and opens them. Files open through signed links that last an hour; the bucket is private. Owners and organizers remove items (with Undo) and restore them from **Removed files and links**. Archived events are read-only.
+
+Storage: files live in the private `event-files` bucket at `<workspace>/<event>/<attachment id>/<name>`, 25 MB each, up to 100 items per event. `0064_event_attachments.sql` adds the `event_attachments` table; the `list_`, `add_`, `remove_`, and `restore_event_attachment` RPCs; and `event_file_access`, which the bucket's read and upload policies call. An add records size and type from the stored object, never from the browser. The client chooses the id, so a retried add changes nothing. The reliability harness now copies the `storage` schema into its scratch database alongside `auth`.
+
+Verification: 22 new database checks, 4 new unit tests, and a release-suite step (upload, drop, link naming, member opens the file, remove and undo). The full database, reliability, unit, and browser suites pass.
+
+Not included: copying attachments on Duplicate, assistant (MCP) access to them, previews, and permanent deletion of removed files.
+
 ## Assistant acceptance and wrap-up — 2026-09-30
 
 Roadmap step 4 is complete in the repository. `tests/mcp/founder-dinner.test.ts` scripts the roadmap scenario “Plan a 40-person founder dinner based on our last two dinners” with the official MCP SDK client and a draft key:

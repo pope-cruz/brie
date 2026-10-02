@@ -52,7 +52,10 @@ export function EventBookingPanel({ workspace, event }: { workspace: WorkspaceSu
     void run(() => setBookingStepStatus(workspace.id, step.id, status, step.version))
   }
 
-  return <section style={{ marginBottom: 24 }}>
+  // Nothing to track until a venue is linked; the venue row in the header already offers that.
+  if (!booking.data && !booking.isError && !venue.data?.venueId && !archived.data?.length) return null
+
+  return <section className="event-booking">
     <h3 className="app-section-title">Venue booking</h3>
     {booking.isError ? <ErrorRetry message={toAppError(booking.error).message} onRetry={() => booking.refetch()} /> : null}
     {!booking.data && venue.data?.venueId && canEdit ? <Button variant="secondary" busy={busy} onClick={() => void run(() => startEventBooking(workspace.id, event.id))}>Start booking</Button> : null}

@@ -220,8 +220,10 @@ export function RunOfShowPage() {
             Column per person
           </label>
         ) : null}
-        <DownloadPdf workspace={workspace} event={event} all={all} members={members} current={who} showDates={multiDay} />
-        {manage ? <Button variant="secondary" onClick={() => setPasteOpen(true)}>Paste rows</Button> : null}
+        <div className="ros-toolbar-actions">
+          {manage ? <Button variant="quiet" onClick={() => setPasteOpen(true)}>Paste rows</Button> : null}
+          <DownloadPdf workspace={workspace} event={event} all={all} members={members} current={who} showDates={multiDay} />
+        </div>
       </div>
 
       <TeamBriefing workspace={workspace} event={event} manage={manage} />
@@ -697,11 +699,11 @@ function TeamBriefing({ workspace, event, manage }: { workspace: WorkspaceSummar
 
   return <section className="ros-briefing" aria-labelledby="team-briefing-title">
     <div className="ros-section-heading">
-      <div><h2 id="team-briefing-title">Team briefing</h2><p>Arrival instructions, meeting points, and event-wide notes.</p></div>
+      <h3 id="team-briefing-title">Team briefing</h3>
       {manage && dirty ? <div className="ros-inline-actions"><span>Unsaved changes</span><Button variant="quiet" onClick={() => { setValue(savedValue); setError(null) }}>Cancel</Button><Button busy={busy} busyLabel="Saving…" onClick={save}>Save briefing</Button></div> : null}
     </div>
     {manage ? <AutoTextarea className="ros-briefing-input" value={value} maxLength={4000}
-      placeholder="Where should the team meet? What should everyone know before doors open?" aria-label="Team briefing"
+      placeholder="Arrival instructions, meeting points, and event-wide notes" aria-label="Team briefing"
       disabled={busy} onChange={(event) => setValue(event.target.value)} />
       : value ? <p className="ros-readable-notes">{value}</p> : <p className="ros-empty-copy">No team briefing added.</p>}
     {error ? <p className="app-error-text" role="alert">{error} <button className="ros-retry-link" onClick={save}>Retry</button></p> : null}

@@ -194,7 +194,7 @@ test('2. owner plans an event with a task and a run-of-show segment', async () =
   await expect(ownerPage.getByRole('heading', { name: 'Welcome night' })).toBeVisible()
   await ownerPage.reload()
   await expect(ownerPage.getByRole('heading', { name: 'Welcome night' })).toBeVisible()
-  await expect(ownerPage.getByText(/^Draft ·/)).toBeVisible()
+  await expect(ownerPage.locator('.event-facts .app-status')).toHaveText('Draft')
 
   await ownerPage.goto(eventUrl('/tasks'))
   await ownerPage.getByLabel('New to-do', { exact: true }).fill('Set up welcome desk')
@@ -264,7 +264,7 @@ test('3. owner edits status and the header updates without a reload', async () =
   await ownerPage.getByLabel('Status').selectOption('planned')
   await ownerPage.getByRole('button', { name: 'Save' }).click()
   await expect(ownerPage).toHaveURL(new RegExp(`${state.eventId}$`))
-  await expect(ownerPage.getByText(/^Planned ·/)).toBeVisible()
+  await expect(ownerPage.locator('.event-facts .app-status')).toHaveText('Planned')
 })
 
 test('4. owner creates organizer and member invitations', async () => {
@@ -498,7 +498,7 @@ test('10. duplicate makes a clean draft; cross-event history counts each event o
   await expect(organizerPage).toHaveURL(/\/events\/[0-9a-f-]{36}$/)
   state.copyEventId = organizerPage.url().match(/\/events\/([0-9a-f-]{36})$/)![1]
   expect(state.copyEventId).not.toBe(state.eventId)
-  await expect(organizerPage.getByText(/^Draft ·/)).toBeVisible()
+  await expect(organizerPage.locator('.event-facts .app-status')).toHaveText('Draft')
   await expect(organizerPage.getByText('Attendance hasn’t been recorded')).toBeVisible()
 
   await organizerPage.goto(`/app/w/${state.workspaceId}/events/${state.copyEventId}/tasks`)

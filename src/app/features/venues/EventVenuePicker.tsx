@@ -43,23 +43,27 @@ export function EventVenuePicker({ workspace, event }: { workspace: WorkspaceSum
     }
   }
 
+  const linked = current.data?.venueId
+    ? <Link to={`/app/w/${workspace.id}/venues/${current.data.venueId}`}>{current.data.venueName}</Link>
+    : null
+  const changed = value !== (current.data?.venueId ?? '')
+
   return (
-    <div style={{ marginTop: 12 }}>
-      <p className="app-meta">
-        Venue: {current.data?.venueId
-          ? <Link to={`/app/w/${workspace.id}/venues/${current.data.venueId}`}>{current.data.venueName}</Link>
-          : 'None linked'}
-      </p>
-      {editable ? <div className="app-toolbar">
-        <select className="app-select" aria-label="Event venue" value={value} onChange={(change) => setSelected(change.target.value)}>
-          <option value="">No venue</option>
-          {venues.data?.map((venue) => <option key={venue.id} value={venue.id} disabled={Boolean(venue.removedAt)}>
-            {venue.name}{venue.removedAt ? ' (archived)' : ''}
-          </option>)}
-        </select>
-        <Button variant="secondary" busy={busy} disabled={value === (current.data?.venueId ?? '')} onClick={() => void save()}>Save venue</Button>
-        <Link className="app-btn app-btn-quiet" to={`/app/w/${workspace.id}/venues?event=${event.id}`}>Find a venue</Link>
-      </div> : null}
+    <div className="event-venue">
+      <div className="event-venue-row">
+        <span className="event-venue-label">Venue</span>
+        {editable ? <>
+          <select className="app-select event-venue-select" aria-label="Event venue" value={value} onChange={(change) => setSelected(change.target.value)}>
+            <option value="">No venue</option>
+            {venues.data?.map((venue) => <option key={venue.id} value={venue.id} disabled={Boolean(venue.removedAt)}>
+              {venue.name}{venue.removedAt ? ' (archived)' : ''}
+            </option>)}
+          </select>
+          {changed ? <Button variant="secondary" busy={busy} onClick={() => void save()}>Save venue</Button> : null}
+          {!changed && linked ? <Link className="app-btn app-btn-quiet" to={`/app/w/${workspace.id}/venues/${current.data?.venueId}`}>View venue</Link> : null}
+          {!changed && !linked ? <Link className="app-btn app-btn-quiet" to={`/app/w/${workspace.id}/venues?event=${event.id}`}>Find a venue</Link> : null}
+        </> : <span>{linked ?? 'None linked'}</span>}
+      </div>
       {error ? <p className="app-error-text" role="alert">{error}</p> : null}
       {current.isError ? <p className="app-error-text" role="alert">{toAppError(current.error).message}</p> : null}
     </div>

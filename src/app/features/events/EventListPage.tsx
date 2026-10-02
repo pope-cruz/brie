@@ -35,7 +35,7 @@ export function EventListPage() {
   function eventActions(event: EventRecord, variant: 'quiet' | 'secondary') {
     const archived = Boolean(event.archivedAt)
     return (
-      <div className="app-toolbar">
+      <div className={variant === 'quiet' ? 'app-row-actions' : 'app-toolbar'}>
         {!archived ? (
           <>
             <Link className={`app-btn app-btn-${variant}`} to={`/app/w/${workspace.id}/events/${event.id}/edit`}>
@@ -81,15 +81,18 @@ export function EventListPage() {
         {canManageEvents(workspace.role) ? <QuickCreateButton workspace={workspace} /> : null}
       </div>
       <div className="app-toolbar">
-        {filters.map((item) => (
-          <Button key={item} variant={filter === item ? 'primary' : 'secondary'} onClick={() => setFilter(item)}>
-            {item[0].toUpperCase() + item.slice(1)}
-          </Button>
-        ))}
+        <div className="app-segmented" role="group" aria-label="Show events">
+          {filters.map((item) => (
+            <button key={item} type="button" aria-pressed={filter === item} onClick={() => setFilter(item)}>
+              {item[0].toUpperCase() + item.slice(1)}
+            </button>
+          ))}
+        </div>
         <input
           className="app-input"
-          style={{ maxWidth: 280 }}
+          style={{ maxWidth: 280, marginLeft: 'auto' }}
           value={draftQuery}
+          aria-label="Search events"
           placeholder="Search titles or locations"
           onChange={(event) => {
             setDraftQuery(event.target.value)

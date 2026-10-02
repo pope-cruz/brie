@@ -3,13 +3,14 @@ import { useQuery } from '@tanstack/react-query'
 import { getEvent } from '../../data/api'
 import { toAppError } from '../../data/errors'
 import { canManageEvents, statusLabel } from '../../data/types'
-import { formatTimeRange, timeZoneLabel } from '../../lib/timezone'
-import { ErrorRetry } from '../../components/ui'
+import { formatTimeRange } from '../../lib/timezone'
+import { ErrorRetry, StatusBadge } from '../../components/ui'
 import { useCurrentWorkspace } from '../workspaces/workspaceContext'
 import { DetailsPanel } from './EventPanels'
 import type { EventSectionId } from '../../lib/eventPhase'
 import { EventVenuePicker } from '../venues/EventVenuePicker'
 import { EventBookingSummary } from '../venues/EventBookingPanel'
+import { EventAttachments } from './EventAttachments'
 
 export function EventLayout() {
   const workspace = useCurrentWorkspace()
@@ -58,7 +59,7 @@ export function EventLayout() {
   }
 
   return (
-    <div className="app-page">
+    <div className="app-page app-page-event">
       <p className="app-meta app-event-breadcrumb">
         {fromHome
           ? <Link to={`/app/w/${workspace.id}/home`}>Home</Link>
@@ -75,18 +76,18 @@ export function EventLayout() {
             </div>
           ) : null}
         </div>
-        <p className="app-meta">
+        <p className="event-facts">
+          <StatusBadge>{statusLabel(event.data.status)}</StatusBadge>
           {[
-            statusLabel(event.data.status),
             formatTimeRange(event.data.startsAt, event.data.endsAt, event.data.timezone),
-            timeZoneLabel(event.data.timezone, event.data.startsAt),
             event.data.location,
             lead ? `Lead: ${lead}` : null,
-          ].filter(Boolean).join(' · ')}
+          ].filter(Boolean).map((fact) => <span key={fact}>{fact}</span>)}
         </p>
+        {!subpage && event.data.description ? <p className="event-description">{event.data.description}</p> : null}
         <EventVenuePicker workspace={workspace} event={event.data} />
         <EventBookingSummary workspace={workspace} event={event.data} />
-        {!subpage && event.data.description ? <p className="event-description">{event.data.description}</p> : null}
+        {!subpage ? <EventAttachments workspace={workspace} event={event.data} /> : null}
         {event.data.archivedAt ? <div className="app-banner">This event is archived. Restore it to edit the plan.</div> : null}
         {event.data.status === 'canceled' ? <div className="app-banner">This event is canceled. Previously recorded attendance stays in history.</div> : null}
       </header>

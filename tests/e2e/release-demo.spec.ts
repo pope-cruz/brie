@@ -194,7 +194,7 @@ test('2. owner plans an event with a task and a run-of-show segment', async () =
   await expect(ownerPage.getByRole('heading', { name: 'Welcome night' })).toBeVisible()
   await ownerPage.reload()
   await expect(ownerPage.getByRole('heading', { name: 'Welcome night' })).toBeVisible()
-  await expect(ownerPage.getByText(/^Draft ·/)).toBeVisible()
+  await expect(ownerPage.locator('.event-facts .app-status')).toHaveText('Draft')
 
   await ownerPage.goto(eventUrl('/tasks'))
   await ownerPage.getByLabel('New to-do', { exact: true }).fill('Set up welcome desk')
@@ -264,7 +264,7 @@ test('3. owner edits status and the header updates without a reload', async () =
   await ownerPage.getByLabel('Status').selectOption('planned')
   await ownerPage.getByRole('button', { name: 'Save' }).click()
   await expect(ownerPage).toHaveURL(new RegExp(`${state.eventId}$`))
-  await expect(ownerPage.getByText(/^Planned ·/)).toBeVisible()
+  await expect(ownerPage.locator('.event-facts .app-status')).toHaveText('Planned')
 })
 
 test('4. owner creates organizer and member invitations', async () => {
@@ -406,6 +406,52 @@ test('7. member reads the full run of show at 375px without horizontal scroll', 
   expect(mine.name).not.toContain('everyone')
 })
 
+test('7b. owner attaches files and links; a member opens them but cannot change them', async () => {
+  await ownerPage.goto(eventUrl())
+  const files = ownerPage.getByRole('region', { name: /Files & links/ })
+  await expect(files.getByText(/Drop files anywhere on this page/)).toBeVisible()
+
+  // Upload through the button.
+  await files.getByLabel('Upload files').setInputFiles({ name: 'Partnership agreement.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.4 fictional agreement') })
+  await expect(files.getByRole('link', { name: 'Partnership agreement.pdf' })).toBeVisible()
+
+  // Dump: drop a file anywhere on the page.
+  const drop = await ownerPage.evaluateHandle(() => {
+    const transfer = new DataTransfer()
+    transfer.items.add(new File(['order #1042: 60 samosas'], 'Catering order.txt', { type: 'text/plain' }))
+    return transfer
+  })
+  await ownerPage.dispatchEvent('.app-main', 'dragenter', { dataTransfer: drop })
+  await expect(ownerPage.getByText('Drop to attach to Welcome night')).toBeVisible()
+  await ownerPage.dispatchEvent('.app-main', 'drop', { dataTransfer: drop })
+  await expect(files.getByRole('link', { name: 'Catering order.txt' })).toBeVisible()
+
+  // A link gets a readable name from its URL.
+  await files.getByRole('button', { name: 'Add link' }).click()
+  await files.getByLabel('Link', { exact: true }).fill('figma.com/deck/AbC123/Welcome-night-slides')
+  await files.getByRole('button', { name: 'Add', exact: true }).click()
+  await expect(files.getByRole('link', { name: 'Welcome night slides' })).toHaveAttribute('href', 'https://figma.com/deck/AbC123/Welcome-night-slides')
+  await expect(files.getByText(/^Figma/)).toBeVisible()
+
+  await memberPage.goto(eventUrl())
+  const memberFiles = memberPage.getByRole('region', { name: /Files & links/ })
+  await expect(memberFiles.getByRole('link')).toHaveCount(3)
+  await expect(memberFiles.getByRole('button', { name: 'Upload files' })).toHaveCount(0)
+  await expect(memberFiles.locator('.ros-row-menu')).toHaveCount(0)
+  const href = await memberFiles.getByRole('link', { name: 'Catering order.txt' }).getAttribute('href')
+  const opened = await memberPage.request.get(href!)
+  expect(opened.status()).toBe(200)
+  expect(await opened.text()).toBe('order #1042: 60 samosas')
+  expect(await horizontalOverflow(memberPage)).toBeLessThanOrEqual(0)
+
+  // Removing is undoable.
+  await files.getByLabel('Actions for Catering order.txt').click()
+  await files.getByRole('button', { name: 'Remove' }).click()
+  await expect(files.getByRole('link', { name: 'Catering order.txt' })).toHaveCount(0)
+  await files.getByRole('button', { name: 'Undo' }).click()
+  await expect(files.getByRole('link', { name: 'Catering order.txt' })).toBeVisible()
+})
+
 test('8. organizer joins, can plan and manage attendance, but cannot administer the workspace', async () => {
   await organizerPage.goto(new URL(state.organizerLink).pathname)
   await organizerPage.getByRole('button', { name: 'Sign in to accept' }).click()
@@ -498,7 +544,7 @@ test('10. duplicate makes a clean draft; cross-event history counts each event o
   await expect(organizerPage).toHaveURL(/\/events\/[0-9a-f-]{36}$/)
   state.copyEventId = organizerPage.url().match(/\/events\/([0-9a-f-]{36})$/)![1]
   expect(state.copyEventId).not.toBe(state.eventId)
-  await expect(organizerPage.getByText(/^Draft ·/)).toBeVisible()
+  await expect(organizerPage.locator('.event-facts .app-status')).toHaveText('Draft')
   await expect(organizerPage.getByText('Attendance hasn’t been recorded')).toBeVisible()
 
   await organizerPage.goto(`/app/w/${state.workspaceId}/events/${state.copyEventId}/tasks`)

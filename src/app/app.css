@@ -668,18 +668,32 @@
 .brie-app .app-navigation-content { display: flex; flex-direction: column; flex: 1; min-height: 0; }
 
 /* Event page: one page, three time-ordered sections. */
-.brie-app .event-header { padding-bottom: 8px; }
-.brie-app .event-header .app-header-row { align-items: center; }
-.brie-app .event-header .app-toolbar { margin: 0; }
-.brie-app .event-description { max-width: 70ch; margin: 8px 0 0; white-space: pre-wrap; }
-.brie-app .event-jump { position: sticky; top: 0; z-index: 5; display: flex; gap: 20px; margin-top: 16px; padding: 10px 0; background: var(--app-canvas); border-bottom: 1px solid var(--app-border); font-size: 13px; }
-.brie-app .event-jump a { color: var(--app-muted); text-decoration: none; }
-.brie-app .event-jump a:hover { color: var(--app-ink); }
-.brie-app .event-section { padding: 28px 0 8px; scroll-margin-top: 48px; }
+.app-page-event { width: min(1024px, 100%); }
+.brie-app .app-event-breadcrumb { margin: 0 0 8px; }
+.brie-app .app-event-breadcrumb a { color: var(--app-muted); text-decoration: none; }
+.brie-app .app-event-breadcrumb a:hover { color: var(--app-ink); text-decoration: underline; }
+.brie-app .event-header { padding-bottom: 4px; }
+.brie-app .event-header .app-header-row { align-items: flex-start; }
+.brie-app .event-header .app-toolbar { margin: 0; flex-wrap: nowrap; }
+.brie-app .event-facts { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 16px; margin: 8px 0 0; color: var(--app-muted); font-size: 13px; line-height: 20px; }
+.brie-app .event-facts > span:not(.app-status) { font-variant-numeric: tabular-nums; }
+.brie-app .event-description { max-width: 70ch; margin: 12px 0 0; white-space: pre-wrap; }
+.brie-app .event-venue { margin-top: 16px; }
+.brie-app .event-venue-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 13px; }
+.brie-app .event-venue-label { width: 48px; color: var(--app-muted); }
+.brie-app .event-venue-select { width: auto; min-width: 180px; max-width: 320px; min-height: 32px; padding: 4px 8px; font-size: 13px; }
+.brie-app .event-venue-row .app-btn { min-height: 32px; }
+.brie-app .event-header > .app-meta { margin: 8px 0 0; }
+.brie-app .event-booking { margin-bottom: 24px; }
+.brie-app .event-jump { position: sticky; top: 0; z-index: 10; display: flex; gap: 4px; margin-top: 20px; padding: 8px 0; background: var(--app-canvas); border-bottom: 1px solid var(--app-border); font-size: 13px; }
+.brie-app .event-jump a { padding: 4px 10px; border-radius: 6px; color: var(--app-muted); text-decoration: none; transition: background-color 120ms cubic-bezier(0.22,1,0.36,1), color 120ms cubic-bezier(0.22,1,0.36,1); }
+.brie-app .event-jump a:hover { background: var(--app-hover); color: var(--app-ink); }
+.brie-app .event-jump a:first-child { margin-left: -10px; }
+.brie-app .event-section { padding: 32px 0 16px; scroll-margin-top: 56px; }
 .brie-app .event-section + .event-section { border-top: 1px solid var(--app-border); }
-.brie-app .event-section-head { display: flex; align-items: baseline; gap: 12px; margin-bottom: 12px; }
-.brie-app .event-section-head h2 { margin: 0; font-size: 18px; line-height: 26px; font-weight: 500; }
-.brie-app .event-section-summary { color: var(--app-muted); font-size: 13px; }
+.brie-app .event-section-head { display: flex; align-items: baseline; gap: 12px; margin-bottom: 16px; }
+.brie-app .event-section-head h2 { margin: 0; font-size: 18px; line-height: 26px; font-weight: 500; letter-spacing: -0.01em; }
+.brie-app .event-section-summary { color: var(--app-muted); font-size: 13px; font-variant-numeric: tabular-nums; }
 .brie-app .event-section-toggle { display: none; margin-left: auto; min-height: 44px; padding: 0 4px; border: 0; background: none; color: var(--app-muted); font: inherit; font-size: 13px; cursor: pointer; }
 .brie-app .event-after p { margin: 0 0 12px; }
 
@@ -694,31 +708,32 @@
 .brie-app .ros-mark-now { background: var(--app-primary); color: var(--app-on-primary); }
 .brie-app .ros-mark-next { border: 1px solid var(--app-control-border); color: var(--app-ink); }
 .brie-app .ros-row-now > td { background: var(--app-subtle); }
-.brie-app .ros-briefing { padding: 24px 0 28px; border-bottom: 1px solid var(--app-border); }
-.brie-app .ros-section-heading { display: flex; justify-content: space-between; align-items: flex-start; gap: 20px; margin-bottom: 12px; }
-.brie-app .ros-section-heading h2 { margin: 0; font-size: 16px; line-height: 24px; font-weight: 500; }
+.brie-app .ros-toolbar-actions { display: flex; align-items: center; gap: 4px; }
+.brie-app .ros-briefing { padding: 16px 0 24px; }
+.brie-app .ros-section-heading { display: flex; justify-content: space-between; align-items: center; gap: 20px; min-height: 36px; margin-bottom: 4px; }
+.brie-app .ros-section-heading h3 { margin: 0; font-size: 14px; line-height: 20px; font-weight: 500; }
 .brie-app .ros-section-heading p { margin: 2px 0 0; color: var(--app-muted); font-size: 12px; line-height: 18px; }
 .brie-app .ros-briefing-input {
   display: block;
   width: 100%;
-  min-height: 68px;
+  min-height: 40px;
   resize: none;
   overflow: hidden;
-  padding: 10px 12px;
+  padding: 9px 12px;
   border: 1px solid var(--app-border);
   border-radius: 6px;
-  background: var(--app-subtle);
+  background: var(--app-canvas);
   color: var(--app-ink);
   font: inherit;
   line-height: 21px;
 }
-.brie-app .ros-briefing-input:hover { border-color: var(--app-control-border); }
+.brie-app .ros-briefing-input { border-color: var(--app-control-border); }
 .brie-app .ros-empty-copy { margin: 0; color: var(--app-muted); font-style: italic; }
 .brie-app .ros-table-wrap { width: 100%; overflow: visible; }
 .brie-app .ros-schedule-table { width: 100%; table-layout: fixed; border-collapse: collapse; }
-.brie-app .ros-col-time { width: 21%; }
-.brie-app .ros-col-activity { width: 22%; }
-.brie-app .ros-col-owner { width: 20%; }
+.brie-app .ros-col-time { width: 184px; }
+.brie-app .ros-col-activity { width: 30%; }
+.brie-app .ros-col-owner { width: 18%; }
 .brie-app .ros-col-notes { width: auto; }
 .brie-app .ros-col-actions { width: 84px; }
 .brie-app .ros-schedule-table th {
@@ -731,7 +746,7 @@
   font-weight: 500;
   text-align: left;
 }
-.brie-app .ros-schedule-table td { padding: 10px; border-bottom: 1px solid var(--app-border); vertical-align: top; }
+.brie-app .ros-schedule-table td { padding: 12px 10px; border-bottom: 1px solid var(--app-border); vertical-align: top; }
 .brie-app .ros-schedule-table tbody > tr:not(.ros-feedback-row):hover { background: var(--app-subtle); }
 .brie-app .ros-editor-row,
 .brie-app .ros-schedule-table tbody > tr.ros-editor-row:hover { background: var(--app-subtle); }
@@ -740,8 +755,8 @@
 .brie-app .ros-when select { min-height: 36px; padding: 6px 8px; border: 1px solid var(--app-border); border-radius: 6px; background: var(--app-canvas); color: var(--app-ink); font: inherit; font-size: 13px; font-variant-numeric: tabular-nums; }
 .brie-app .ros-when input:focus,
 .brie-app .ros-when select:focus { border-color: var(--app-control-border); }
-.brie-app .ros-when-start { width: 96px; }
-.brie-app .ros-when-length { width: 88px; }
+.brie-app .ros-when-start { width: 84px; }
+.brie-app .ros-when-length { width: 72px; }
 .brie-app .ros-when-day { width: 100%; }
 .brie-app .ros-when-end { display: block; margin-top: 4px; color: var(--app-muted); font-size: 12px; line-height: 18px; font-variant-numeric: tabular-nums; }
 .brie-app .ros-row-date { display: block; color: var(--app-muted); font-size: 12px; line-height: 18px; }
@@ -773,12 +788,13 @@
 .brie-app .ros-cell-input:focus,
 .brie-app .ros-cell-select:focus,
 .brie-app .ros-cell-textarea:focus { border-color: var(--app-control-border); background: var(--app-canvas); }
-.brie-app .ros-readable-time { display: block; font-size: 12px; line-height: 18px; font-variant-numeric: tabular-nums; }
+.brie-app .ros-readable-time { display: block; font-weight: 500; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .brie-app .ros-readable-activity { display: block; font-weight: 500; overflow-wrap: anywhere; }
 .brie-app .ros-readable-notes { display: block; margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 21px; }
-.brie-app .ros-unassigned { color: var(--app-muted); font-style: italic; }
+.brie-app .ros-unassigned { color: var(--app-muted); }
 .brie-app .ros-timing-note { display: block; margin-top: 5px; color: var(--app-warning); font-size: 11px; line-height: 16px; }
-.brie-app .ros-actions-cell { position: relative; padding-left: 4px !important; padding-right: 4px !important; }
+.brie-app .ros-actions-cell { position: relative; padding-top: 4px !important; padding-left: 4px !important; padding-right: 4px !important; text-align: right; }
+.brie-app .ros-actions-cell .ros-row-menu { display: inline-block; }
 .brie-app .ros-row-menu { position: relative; }
 .brie-app .ros-row-menu summary { display: flex; align-items: center; justify-content: center; width: 36px; height: 36px; border-radius: 6px; cursor: pointer; color: var(--app-muted); letter-spacing: 1px; list-style: none; }
 .brie-app .ros-row-menu summary::-webkit-details-marker { display: none; }
@@ -798,7 +814,8 @@
 .brie-app .ros-removed-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 10px 0; border-bottom: 1px solid var(--app-border); }
 
 @media (max-width: 767px) {
-  .brie-app .event-jump { gap: 16px; }
+  .brie-app .event-header .app-header-row { flex-direction: column; align-items: stretch; gap: 12px; }
+  .brie-app .event-jump { gap: 4px; }
   .brie-app .event-section { padding-top: 16px; }
   .brie-app .event-section-toggle { display: block; }
   .brie-app .event-section[data-collapsed] .event-section-body { display: none; }
@@ -863,8 +880,21 @@
 .brie-app .todo-who button[aria-pressed='true'] { background: var(--app-canvas); color: var(--app-ink); font-weight: 500; box-shadow: 0 0 0 1px var(--app-border); }
 .brie-app .todo-list { border-top: 1px solid var(--app-border); }
 .brie-app .todo-head,
-.brie-app .todo-cells { display: grid; grid-template-columns: 28px minmax(0, 1fr) 150px 170px 112px; align-items: start; gap: 8px; }
-.brie-app .todo-head { padding: 8px 10px; border-bottom: 1px solid var(--app-border); color: var(--app-muted); font-size: 12px; line-height: 18px; }
+.brie-app .todo-cells { display: grid; grid-template-columns: 24px minmax(0, 1fr) 190px 160px 84px; align-items: start; gap: 8px; }
+.brie-app .todo-head { padding: 8px 10px; border-bottom: 1px solid var(--app-border); color: var(--app-muted); background: var(--app-subtle); font-size: 12px; line-height: 18px; font-weight: 500; }
+.brie-app .todo-head > span { padding-left: 7px; }
+.brie-app .todo-row-edit:hover:not(:focus-within) { background: var(--app-subtle); }
+.brie-app .todo-date-cell { display: flex; flex-wrap: wrap; align-items: center; column-gap: 4px; }
+.brie-app .todo-date-cell .todo-date-input { flex: 1 1 96px; width: auto; }
+.brie-app .todo-date-cell .todo-resolved { flex-basis: 100%; }
+.brie-app .todo-date-cell .todo-overdue { flex: none; padding: 1px 6px; border-radius: 4px; background: var(--app-danger-bg); }
+@media (hover: hover) {
+  .brie-app .ros-schedule-table tbody > tr:not(.ros-editor-row) .ros-row-menu:not([open]) summary { opacity: 0; transition: opacity 120ms cubic-bezier(0.22,1,0.36,1); }
+  .brie-app .ros-schedule-table tbody > tr:is(:hover, :focus-within) .ros-row-menu summary { opacity: 1; }
+  .brie-app .todo-row-edit:not(.todo-add-row) .todo-notes-toggle:not([data-has-notes]):not([aria-expanded='true']),
+  .brie-app .todo-row-edit:not(.todo-add-row) .ros-row-menu:not([open]) summary { opacity: 0; transition: opacity 120ms cubic-bezier(0.22,1,0.36,1); }
+  .brie-app .todo-row-edit:is(:hover, :focus-within) :is(.todo-notes-toggle, .ros-row-menu summary) { opacity: 1; }
+}
 .brie-app .todo-row { padding: 6px 10px; border-bottom: 1px solid var(--app-border); }
 .brie-app .todo-row-edit:focus-within,
 .brie-app .todo-add-row { background: var(--app-subtle); }
@@ -880,6 +910,9 @@
 .brie-app .todo-title-input:hover, .brie-app .todo-date-input:hover, .brie-app .todo-person-select:hover, .brie-app .todo-notes-input:hover,
 .brie-app .todo-add-row :is(.todo-title-input, .todo-date-input, .todo-person-select) { border-color: var(--app-border); background: var(--app-canvas); }
 .brie-app .todo-title-input:focus, .brie-app .todo-date-input:focus, .brie-app .todo-person-select:focus, .brie-app .todo-notes-input:focus { border-color: var(--app-control-border); background: var(--app-canvas); outline: none; }
+.brie-app .todo-cells .todo-person-select { appearance: none; padding-right: 24px; background-repeat: no-repeat; background-position: right 8px center; background-size: 10px; }
+.brie-app .todo-cells .todo-person-select:is(:hover, :focus),
+.brie-app .todo-add-row .todo-cells .todo-person-select { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23626262' stroke-width='1.5'/%3E%3C/svg%3E"); }
 .brie-app .todo-notes-input { display: block; width: calc(100% - 36px); margin: 4px 0 4px 36px; resize: vertical; border-color: var(--app-border); background: var(--app-canvas); }
 .brie-app .todo-resolved, .brie-app .todo-overdue { display: block; padding: 0 6px; font-size: 12px; line-height: 18px; }
 .brie-app .todo-resolved { color: var(--app-muted); }
@@ -1026,3 +1059,56 @@
 .brie-app .app-draft-review .app-draft-check + .app-meta,
 .brie-app .app-draft-review section > p + .app-draft-check { margin-top: 12px; }
 .brie-app .app-draft-review section > .app-draft-text { margin-top: 12px; }
+
+/* Segmented filters and compact row actions (event list). */
+.brie-app .app-segmented { display: inline-flex; padding: 2px; border: 1px solid var(--app-border); border-radius: 8px; background: var(--app-subtle); }
+.brie-app .app-segmented button { min-height: 30px; padding: 4px 12px; border: 0; border-radius: 6px; background: none; color: var(--app-muted); font: inherit; font-size: 13px; cursor: pointer; transition: color 120ms cubic-bezier(0.22,1,0.36,1); }
+.brie-app .app-segmented button:hover { color: var(--app-ink); }
+.brie-app .app-segmented button[aria-pressed='true'] { background: var(--app-canvas); color: var(--app-ink); font-weight: 500; box-shadow: 0 0 0 1px var(--app-border); }
+.brie-app .app-row-actions { display: flex; justify-content: flex-end; gap: 2px; }
+.brie-app .app-row-actions .app-btn { min-height: 32px; padding: 0 10px; color: var(--app-muted); }
+.brie-app .app-row-actions .app-btn:hover { color: var(--app-ink); }
+.brie-app .app-event-row td:first-child > a { font-weight: 500; text-decoration: none; }
+.brie-app .app-event-row td:first-child > a:hover { text-decoration: underline; text-underline-offset: 3px; }
+.brie-app .app-event-row td:first-child > .app-meta { margin: 2px 0 0; }
+@media (hover: hover) {
+  .brie-app .app-event-row .app-row-actions { opacity: 0; transition: opacity 120ms cubic-bezier(0.22,1,0.36,1); }
+  .brie-app .app-event-row:is(:hover, :focus-within) .app-row-actions { opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .brie-app .app-row-actions, .brie-app .todo-notes-toggle, .brie-app .ros-row-menu summary { transition: none; }
+}
+
+/* Event files and links. */
+.brie-app .event-files { margin-top: 24px; }
+.brie-app .event-files-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; min-height: 36px; }
+.brie-app .event-files-head h2 { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 14px; line-height: 20px; font-weight: 500; }
+.brie-app .event-files-count { color: var(--app-muted); font-weight: 400; font-variant-numeric: tabular-nums; }
+.brie-app .event-files-actions { display: flex; gap: 2px; margin-right: -8px; }
+.brie-app .event-files-actions .app-btn { min-height: 32px; padding: 0 8px; }
+.brie-app .event-files-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 24px; margin: 4px 0 0; padding: 0; list-style: none; border-top: 1px solid var(--app-border); }
+.brie-app .event-file { display: flex; align-items: center; gap: 10px; min-height: 52px; padding: 6px 0; border-bottom: 1px solid var(--app-border); }
+.brie-app .event-file-icon { flex: none; width: 16px; height: 16px; color: var(--app-muted); }
+.brie-app .event-file-body { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+.brie-app .event-file-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
+.brie-app a.event-file-title { color: var(--app-ink); text-decoration: none; }
+.brie-app a.event-file-title:hover { text-decoration: underline; text-underline-offset: 3px; }
+.brie-app .event-file-meta { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--app-muted); font-size: 12px; line-height: 18px; }
+.brie-app .event-file .app-error-text { margin: 0; font-size: 12px; line-height: 18px; }
+.brie-app .event-files-empty { margin: 4px 0 0; padding: 12px 16px; border: 1px dashed var(--app-control-border); border-radius: 6px; color: var(--app-muted); font-size: 13px; line-height: 20px; }
+.brie-app .event-files-link { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 4px 0 8px; }
+.brie-app .event-files-link .app-input { flex: 2 1 260px; width: auto; }
+.brie-app .event-files-link .app-input + .app-input { flex: 1 1 160px; }
+.brie-app .event-files-link .app-error-text { flex-basis: 100%; margin: 0; }
+.brie-app .event-files-removed { margin-top: 12px; }
+.brie-app .event-files-drop { position: fixed; inset: 0; z-index: 40; display: flex; align-items: center; justify-content: center; padding: 16px; background: rgb(255 255 255 / 0.88); pointer-events: none; }
+.brie-app .event-files-drop p { margin: 0; padding: 24px 32px; border: 2px dashed var(--app-ink); border-radius: 8px; background: var(--app-canvas); font-size: 16px; line-height: 24px; font-weight: 500; overflow-wrap: anywhere; }
+@media (hover: hover) {
+  .brie-app .event-file .ros-row-menu:not([open]) summary { opacity: 0; transition: opacity 120ms cubic-bezier(0.22,1,0.36,1); }
+  .brie-app .event-file:is(:hover, :focus-within) .ros-row-menu summary { opacity: 1; }
+}
+@media (max-width: 767px) {
+  .brie-app .event-files-list { grid-template-columns: minmax(0, 1fr); }
+  .brie-app .event-file { min-height: 56px; }
+  .brie-app .event-file-title { white-space: normal; overflow-wrap: anywhere; }
+}

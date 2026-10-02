@@ -62,7 +62,8 @@ jobs:
       # earlier step is stopped when that step ends.
       - name: MCP server with the official SDK client
         run: |
-          supabase functions serve > functions.log 2>&1 &
+          echo "MCP_PUBLIC_URL=$VITE_SUPABASE_URL/functions/v1/mcp" > /tmp/brie-mcp.env
+          supabase functions serve --env-file /tmp/brie-mcp.env > functions.log 2>&1 &
           for attempt in $(seq 1 60); do
             status=$(curl -s -o /dev/null -w '%{http_code}' -X POST "$VITE_SUPABASE_URL/functions/v1/mcp" -d '{}' || true)
             # Wait for this server, not the runtime `supabase start` may have launched.

@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Button, ConfirmDialog, EmptyState, ErrorRetry, Field, SkeletonRows, StatusBadge } from '../../components/ui'
-import { createAssistantToken, listAssistantActions, listAssistantTokens, revokeAssistantToken } from '../../data/api'
+import { createAssistantToken, listAssistantActions, listAssistantTokens, revokeAssistantToken, resetAssistantSignIn } from '../../data/api'
+import { useSession } from '../auth/SessionProvider'
 import { toAppError } from '../../data/errors'
 import { canManageEvents, type AssistantScope, type AssistantToken } from '../../data/types'
 import {
@@ -21,6 +22,7 @@ function when(iso: string | null, timeZone: string) {
 
 export function AssistantAccessPage() {
   const workspace = useCurrentWorkspace()
+  const { user } = useSession()
   const queryClient = useQueryClient()
   const allowed = canManageEvents(workspace.role)
   const tokens = useQuery({
@@ -43,6 +45,17 @@ export function AssistantAccessPage() {
   const [revoking, setRevoking] = useState<AssistantToken | null>(null)
   const [revokeBusy, setRevokeBusy] = useState(false)
   const [revokeError, setRevokeError] = useState<string | null>(null)
+  const [resetting, setResetting] = useState<string | null>(null)
+
+  async function resetSignIn(token: AssistantToken) {
+    if (!token.oauthClientId || resetting) return
+    setResetting(token.id)
+    try {
+      await resetAssistantSignIn(token.oauthClientId)
+      setCopyStatus('Sign-in reset. Reconnect from your assistant’s settings to choose a workspace again.')
+    } catch (caught) { setCopyStatus(toAppError(caught).message) }
+    finally { setResetting(null) }
+  }
 
   if (!allowed) {
     return (
@@ -92,10 +105,26 @@ export function AssistantAccessPage() {
     <div className="app-page">
       <h1 className="app-h1">Assistant access</h1>
       <p className="app-lede">
-        Let an AI assistant such as Claude read this workspace’s event plans, schedules, and venues through MCP. Keys never expose attendee names or contact details. An assistant can’t change anything in Brie; with draft access it can propose event plans for you to review.
+        Connect your assistant to this workspace’s event plans, schedules, and venues. Attendee names and contact details stay private. With draft access, your assistant can propose plans for you to review.
       </p>
 
-      <section aria-labelledby="new-key" className="app-page-narrow" style={{ marginTop: 24 }}>
+      <section aria-labelledby="browser-connect" className="app-assistant-browser">
+        <h2 id="browser-connect" className="app-section-title">Connect with sign-in</h2>
+        <ol className="app-connect-permissions">
+          <li>In your assistant’s settings, add a custom connector with the server address below.</li>
+          <li>Choose Connect and sign in to Brie.</li>
+          <li>Choose this workspace, review the access, and connect.</li>
+        </ol>
+        <Field label="Server address">
+          <input className="app-input app-mono" readOnly value={serverUrl} onFocus={(event) => event.target.select()} />
+        </Field>
+        <Button variant="secondary" onClick={() => void copy(serverUrl, 'Server address')}>Copy server address</Button>
+        <p role="status" className="app-meta">{copyStatus}</p>
+      </section>
+
+      <details className="app-assistant-manual">
+        <summary>Terminal or manual key setup</summary>
+      <section aria-labelledby="new-key" className="app-page-narrow">
         <h2 id="new-key" className="app-section-title">Create a key</h2>
         <p className="app-meta">A key acts as you, with your current role. If you stop being an owner or organizer here, it stops working.</p>
         <Field label="Name">
@@ -135,13 +164,14 @@ export function AssistantAccessPage() {
           <p role="status" className="app-meta">{copyStatus}</p>
         </section>
       ) : null}
+      </details>
 
       <section aria-labelledby="keys" style={{ marginTop: 32 }}>
-        <h2 id="keys" className="app-section-title">Keys</h2>
-        {workspace.role === 'owner' ? <p className="app-meta">As owner, you see and can revoke every key in this workspace.</p> : null}
+        <h2 id="keys" className="app-section-title">Connections and keys</h2>
+        {workspace.role === 'owner' ? <p className="app-meta">As owner, you see and can revoke every assistant connection in this workspace.</p> : null}
         {tokens.isLoading ? <SkeletonRows count={2} /> : null}
         {tokens.isError ? <ErrorRetry message={toAppError(tokens.error).message} onRetry={() => tokens.refetch()} /> : null}
-        {tokens.data?.length === 0 ? <EmptyState title="No keys yet" /> : null}
+        {tokens.data?.length === 0 ? <EmptyState title="No assistants connected yet" /> : null}
         {tokens.data?.map((token) => (
           <div key={token.id} className="app-assistant-row">
             <div className="app-assistant-row-main">
@@ -152,7 +182,7 @@ export function AssistantAccessPage() {
                 </StatusBadge>
               </p>
               <p className="app-meta">
-                <span className="app-mono">{token.prefix}…</span> · {scopeLabel(token.scope)} · Created by {token.createdByName}
+                <span className={token.oauthClientId ? undefined : 'app-mono'}>{token.oauthClientId ? 'Connected with sign-in' : `${token.prefix}…`}</span> · {scopeLabel(token.scope)} · Created by {token.createdByName}
               </p>
               <p className="app-meta">
                 Last used {when(token.lastUsedAt, workspace.timezone)} · {token.status === 'revoked' ? `Revoked ${when(token.revokedAt, workspace.timezone)}` : `${token.status === 'expired' ? 'Expired' : 'Expires'} ${when(token.expiresAt, workspace.timezone)}`}
@@ -160,6 +190,9 @@ export function AssistantAccessPage() {
             </div>
             {token.status === 'active' ? (
               <Button variant="secondary" aria-label={`Revoke ${token.label}`} onClick={() => { setRevokeError(null); setRevoking(token) }}>Revoke</Button>
+            ) : null}
+            {token.status !== 'active' && token.oauthClientId && token.createdBy === user?.id ? (
+              <Button variant="secondary" busy={resetting === token.id} onClick={() => void resetSignIn(token)}>Reset sign-in</Button>
             ) : null}
           </div>
         ))}

@@ -2,6 +2,7 @@ import { Navigate, useLocation, useParams } from 'react-router-dom'
 import { AppShell } from './AppShell'
 import { AppUnavailablePage } from './NotFoundPage'
 import { SignInPage } from './features/auth/SignInPage'
+import { ConnectAssistantPage } from './features/auth/ConnectAssistantPage'
 import { EventAttendancePage } from './features/attendance/EventAttendancePage'
 import { HistoryPage } from './features/attendance/HistoryPage'
 import { ImportPage } from './features/attendance/ImportPage'
@@ -59,6 +60,7 @@ function AttendanceRedirect() {
 export const appChildren = [
   { path: '/app', Component: AppHome },
   { path: '/app/sign-in', Component: SignInPage },
+  { path: '/app/connect-assistant', Component: ConnectAssistantPage },
   { path: '/app/new-workspace', Component: NewWorkspacePage },
   { path: '/app/invite/:token', Component: InvitePage },
   {

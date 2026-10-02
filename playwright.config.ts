@@ -37,7 +37,7 @@ export default defineConfig({
     },
     {
       name: 'release',
-      testMatch: /release-demo\.spec\.ts/,
+      testMatch: /(release-demo|assistant-connect)\.spec\.ts/,
       use: { ...devices['Desktop Chrome'] },
     },
   ],

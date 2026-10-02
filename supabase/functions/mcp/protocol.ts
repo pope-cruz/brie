@@ -31,6 +31,8 @@ export type McpDeps = {
   call: (key: string, tool: string, args: Record<string, unknown>) => Promise<ToolOutcome>
   /** The app's public origin, used to turn a draft's review path into a link. */
   appOrigin?: string
+  /** Canonical resource and issuer; never derive these from request Host headers. */
+  oauth?: { resource: string; issuer: string }
 }
 
 type JsonSchema = Record<string, unknown>
@@ -201,8 +203,11 @@ type JsonRpcMessage = { jsonrpc?: unknown; id?: JsonRpcId; method?: unknown; par
 const rpcError = (id: JsonRpcId, code: number, message: string) => ({ jsonrpc: '2.0', id, error: { code, message } })
 const rpcResult = (id: JsonRpcId, result: unknown) => ({ jsonrpc: '2.0', id, result })
 
-function unauthorized(message = 'Provide a Brie assistant key as “Authorization: Bearer brie_…”.') {
-  return jsonResponse(rpcError(null, -32001, message), 401, { 'WWW-Authenticate': 'Bearer realm="brie"' })
+function unauthorized(deps: McpDeps, message = 'Sign in to Brie to connect your assistant, or provide an assistant key.') {
+  const challenge = deps.oauth
+    ? `Bearer realm="brie", resource_metadata="${deps.oauth.resource}?metadata=resource"`
+    : 'Bearer realm="brie"'
+  return jsonResponse(rpcError(null, -32001, message), 401, { 'WWW-Authenticate': challenge })
 }
 
 export function bearerKey(request: Request): string | null {
@@ -272,12 +277,19 @@ async function handleMessage(message: JsonRpcMessage, key: string, context: KeyC
 
 export async function handleMcpRequest(request: Request, deps: McpDeps, tools: ToolDefinition[] = TOOLS): Promise<Response> {
   if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS })
+  const url = new URL(request.url)
+  if (request.method === 'GET' && deps.oauth && (url.searchParams.get('metadata') === 'resource'
+    || url.pathname.endsWith('/.well-known/oauth-protected-resource'))) {
+    return jsonResponse({ resource: deps.oauth.resource, authorization_servers: [deps.oauth.issuer],
+      bearer_methods_supported: ['header'], resource_name: 'Brie' })
+  }
+  const key = bearerKey(request)
+  if (!key && (request.method === 'POST' || request.method === 'GET')) return unauthorized(deps)
   if (request.method !== 'POST') {
     return jsonResponse(rpcError(null, -32000, 'This server does not open event streams. Send JSON-RPC messages with POST.'), 405, { Allow: 'POST, OPTIONS' })
   }
 
-  const key = bearerKey(request)
-  if (!key) return unauthorized()
+  if (!key) return unauthorized(deps)
 
   let body: unknown
   try {
@@ -294,7 +306,7 @@ export async function handleMcpRequest(request: Request, deps: McpDeps, tools: T
   try {
     context = await deps.check(key)
   } catch (error) {
-    if (error instanceof UnauthorizedError) return unauthorized(error.message)
+    if (error instanceof UnauthorizedError) return unauthorized(deps, error.message)
     throw error
   }
 
@@ -304,7 +316,7 @@ export async function handleMcpRequest(request: Request, deps: McpDeps, tools: T
       const reply = await handleMessage(message, key, context, deps, tools)
       if (reply) replies.push(reply)
     } catch (error) {
-      if (error instanceof UnauthorizedError) return unauthorized(error.message)
+      if (error instanceof UnauthorizedError) return unauthorized(deps, error.message)
       replies.push(rpcError(message.id ?? null, -32603, 'Brie could not complete that request. Try again.'))
     }
   }

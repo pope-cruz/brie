@@ -28,6 +28,7 @@ export function SignInPage() {
   const { user, loading } = useSession()
   const [params] = useSearchParams()
   const returnTo = safeReturnPath(params.get('return'))
+  const connectingAssistant = returnTo.startsWith('/app/connect-assistant?')
   const [email, setEmail] = useState('')
   const [code, setCode] = useState('')
   const [sent, setSent] = useState(false)
@@ -124,9 +125,9 @@ export function SignInPage() {
   return (
     <div className="app-entry"><div className="app-entry-card">
       <Link to="/" className="app-wordmark">brie</Link>
-      <h1 className="app-h1">{sent ? 'Check your email' : 'Sign in'}</h1>
+      <h1 className="app-h1">{sent ? 'Check your email' : connectingAssistant ? 'Sign in to connect your assistant' : 'Sign in'}</h1>
       <p className="app-lede" role="status">
-        {sent ? `We sent a sign-in email to ${email}. Open its link, or enter the 6-digit code if it includes one.` : 'Use your email. We’ll send a sign-in email.'}
+        {sent ? `We sent a sign-in email to ${email}. Open its link, or enter the 6-digit code if it includes one.` : connectingAssistant ? 'Use your Brie email. After signing in, choose the workspace your assistant can access.' : 'Use your email. We’ll send a sign-in email.'}
       </p>
       {sent ? (
         <form onSubmit={verify}>

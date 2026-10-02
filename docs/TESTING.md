@@ -70,3 +70,7 @@ Both suites use Playwright and start the Vite dev server themselves (`playwright
 - For New York, March 8, 2026 at 02:30 is skipped and must be rejected. November 1, 2026 at 01:30 requires a first/second occurrence choice. Reopening an existing segment must preserve the saved occurrence.
 - A segment outside the event hours shows a warning; overlap/outside warnings must be explicitly acknowledged. An unsuccessful save must never check the acknowledgment for you.
 - On a phone, date and time controls stack and the calendar/editor remain within the screen. Escape closes a calendar first, then the editor; Cancel abandons the draft.
+
+## Assistant OAuth
+
+`supabase/tests/assistant_oauth.sql` covers one-workspace approval, identity binding, read-only enforcement, replacement of connections, token hook claims, refresh denial after revocation, member denial and the dedicated role's permissions. `tests/unit/connect-assistant.test.ts` covers sign-in returns, workspace selection, cancellation and failure states; `assistant-oauth.test.ts` covers discovery and JWT claim validation. `tests/mcp/oauth.test.ts` runs the actual native Supabase OAuth exchange and refresh with the official SDK's discovery and transport. Serve with the public endpoint configured as described in SETUP.md; unavailable local functions skip the integration tests, while CI fails.

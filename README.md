@@ -20,4 +20,4 @@ npm run lint
 npm run build
 ```
 
-With the local stack and Edge Functions running (`supabase functions serve`), `npm run test:mcp` drives Brie's MCP server with the official MCP SDK client.
+Assistant connections support browser sign-in for cloud clients and manual keys for terminals. With the local stack and Edge Functions running, `npm run test:mcp` checks the server with the official MCP SDK and a real OAuth exchange. Use the function environment file in [SETUP.md](docs/SETUP.md#assistant-browser-sign-in) so discovery advertises the public endpoint.

@@ -53,6 +53,15 @@ content_path = "./supabase/templates/magic_link.html"
 subject = "Your Brie sign-in code"
 content_path = "./supabase/templates/magic_link.html"
 
+[auth.oauth_server]
+enabled = true
+authorization_url_path = "/connect-assistant"
+allow_dynamic_registration = true
+
+[auth.hook.custom_access_token]
+enabled = true
+uri = "pg-functions://postgres/public/assistant_access_token_hook"
+
 # The function forwards the caller's token to `create_invitation`, which rejects anyone
 # who isn't the workspace owner, so the gateway's legacy JWT check is not needed.
 [functions.send-invitation]

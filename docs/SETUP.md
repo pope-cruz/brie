@@ -77,3 +77,17 @@ Sign-in uses a 6-digit email code. Local messages appear in Mailpit at [http://1
 The code flow returns to the original application route, including invitations and filters. Email links now target `/app/sign-in?return=…`; the local redirect allowlist includes this pattern. To apply changes to `supabase/config.toml`, restart the local stack with `supabase stop` followed by `supabase start` (do not use `db reset` for this). For a hosted installation, allow the equivalent sign-in URL on your exact trusted app origin. Verify both email-code and email-link returns after changing auth settings.
 
 For the recommended first complete test run and expected outcomes, see [TESTING.md](TESTING.md).
+
+## Assistant browser sign-in
+
+Apply migrations through `0065_assistant_oauth.sql`, then restart the stack (stop/start, preserving data) to load `[auth.oauth_server]` and the custom access token hook. The local Site URL ends in `/app`, so the authorization path is `/connect-assistant`; together they target `/app/connect-assistant`.
+
+Serve the functions with the public MCP address explicitly configured; the runtime otherwise sees its internal Kong address:
+
+```bash
+cp supabase/functions/.env.example /tmp/brie-mcp.env
+supabase functions serve --env-file /tmp/brie-mcp.env
+npm run test:mcp
+```
+
+The suite includes a real Supabase OAuth registration, PKCE exchange, official SDK discovery and tool calls, refresh, direct Data API denial, and revocation. It creates fictional local users/workspaces. OAuth requests use the same email-code sign-in as Brie, then ask the organizer to choose one workspace and read-only or draft access. Existing terminal keys still work.

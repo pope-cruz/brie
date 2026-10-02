@@ -121,7 +121,7 @@ describe('workspace redirects', () => {
   const redirect = async (path: string) => {
     router?.dispose()
     router = createMemoryRouter(
-      appChildren[4].children!.filter((route) => ['tasks', 'attendance', 'attendance/:personId'].includes(route.path!))
+      appChildren.find((route) => route.path === '/app/w/:workspaceId')!.children!.filter((route) => ['tasks', 'attendance', 'attendance/:personId'].includes(route.path!))
         .concat([{ path: '*', Component: () => null }]).map((route) => ({ ...route, path: `/app/w/:workspaceId/${route.path}` })),
       { initialEntries: [path] })
     await act(async () => root.render(createElement(RouterProvider, { router, key: path })))

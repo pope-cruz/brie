@@ -101,6 +101,7 @@ export type VenueComparison = Venue & {
 export type AssistantScope = 'read' | 'read_draft'
 
 export type AssistantToken = {
+  oauthClientId?: string | null
   id: string
   label: string
   scope: AssistantScope

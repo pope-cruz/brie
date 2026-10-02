@@ -63,6 +63,12 @@ export async function listMyWorkspaces() {
   return rpc<WorkspaceSummary[]>('list_my_workspaces')
 }
 
+export async function connectAssistant(workspaceId: string, clientId: string, label: string, scope: AssistantScope) {
+  return rpc<AssistantToken>('connect_assistant', {
+    p_workspace_id: workspaceId, p_client_id: clientId, p_label: label, p_scope: scope,
+  })
+}
+
 export async function getWorkspace(workspaceId: string) {
   return rpc<WorkspaceSummary>('get_workspace', { p_workspace_id: workspaceId })
 }
@@ -155,7 +161,17 @@ export async function createAssistantToken(workspaceId: string, label: string, s
 }
 
 export async function revokeAssistantToken(workspaceId: string, tokenId: string) {
-  return rpc<AssistantToken>('revoke_assistant_token', { p_workspace_id: workspaceId, p_token_id: tokenId })
+  const token = await rpc<AssistantToken>('revoke_assistant_token', { p_workspace_id: workspaceId, p_token_id: tokenId })
+  if (token.oauthClientId) {
+    const { data } = await getSupabase().auth.getUser()
+    if (data.user?.id === token.createdBy) await resetAssistantSignIn(token.oauthClientId)
+  }
+  return token
+}
+
+export async function resetAssistantSignIn(clientId: string) {
+  const { error } = await getSupabase().auth.oauth.revokeGrant({ clientId })
+  if (error) throw new AppError('UNAVAILABLE', 'Workspace access is revoked, but sign-in couldn’t be reset. Try Reset sign-in before reconnecting.')
 }
 
 export async function listAssistantActions(workspaceId: string, limit = 50) {

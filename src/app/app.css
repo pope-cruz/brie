@@ -1029,6 +1029,12 @@
 /* Assistant access keys and activity. */
 .brie-app .app-mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 13px; overflow-wrap: anywhere; }
 .brie-app .app-assistant-secret { margin-top: 24px; padding: 16px; border: 1px solid var(--app-border); border-radius: 8px; background: var(--app-subtle); max-width: 720px; }
+.brie-app .app-connect-account { overflow-wrap: anywhere; margin: 8px 0; }
+.brie-app .app-connect-permissions { padding-left: 20px; margin: 16px 0; }
+.brie-app .app-connect-permissions li { margin: 8px 0; }
+.brie-app .app-assistant-browser { margin: 24px 0; max-width: 640px; }
+.brie-app .app-assistant-manual { margin-top: 24px; }
+.brie-app .app-assistant-manual > summary { cursor: pointer; padding: 12px 0; font-weight: 500; }
 .brie-app .app-assistant-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; padding: 12px 0; border-bottom: 1px solid var(--app-border); }
 .brie-app .app-assistant-row-main { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .brie-app .app-assistant-activity { list-style: none; margin: 0; padding: 0; }

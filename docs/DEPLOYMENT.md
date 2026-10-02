@@ -1,6 +1,6 @@
 # Deployment plan and manual runbook
 
-This is a manual path for a **Vercel static frontend + managed Supabase** installation. Brie serves the public page at `/` and the organizing app at `/app`. The browser calls Supabase directly; there is no Brie server or Edge Function to deploy. `vercel.json` makes direct visits and reloads of `/app/...` routes serve the React app.
+This is a manual path for a **Vercel static frontend + managed Supabase** installation. Brie serves the public page at `/` and the organizing app at `/app`. The browser calls Supabase directly. The assistant MCP server and optional invitation email run as Supabase Edge Functions. `vercel.json` makes direct visits and reloads of `/app/...` routes serve the React app.
 
 No production project, domain, SMTP account, or deployment is configured by this repository. Record the actual project IDs, domains, owners, and backup policy in a private operator record, not in Git.
 
@@ -51,7 +51,7 @@ The release browser suite requires Mailpit and may skip when the stack is unavai
    supabase db push --dry-run
    ```
 
-3. Review the pending migration list. On a new project it should include this repo's `supabase/migrations/` files through `0024_shift_following_items.sql`. For an existing project, take a recoverable backup first. Apply only after confirming the target:
+3. Review the pending migration list. On a new project it should include this repo's `supabase/migrations/` files through `0065_assistant_oauth.sql`. For an existing project, take a recoverable backup first. Apply only after confirming the target:
 
    ```bash
    supabase db push
@@ -90,11 +90,21 @@ Owners' invitations are emailed by the `send-invitation` Edge Function through R
 
 ### Assistant (MCP) server
 
-The `mcp` Edge Function lets assistants such as Claude read a workspace's plans with an assistant key created on the app's **Assistant access** page. It needs no secrets beyond the project's built-in `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`, and it can only call `assistant_check` and `assistant_call`. Set the optional `APP_ORIGIN` secret (the same value used for invitations) so a proposed draft comes back with a full review link. Apply migrations through `0063_event_plan_drafts.sql` first.
+Cloud assistants connect with browser sign-in. Users add the server URL from **Assistant access**, choose Connect in their assistant, sign in with their Brie email, choose one workspace and approve read-only or draft access. Manual keys remain available under **Terminal or manual key setup**.
 
-1. Deploy it without the gateway JWT check, because it authenticates Brie assistant keys, not Supabase sessions: `supabase functions deploy mcp --no-verify-jwt`.
-2. Create a read-only key in the app, then from a terminal run the Claude Code command the app shows (`claude mcp add --transport http brie https://<project>.supabase.co/functions/v1/mcp --header "Authorization: Bearer brie_…"`). Ask it to list upcoming events. The call should appear under **Recent assistant activity**.
-3. Revoke the test key and confirm the next request fails with 401. Calls are logged under **Edge Functions → mcp → Logs**. The function never logs keys or tool results.
+Supabase Auth handles OAuth registration, PKCE, authorization codes, access tokens and refresh. Brie stores a workspace grant and enforces the creator's current role, expiry and revocation on every request. **Install the token hook before enabling OAuth:** OAuth tokens would otherwise inherit a normal signed-in user's permissions. Migration 0065 also installs a Data API pre-request guard; if you already have a custom pre-request function, combine the guards before applying this migration.
+
+1. Apply migrations through `0065_assistant_oauth.sql`.
+2. In **Authentication → Hooks**, enable the Custom Access Token hook `public.assistant_access_token_hook`. Check that normal email sign-in still works. This hook gives OAuth tokens the `brie_assistant` role, the canonical MCP audience and an immutable connection ID. Do not enable OAuth until the hook is active.
+3. Use an asymmetric JWT signing key (ES256 or RS256) so the function can verify the assistant token through JWKS.
+4. In **Authentication → OAuth Server**, enable OAuth and dynamic registration. Set the authorization path so that **Site URL + path** is exactly `https://<app-host>/app/connect-assistant`. With the existing Site URL ending in `/app`, the path is `/connect-assistant`.
+5. Deploy `mcp` without the gateway JWT check: `supabase functions deploy mcp --no-verify-jwt`. Set `MCP_PUBLIC_URL` to the exact public `https://<project-ref>.supabase.co/functions/v1/mcp` address (use the same origin as the Auth JWT issuer; verify this when using a custom Supabase domain); set `APP_ORIGIN` to the app origin for draft review links. Neither value is secret.
+6. From a cloud assistant that supports remote MCP OAuth, add that URL, connect and complete email-code sign-in. Confirm the approval page shows the assistant's name, callback address, workspace and permissions. Ask for upcoming events and confirm activity appears in Brie. Test read-only and draft access separately.
+7. Revoke the connection in Brie and verify an existing access token fails on its next request. Reconnecting must require a new workspace approval; if another workspace owner revoked it, its creator can use **Reset sign-in** on the revoked connection before reconnecting. Recheck direct Data API and private Storage denial with an OAuth token on the hosted installation.
+
+The protected resource document is at `<server-url>?metadata=resource`, advertised in `WWW-Authenticate` on 401. It points to `<supabase-origin>/auth/v1`; Supabase publishes the authorization server metadata. The official MCP SDK covers this discovery in the local integration suite. Tokens are never forwarded to app RPCs: the function validates signature, expiry, issuer, audience, role and connection ID, then calls only service-role assistant entry points. Existing key connections still use `assistant_check`/`assistant_call`.
+
+The OAuth Server feature is currently beta. Hosted dashboard settings and Auth hooks are not applied by `supabase db push`. Repeat this connection test on the intended cloud client before treating a deployment as complete. See [Supabase's OAuth setup](https://supabase.com/docs/guides/auth/oauth-server/getting-started) and [MCP guide](https://supabase.com/docs/guides/auth/oauth-server/mcp-authentication).
 
 ## 4. Deploy the frontend with Vercel
 
@@ -132,10 +142,10 @@ For later releases: back up production, apply and verify new migrations, deploy 
 
 On 2026-09-30 the hosted project had migrations only through `0025`, while the repository had `0026`–`0063` (attendance export and mixed imports, attendance history, venues, venue comparison, planning contract, assistant keys, and draft plans). If Vercel deploys `main`, screens that call the newer RPCs fail until the schema catches up. Order matters, because a frontend rollback does not undo migrations:
 
-1. Back up production. Then run `supabase migration list --linked` and confirm that only `0026`–`0063` are pending.
+1. Back up production. Then run `supabase migration list --linked` and confirm the pending set against the current repository, now through `0065`.
 2. `supabase db push`, then run `supabase migration list --linked` again.
 3. Add `select public.purge_expired_import_sources();` to the daily cron job (section 5) if it isn't there yet.
-4. Deploy the assistant server with `supabase functions deploy mcp --no-verify-jwt`, and optionally set the `APP_ORIGIN` secret for review links.
+4. Follow the **Assistant (MCP) server** setup above to configure the token hook, OAuth server and public endpoint, then deploy the function with `--no-verify-jwt`.
 5. Deploy or promote the matching frontend. Then, with fictional data, sign in, open Venues, Drafts, and Assistant access, create and revoke a key, and check that a revoked key gets 401.
 
 Migration `0064_event_attachments.sql` (event files and links) also creates the private Storage bucket `event-files` (25 MB per file) and its two `storage.objects` policies. Push it with the others. Afterward, confirm under Storage in the dashboard that the bucket exists and is not public, then upload a fictional file on an event and open it as a member.

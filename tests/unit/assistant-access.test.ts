@@ -14,6 +14,7 @@ const api = vi.hoisted(() => ({
   revokeAssistantToken: vi.fn(),
 }))
 vi.mock('../../src/app/data/api', () => api)
+vi.mock('../../src/app/features/auth/SessionProvider', () => ({ useSession: () => ({ user: { id: 'user' } }) }))
 
 const SECRET = `brie_${'a'.repeat(64)}`
 const token = {
